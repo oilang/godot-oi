@@ -1,0 +1,53 @@
+GetProc :: @c fn(name: cstr) ptr
+Callback :: @c fn(userdata: ptr, level: i32)
+GetVersion :: @c fn(out: ptr)
+
+## GDExtensionInitializationLevel
+Level :: enum { core, servers, scene, editor }
+
+## GDExtensionInitialization
+@c Init :: struct { minimum_level: i32, userdata: ptr, initialize: Callback, deinitialize: Callback }
+
+## GDExtensionGodotVersion2
+@c Version :: struct {
+	major: i32,
+	minor: i32,
+	patch: i32,
+	hex: i32,
+	status: cstr,
+	build: cstr,
+	hash: cstr,
+	timestamp: i64,
+	string: cstr,
+}
+
+## Handed back to us as `userdata` in callbacks.
+@c Godot :: struct {
+	get_proc: GetProc
+}
+
+malloc : fn(n: usize) ptr : foreign
+
+@export.{"godot_oi_init"}
+init :: fn(get_proc: GetProc, library: ptr, out: ptr) bool {
+	godot := unsafe malloc(Godot.size)
+	unsafe godot.write(Godot.{ get_proc })
+	unsafe out.write(Init.{ i32(Level.scene), godot, initialize, deinitialize })
+	true
+}
+
+@c initialize :: fn(userdata: ptr, level: i32) {
+	if level == i32(Level.scene) {
+		godot :: unsafe userdata.read[Godot]()
+		get_version :: unsafe GetVersion(godot.get_proc("get_godot_version2"))
+		buf :: unsafe malloc(Version.size)
+		get_version(buf)
+		v :: unsafe buf.read[Version]()
+		status :: unsafe v.status.str()
+		print("oi: hello from Godot {v.major}.{v.minor}.{v.patch} {status}")
+	}
+}
+
+@c deinitialize :: fn(userdata: ptr, level: i32) {
+	if level == i32(Level.scene) { print("oi: bye") }
+}
