@@ -1,5 +1,12 @@
+home := env("OI_HOME", env("HOME") / ".oi")
+
+# link godot module into OI_HOME
+install:
+	oi install godot --link
+
 # build an example's extension into its lib/
 build name:
+	@test -e {{home}}/lib/godot || just install
 	oi build examples/{{name}}/src/init.oi --lib -o examples/{{name}}/lib/liboi.so
 
 # run an example headless
