@@ -1,0 +1,19 @@
+use godot
+use godot.{ GetProc }
+
+@export.{"godot_oi_init"}
+init :: fn(get_proc: GetProc, library: ptr, out: ptr) bool {
+	godot.setup(get_proc, library, out, initialize, deinitialize)
+}
+
+@c initialize :: fn(userdata: ptr, level: i32) {
+	if godot.level(level) == .scene {
+		v := godot.of(userdata).version()
+		status := unsafe v.status.str()
+		print("oi: hello from Godot {v.major}.{v.minor}.{v.patch} {status}")
+	}
+}
+
+@c deinitialize :: fn(userdata: ptr, level: i32) {
+	if godot.level(level) == .scene { print("oi: bye") }
+}

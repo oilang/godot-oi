@@ -2,4 +2,4 @@
 .godot/
 
 # gen
-demos/lib/
+*.so
