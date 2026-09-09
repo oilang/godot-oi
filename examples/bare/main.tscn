@@ -6,3 +6,5 @@
 script = ExtResource("1_main")
 
 [node name="OiNode" type="OiNode" parent="."]
+
+[node name="OiNode2D" type="OiNode2D" parent="."]

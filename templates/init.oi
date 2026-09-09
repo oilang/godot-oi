@@ -11,13 +11,13 @@ init :: fn(get_proc: godot.GetProc, library: ptr, out: ptr) bool {
 @c initialize :: fn(userdata: ptr, level: i32) {
 	if godot.level(level) == .scene {
 		gd := godot.of(userdata)
-		unsafe godot.slot(userdata).write(gd.register_node("GameNode", ready, process, "hello", hello))
+		gd.register("GameNode", "Node", [godot.ready(ready), godot.process(process)], [godot.method("hello", hello)])
 	}
 }
 
 @c deinitialize :: fn(userdata: ptr, level: i32) {
 	if godot.level(level) == .scene {
-		godot.of(userdata).unregister(unsafe godot.slot(userdata).read[ptr]())
+		godot.of(userdata).unregister_all()
 	}
 }
 

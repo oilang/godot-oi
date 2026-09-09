@@ -24,14 +24,8 @@ pub Level :: enum { core, servers, scene, editor }
 	register_method: RegisterMethod,
 	construct_object: ConstructObject,
 	set_instance: SetInstance,
-}
-
-## Bytes reserved past the handle for `slot`.
-SLOT :: 8
-
-## A pointer-sized cell past the handle, the only state that survives between callbacks.
-pub slot :: fn(userdata: ptr) ptr {
-	ptr(userdata.0 + Godot.size)
+	# a cell holding the newest registered `Class`
+	classes: ptr,
 }
 
 ## Fill in `GDExtensionInitialization` from the entrypoint.
@@ -45,13 +39,14 @@ pub setup :: fn(get_proc: GetProc, library: ptr, out: ptr, initialize: Callback,
 	register_method :: unsafe RegisterMethod(get_proc("classdb_register_extension_class_method"))
 	construct_object :: unsafe ConstructObject(get_proc("classdb_construct_object3"))
 	set_instance :: unsafe SetInstance(get_proc("object_set_instance"))
-	godot :: unsafe malloc(Godot.size + usize(SLOT))
+	classes :: unsafe malloc(ptr.size)
+	godot :: unsafe malloc(Godot.size)
 
 	unsafe godot.write(Godot.{
 		get_proc, library, get_version, new_string_name, drop_string_name,
-		register_class, unregister_class, register_method, construct_object, set_instance,
+		register_class, unregister_class, register_method, construct_object, set_instance, classes,
 	})
-	unsafe slot(godot).write(ptr(0))
+	unsafe classes.write(ptr(0))
 	unsafe out.write(Init.{ i32(Level.scene), godot, initialize, deinitialize })
 
 	true
