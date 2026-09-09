@@ -4,7 +4,7 @@ Oi bindings for Godot.
 
 - `godot/` is the module a game imports with `use godot`
 - `templates/` has files meant to be symlinked/copied into your project
-- `demos/` are Godot projects
+- `examples/` are Godot projects
 
 ```sh
 just run bare
