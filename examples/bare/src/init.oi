@@ -19,7 +19,7 @@ init :: fn(get_proc: godot.GetProc, library: ptr, out: ptr) bool {
 			"Node",
 			State.size,
 			[godot.ready(ready), godot.process(process)],
-			[godot.method("hello", hello, [], false), godot.method("add", add, ["a", "b"], true)],
+			[godot.method("hello", hello, [], none), godot.method("add", add, [godot.slot("a", .int), godot.slot("b", .int)], godot.returns(.int))],
 		)
 		gd.register("OiNode2D", "Node2D", 0, [godot.ready(ready2d)], [])
 	}
