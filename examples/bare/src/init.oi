@@ -14,7 +14,13 @@ init :: fn(get_proc: godot.GetProc, library: ptr, out: ptr) bool {
 		v := gd.version()
 		status := unsafe v.status.str()
 		print("oi: hello from Godot {v.major}.{v.minor}.{v.patch} {status}")
-		gd.register("OiNode", "Node", State.size, [godot.ready(ready), godot.process(process)], [godot.method("hello", hello)])
+		gd.register(
+			"OiNode",
+			"Node",
+			State.size,
+			[godot.ready(ready), godot.process(process)],
+			[godot.method("hello", hello, [], false), godot.method("add", add, ["a", "b"], true)],
+		)
 		gd.register("OiNode2D", "Node2D", 0, [godot.ready(ready2d)], [])
 	}
 }
@@ -53,6 +59,11 @@ init :: fn(get_proc: godot.GetProc, library: ptr, out: ptr) bool {
 	if s.frames == 0 { print("oi: process {delta}") }
 }
 
-@c hello :: fn(inst: ptr) {
+@c hello :: fn(inst: ptr, args: ptr, ret: ptr) {
 	print("oi: hello")
+}
+
+@c add :: fn(inst: ptr, args: ptr, ret: ptr) {
+	gd := godot.of_inst(inst)
+	godot.ret(ret).set_int(gd, godot.arg(args, 0).int(gd) + godot.arg(args, 1).int(gd))
 }
