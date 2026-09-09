@@ -1,3 +1,8 @@
-[gd_scene format=3 uid="uid://ci481nekvysd8"]
+[gd_scene load_steps=2 format=3 uid="uid://ci481nekvysd8"]
 
-[node name="main" type="Node" unique_id=338940948]
+[ext_resource type="Script" path="res://main.gd" id="1_main"]
+
+[node name="main" type="Node"]
+script = ExtResource("1_main")
+
+[node name="OiNode" type="OiNode" parent="."]

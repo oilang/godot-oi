@@ -11,14 +11,27 @@ init :: fn(get_proc: godot.GetProc, library: ptr, out: ptr) bool {
 		v := gd.version()
 		status := unsafe v.status.str()
 		print("oi: hello from Godot {v.major}.{v.minor}.{v.patch} {status}")
-		unsafe godot.slot(userdata).write(gd.string_name("oi"))
+		unsafe godot.slot(userdata).write(gd.register_node("OiNode", ready, process, "hello", hello))
 	}
 }
 
 @c deinitialize :: fn(userdata: ptr, level: i32) {
 	if godot.level(level) == .scene {
-		name := unsafe godot.slot(userdata).read[godot.StringName]()
-		name.destroy(godot.of(userdata))
+		godot.of(userdata).unregister(unsafe godot.slot(userdata).read[ptr]())
 		print("oi: bye")
 	}
+}
+
+@c ready :: fn(inst: ptr) {
+	print("oi: ready")
+}
+
+@c process :: fn(inst: ptr, delta: f64) {
+	if unsafe inst.read[godot.Instance]().frames == 1 {
+		print("oi: process {delta}")
+	}
+}
+
+@c hello :: fn(inst: ptr) {
+	print("oi: hello")
 }

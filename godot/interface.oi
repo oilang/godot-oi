@@ -19,3 +19,18 @@ Destructor :: @c fn(base: ptr)
 
 ## GDEXTENSION_VARIANT_TYPE_STRING_NAME
 STRING_NAME :: 21
+
+## GDExtensionInterfaceClassdbRegisterExtensionClass6
+RegisterClass :: @c fn(library: ptr, name: ptr, parent: ptr, info: ptr)
+
+## GDExtensionInterfaceClassdbUnregisterExtensionClass
+UnregisterClass :: @c fn(library: ptr, name: ptr)
+
+## GDExtensionInterfaceClassdbRegisterExtensionClassMethod
+RegisterMethod :: @c fn(library: ptr, name: ptr, info: ptr)
+
+## GDExtensionInterfaceClassdbConstructObject2
+ConstructObject :: @c fn(name: ptr) ptr
+
+## GDExtensionInterfaceObjectSetInstance
+SetInstance :: @c fn(object: ptr, name: ptr, instance: ptr)

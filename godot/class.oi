@@ -1,0 +1,172 @@
+module godot
+
+## Register a Node subclass with `_ready`, `_process`, and one bound method.
+
+pub OnReady :: @c fn(inst: ptr)
+pub OnProcess :: @c fn(inst: ptr, delta: f64)
+pub OnMethod :: @c fn(inst: ptr)
+
+## GDExtensionClassCreateInstance3
+CreateInstance :: @c fn(class: ptr, notify: u8) ptr
+
+## GDExtensionClassFreeInstance
+FreeInstance :: @c fn(class: ptr, inst: ptr)
+
+## GDExtensionClassGetVirtual2
+GetVirtual :: @c fn(class: ptr, name: ptr, hash: u32) ptr
+
+## GDExtensionClassCallVirtual
+CallVirtual :: @c fn(inst: ptr, args: ptr, ret: ptr)
+
+## GDExtensionClassMethodCall
+MethodCall :: @c fn(userdata: ptr, inst: ptr, args: ptr, argc: i64, ret: ptr, err: ptr)
+
+## GDExtensionClassMethodPtrCall
+MethodPtrCall :: @c fn(userdata: ptr, inst: ptr, args: ptr, ret: ptr)
+
+## GDExtensionClassCreationInfo6
+@c Info :: struct {
+	is_virtual: u8,
+	is_abstract: u8,
+	is_exposed: u8,
+	is_runtime: u8,
+	icon_path: ptr,
+	set: ptr,
+	get: ptr,
+	get_property_list: ptr,
+	free_property_list: ptr,
+	property_can_revert: ptr,
+	property_get_revert: ptr,
+	validate_property: ptr,
+	notification: ptr,
+	to_string: ptr,
+	reference: ptr,
+	unreference: ptr,
+	create_instance: CreateInstance,
+	free_instance: FreeInstance,
+	recreate_instance: ptr,
+	get_virtual: GetVirtual,
+	get_virtual_call_data: ptr,
+	call_virtual_with_data: ptr,
+	class_userdata: ptr,
+}
+
+## GDExtensionClassMethodInfo
+@c MethodInfo :: struct {
+	name: ptr,
+	userdata: ptr,
+	call: MethodCall,
+	ptrcall: MethodPtrCall,
+	flags: u32,
+	has_return: u8,
+	return_info: ptr,
+	return_metadata: i32,
+	argument_count: u32,
+	arguments_info: ptr,
+	arguments_metadata: ptr,
+	default_argument_count: u32,
+	default_arguments: ptr,
+}
+
+## GDEXTENSION_METHOD_FLAGS_DEFAULT
+METHOD_DEFAULT :: 1
+
+## Per-class state, handed to Godot as `class_userdata`.
+@c pub Class :: struct {
+	gd: Godot,
+	name: StringName,
+	parent: StringName,
+	ready: StringName,
+	process: StringName,
+	method: StringName,
+	on_ready: OnReady,
+	on_process: OnProcess,
+	on_method: OnMethod,
+}
+
+## Per-object state, what Godot calls `GDExtensionClassInstancePtr`.
+@c pub Instance :: struct {
+	pub class: ptr,
+	pub object: ptr,
+	pub frames: u64,
+}
+
+Godot :< {
+	pub register_node :: fn(self, name: cstr, on_ready: OnReady, on_process: OnProcess, method: cstr, on_method: OnMethod) ptr {
+		class := unsafe malloc(Class.size)
+		unsafe class.write(Class.{
+			self,
+			self.string_name(name), self.string_name("Node"),
+			self.string_name("_ready"), self.string_name("_process"), self.string_name(method),
+			on_ready, on_process, on_method,
+		})
+		c := unsafe class.read[Class]()
+		info := unsafe malloc(Info.size)
+		unsafe info.write(Info.{
+			is_exposed = 1,
+			create_instance = create_instance, free_instance = free_instance, get_virtual = get_virtual,
+			class_userdata = class,
+		})
+		self.register_class(self.library, c.name.at, c.parent.at, info)
+		unsafe free(info)
+		minfo := unsafe malloc(MethodInfo.size)
+		unsafe minfo.write(MethodInfo.{ c.method.at, class, call_method, ptrcall_method, u32(METHOD_DEFAULT) })
+		self.register_method(self.library, c.name.at, minfo)
+		unsafe free(minfo)
+		class
+	}
+
+	pub unregister :: fn(self, class: ptr) {
+		c := unsafe class.read[Class]()
+		self.unregister_class(self.library, c.name.at)
+		c.name.destroy(self)
+		c.parent.destroy(self)
+		c.ready.destroy(self)
+		c.process.destroy(self)
+		c.method.destroy(self)
+		unsafe free(class)
+	}
+}
+
+class_of :: fn(inst: ptr) Class {
+	unsafe inst.read[Instance]().class.read[Class]()
+}
+
+@c create_instance :: fn(class: ptr, notify: u8) ptr {
+	c := unsafe class.read[Class]()
+	object := c.gd.construct_object(c.parent.at)
+	inst := unsafe malloc(Instance.size)
+	unsafe inst.write(Instance.{ class, object, 0 })
+	c.gd.set_instance(object, c.name.at, inst)
+	object
+}
+
+@c free_instance :: fn(class: ptr, inst: ptr) {
+	unsafe free(inst)
+}
+
+@c get_virtual :: fn(class: ptr, name: ptr, hash: u32) ptr {
+	c := unsafe class.read[Class]()
+	if c.ready.same(name) { return ptr(call_ready) }
+	if c.process.same(name) { return ptr(call_process) }
+	ptr(0)
+}
+
+@c call_ready :: fn(inst: ptr, args: ptr, ret: ptr) {
+	class_of(inst).on_ready(inst)
+}
+
+@c call_process :: fn(inst: ptr, args: ptr, ret: ptr) {
+	i := unsafe inst.read[Instance]()
+	unsafe inst.write(Instance.{ i.class, i.object, i.frames + 1 })
+	delta := unsafe args.read[ptr]().read[f64]()
+	class_of(inst).on_process(inst, delta)
+}
+
+@c call_method :: fn(userdata: ptr, inst: ptr, args: ptr, argc: i64, ret: ptr, err: ptr) {
+	class_of(inst).on_method(inst)
+}
+
+@c ptrcall_method :: fn(userdata: ptr, inst: ptr, args: ptr, ret: ptr) {
+	class_of(inst).on_method(inst)
+}

@@ -16,4 +16,9 @@ StringName :< {
 		gd.drop_string_name(self.at)
 		unsafe free(self.at)
 	}
+
+	## Compare against the `GDExtensionConstStringNamePtr` Godot passed us.
+	pub same :: fn(self, other: ptr) bool {
+		unsafe self.at.read[usize]() == other.read[usize]()
+	}
 }
