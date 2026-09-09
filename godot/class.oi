@@ -1,6 +1,6 @@
 module godot
 
-## Register classes. Each carries a table of virtuals and methods and picks its own parent.
+## Register classes.
 
 pub OnReady :: @c fn(inst: ptr)
 pub OnProcess :: @c fn(inst: ptr, delta: f64)
@@ -92,6 +92,7 @@ pub method :: fn(name: cstr, cb: OnMethod) Method { Method.{ name, cb } }
 	gd: Godot,
 	name: StringName,
 	parent: StringName,
+	state: usize,
 	virtuals: ptr,
 	nvirtuals: int,
 	methods: ptr,
@@ -99,11 +100,19 @@ pub method :: fn(name: cstr, cb: OnMethod) Method { Method.{ name, cb } }
 	next: ptr,
 }
 
-## Per-object state, what Godot calls `GDExtensionClassInstancePtr`.
+## Per-object header, what Godot calls `GDExtensionClassInstancePtr`.
 @c pub Instance :: struct {
 	pub class: ptr,
 	pub object: ptr,
-	pub frames: u64,
+}
+
+## The game's state behind `inst`.
+pub state[T] :: fn(inst: ptr) T {
+	unsafe ptr(inst.0 + Instance.size).read[T]()
+}
+
+pub set_state[T] :: fn(inst: ptr, s: T) {
+	unsafe ptr(inst.0 + Instance.size).write(s)
 }
 
 ## The `i`th entry of a `Bound` table.
@@ -112,7 +121,7 @@ bound :: fn(table: ptr, i: int) ptr {
 }
 
 Godot :< {
-	pub register :: fn(self, name: cstr, parent: cstr, virtuals: []Virtual, methods: []Method) {
+	pub register :: fn(self, name: cstr, parent: cstr, state: usize, virtuals: []Virtual, methods: []Method) {
 		vt := unsafe malloc(Bound.size * usize(virtuals.len))
 		loop i in 0..virtuals.len {
 			v := virtuals[i]
@@ -125,7 +134,7 @@ Godot :< {
 		}
 		class := unsafe malloc(Class.size)
 		unsafe class.write(Class.{
-			self, self.string_name(name), self.string_name(parent),
+			self, self.string_name(name), self.string_name(parent), state,
 			vt, virtuals.len, mt, methods.len, self.classes.read[ptr](),
 		})
 		unsafe self.classes.write(class)
@@ -175,8 +184,8 @@ Godot :< {
 @c create_instance :: fn(class: ptr, notify: u8) ptr {
 	c := unsafe class.read[Class]()
 	object := c.gd.construct_object(c.parent.at)
-	inst := unsafe malloc(Instance.size)
-	unsafe inst.write(Instance.{ class, object, 0 })
+	inst := unsafe calloc(1, Instance.size + c.state)
+	unsafe inst.write(Instance.{ class, object })
 	c.gd.set_instance(object, c.name.at, inst)
 	object
 }
@@ -208,8 +217,6 @@ Godot :< {
 }
 
 @c call_process :: fn(inst: ptr, target: ptr, args: ptr, ret: ptr) {
-	i := unsafe inst.read[Instance]()
-	unsafe inst.write(Instance.{ i.class, i.object, i.frames + 1 })
 	delta := unsafe args.read[ptr]().read[f64]()
 	on_process := unsafe OnProcess(target)
 	on_process(inst, delta)

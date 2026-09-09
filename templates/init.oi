@@ -1,7 +1,10 @@
-# Entrypoint for Godot.
-# Point the .gdextension path to the libraries `oi build --lib` makes from this.
+## Entrypoint for Godot.
+## Point the .gdextension path to the libraries `oi build --lib` makes from this.
 
 use godot
+
+## Per-instance state.
+@c State :: struct { frames: u64 }
 
 @export.{"godot_oi_init"}
 init :: fn(get_proc: godot.GetProc, library: ptr, out: ptr) bool {
@@ -11,7 +14,7 @@ init :: fn(get_proc: godot.GetProc, library: ptr, out: ptr) bool {
 @c initialize :: fn(userdata: ptr, level: i32) {
 	if godot.level(level) == .scene {
 		gd := godot.of(userdata)
-		gd.register("GameNode", "Node", [godot.ready(ready), godot.process(process)], [godot.method("hello", hello)])
+		gd.register("GameNode", "Node", State.size, [godot.ready(ready), godot.process(process)], [godot.method("hello", hello)])
 	}
 }
 
@@ -23,6 +26,9 @@ init :: fn(get_proc: godot.GetProc, library: ptr, out: ptr) bool {
 
 @c ready :: fn(inst: ptr) {}
 
-@c process :: fn(inst: ptr, delta: f64) {}
+@c process :: fn(inst: ptr, delta: f64) {
+	s := godot.state[State](inst)
+	godot.set_state(inst, State.{ s.frames + 1 })
+}
 
 @c hello :: fn(inst: ptr) {}

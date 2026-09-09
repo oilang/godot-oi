@@ -1,5 +1,8 @@
 use godot
 
+## Per-instance state.
+@c State :: struct { frames: u64 }
+
 @export.{"godot_oi_init"}
 init :: fn(get_proc: godot.GetProc, library: ptr, out: ptr) bool {
 	godot.setup(get_proc, library, out, initialize, deinitialize)
@@ -11,8 +14,8 @@ init :: fn(get_proc: godot.GetProc, library: ptr, out: ptr) bool {
 		v := gd.version()
 		status := unsafe v.status.str()
 		print("oi: hello from Godot {v.major}.{v.minor}.{v.patch} {status}")
-		gd.register("OiNode", "Node", [godot.ready(ready), godot.process(process)], [godot.method("hello", hello)])
-		gd.register("OiNode2D", "Node2D", [godot.ready(ready2d)], [])
+		gd.register("OiNode", "Node", State.size, [godot.ready(ready), godot.process(process)], [godot.method("hello", hello)])
+		gd.register("OiNode2D", "Node2D", 0, [godot.ready(ready2d)], [])
 	}
 }
 
@@ -32,9 +35,9 @@ init :: fn(get_proc: godot.GetProc, library: ptr, out: ptr) bool {
 }
 
 @c process :: fn(inst: ptr, delta: f64) {
-	if unsafe inst.read[godot.Instance]().frames == 1 {
-		print("oi: process {delta}")
-	}
+	s := godot.state[State](inst)
+	godot.set_state(inst, State.{ s.frames + 1 })
+	if s.frames == 0 { print("oi: process {delta}") }
 }
 
 @c hello :: fn(inst: ptr) {
