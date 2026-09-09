@@ -29,7 +29,7 @@ UnregisterClass :: @c fn(library: ptr, name: ptr)
 ## GDExtensionInterfaceClassdbRegisterExtensionClassMethod
 RegisterMethod :: @c fn(library: ptr, name: ptr, info: ptr)
 
-## GDExtensionInterfaceClassdbConstructObject2
+## GDExtensionInterfaceClassdbConstructObject3
 ConstructObject :: @c fn(name: ptr) ptr
 
 ## GDExtensionInterfaceObjectSetInstance

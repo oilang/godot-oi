@@ -36,20 +36,14 @@ pub slot :: fn(userdata: ptr) ptr {
 
 ## Fill in `GDExtensionInitialization` from the entrypoint.
 pub setup :: fn(get_proc: GetProc, library: ptr, out: ptr, initialize: Callback, deinitialize: Callback) bool {
-	register :: if register.is_null() {
-		get_proc("classdb_register_extension_class4")
-	} else {
-		get_proc("classdb_register_extension_class6")
-	}
-
 	get_version :: unsafe GetVersion(get_proc("get_godot_version2"))
 	new_string_name :: unsafe NewStringName(get_proc("string_name_new_with_latin1_chars"))
 	get_destructor :: unsafe GetDestructor(get_proc("variant_get_ptr_destructor"))
 	drop_string_name :: unsafe Destructor(get_destructor(STRING_NAME))
-	register_class :: unsafe RegisterClass(register)
+	register_class :: unsafe RegisterClass(get_proc("classdb_register_extension_class6"))
 	unregister_class :: unsafe UnregisterClass(get_proc("classdb_unregister_extension_class"))
 	register_method :: unsafe RegisterMethod(get_proc("classdb_register_extension_class_method"))
-	construct_object :: unsafe ConstructObject(get_proc("classdb_construct_object2"))
+	construct_object :: unsafe ConstructObject(get_proc("classdb_construct_object3"))
 	set_instance :: unsafe SetInstance(get_proc("object_set_instance"))
 	godot :: unsafe malloc(Godot.size + usize(SLOT))
 
