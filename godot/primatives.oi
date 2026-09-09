@@ -1,0 +1,19 @@
+module godot
+
+## GDExtensionStringNamePtr
+@c pub StringName :: struct { at: ptr }
+
+Godot :< {
+	pub string_name :: fn(self, s: cstr) StringName {
+		at := unsafe malloc(StringName.size)
+		self.new_string_name(at, s, 0)
+		StringName.{ at }
+	}
+}
+
+StringName :< {
+	pub destroy :: fn(self, gd: Godot) {
+		gd.drop_string_name(self.at)
+		unsafe free(self.at)
+	}
+}

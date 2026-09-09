@@ -1,9 +1,6 @@
 module godot
 
-## GDExtension intermediary.
-
-pub GetProc :: @c fn(name: cstr) ptr
-GetVersion :: @c fn(out: ptr)
+## GDExtension handshake.
 
 ## GDExtensionInitializeCallback
 pub Callback :: @c fn(userdata: ptr, level: i32)
@@ -14,29 +11,33 @@ pub Level :: enum { core, servers, scene, editor }
 ## GDExtensionInitialization
 @c Init :: struct { minimum_level: i32, userdata: ptr, initialize: Callback, deinitialize: Callback }
 
-## GDExtensionGodotVersion2
-@c pub Version :: struct {
-	pub major: i32,
-	pub minor: i32,
-	pub patch: i32,
-	pub hex: i32,
-	pub status: cstr,
-	pub build: cstr,
-	pub hash: cstr,
-	pub timestamp: i64,
-	pub string: cstr,
+## What Godot hands us at load, plus the interface fns fetched from it.
+## Callbacks get it back as `userdata`.
+@c pub Godot :: struct {
+	get_proc: GetProc,
+	library: ptr,
+	get_version: GetVersion,
+	new_string_name: NewStringName,
+	drop_string_name: Destructor,
 }
 
-## What Godot hands us at load.
-## Callbacks get it back as `userdata`.
-@c pub Godot :: struct { get_proc: GetProc, library: ptr }
+## Bytes reserved past the handle for `slot`.
+SLOT :: 8
 
-malloc : fn(n: usize) ptr : foreign
+## A pointer-sized cell past the handle, the only state that survives between callbacks.
+pub slot :: fn(userdata: ptr) ptr {
+	ptr(userdata.0 + Godot.size)
+}
 
 ## Fill in `GDExtensionInitialization` from the entrypoint.
 pub setup :: fn(get_proc: GetProc, library: ptr, out: ptr, initialize: Callback, deinitialize: Callback) bool {
-	godot := unsafe malloc(Godot.size)
-	unsafe godot.write(Godot.{ get_proc, library })
+	get_version := unsafe GetVersion(get_proc("get_godot_version2"))
+	new_string_name := unsafe NewStringName(get_proc("string_name_new_with_latin1_chars"))
+	get_destructor := unsafe GetDestructor(get_proc("variant_get_ptr_destructor"))
+	drop_string_name := unsafe Destructor(get_destructor(STRING_NAME))
+	godot := unsafe malloc(Godot.size + usize(SLOT))
+	unsafe godot.write(Godot.{ get_proc, library, get_version, new_string_name, drop_string_name })
+	unsafe slot(godot).write(ptr(0))
 	unsafe out.write(Init.{ i32(Level.scene), godot, initialize, deinitialize })
 	true
 }
@@ -46,7 +47,6 @@ pub of :: fn(userdata: ptr) Godot {
 	unsafe userdata.read[Godot]()
 }
 
-## The level a callback was invoked at.
 pub level :: fn(n: i32) Level {
 	Level.from(n) or .editor
 }
@@ -55,13 +55,5 @@ Godot :< {
 	## Fetch an interface fn by name.
 	pub proc :: fn(self, name: cstr) ptr {
 		self.get_proc(name)
-	}
-
-	## The running engine's version.
-	pub version :: fn(self) Version {
-		get_version := unsafe GetVersion(self.proc("get_godot_version2"))
-		buf := unsafe malloc(Version.size)
-		get_version(buf)
-		unsafe buf.read[Version]()
 	}
 }

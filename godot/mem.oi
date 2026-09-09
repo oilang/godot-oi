@@ -1,0 +1,4 @@
+module godot
+
+malloc : fn(n: usize) ptr : foreign
+free : fn(p: ptr) : foreign

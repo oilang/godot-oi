@@ -1,0 +1,21 @@
+module godot
+
+## Typed mirrors of gdextension_interface.h.
+
+## GDExtensionInterfaceGetProcAddress
+pub GetProc :: @c fn(name: cstr) ptr
+
+## GDExtensionInterfaceGetGodotVersion2
+GetVersion :: @c fn(out: ptr)
+
+## GDExtensionInterfaceStringNameNewWithLatin1Chars
+NewStringName :: @c fn(dest: ptr, contents: cstr, is_static: u8)
+
+## GDExtensionInterfaceVariantGetPtrDestructor
+GetDestructor :: @c fn(variant_type: i32) ptr
+
+## GDExtensionPtrDestructor
+Destructor :: @c fn(base: ptr)
+
+## GDEXTENSION_VARIANT_TYPE_STRING_NAME
+STRING_NAME :: 21

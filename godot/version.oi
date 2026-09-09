@@ -1,0 +1,24 @@
+module godot
+
+## GDExtensionGodotVersion2
+@c pub Version :: struct {
+	pub major: i32,
+	pub minor: i32,
+	pub patch: i32,
+	pub hex: i32,
+	pub status: cstr,
+	pub build: cstr,
+	pub hash: cstr,
+	pub timestamp: i64,
+	pub string: cstr,
+}
+
+Godot :< {
+	pub version :: fn(self) Version {
+		buf := unsafe malloc(Version.size)
+		self.get_version(buf)
+		v := unsafe buf.read[Version]()
+		unsafe free(buf)
+		v
+	}
+}

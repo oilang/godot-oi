@@ -1,19 +1,23 @@
-# Your game's entry point.
+# Entrypoint for Godot.
 # Point the .gdextension path to the libraries `oi build --lib` makes from this.
 
 use godot
-use godot.{ GetProc }
 
 @export.{"godot_oi_init"}
-init :: fn(get_proc: GetProc, library: ptr, out: ptr) bool {
+init :: fn(get_proc: godot.GetProc, library: ptr, out: ptr) bool {
 	godot.setup(get_proc, library, out, initialize, deinitialize)
 }
 
 @c initialize :: fn(userdata: ptr, level: i32) {
 	if godot.level(level) == .scene {
 		gd := godot.of(userdata)
+		unsafe godot.slot(userdata).write(gd.string_name("game"))
 	}
 }
 
 @c deinitialize :: fn(userdata: ptr, level: i32) {
+	if godot.level(level) == .scene {
+		name := unsafe godot.slot(userdata).read[godot.StringName]()
+		name.destroy(godot.of(userdata))
+	}
 }
