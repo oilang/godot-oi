@@ -17,12 +17,6 @@ GetDestructor :: @c fn(variant_type: i32) ptr
 ## GDExtensionPtrDestructor
 Destructor :: @c fn(base: ptr)
 
-## GDEXTENSION_VARIANT_TYPE_STRING
-STRING :: 4
-
-## GDEXTENSION_VARIANT_TYPE_STRING_NAME
-STRING_NAME :: 21
-
 ## GDExtensionInterfaceGetVariantFromTypeConstructor
 GetFromType :: @c fn(variant_type: i32) ptr
 

@@ -3,7 +3,14 @@ module godot
 ## Marshal primitives in and out of `Variant`.
 
 ## GDExtensionVariantType
-pub Type :: enum { nil, bool, int, float, string }
+pub Type :: enum {
+	nil, bool, int, float, string,
+	vector2, vector2i, rect2, rect2i, vector3, vector3i, transform2d, vector4, vector4i,
+	plane, quaternion, aabb, basis, transform3d, projection, color,
+	string_name, node_path, rid, object, callable, signal, dictionary, array,
+	packed_byte_array, packed_int32_array, packed_int64_array, packed_float32_array, packed_float64_array,
+	packed_string_array, packed_vector2_array, packed_vector3_array, packed_color_array, packed_vector4_array,
+}
 
 ## Variant in extension_api.json builtin_class_sizes
 VARIANT_SIZE :: 24
