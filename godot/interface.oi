@@ -17,8 +17,35 @@ GetDestructor :: @c fn(variant_type: i32) ptr
 ## GDExtensionPtrDestructor
 Destructor :: @c fn(base: ptr)
 
+## GDEXTENSION_VARIANT_TYPE_STRING
+STRING :: 4
+
 ## GDEXTENSION_VARIANT_TYPE_STRING_NAME
 STRING_NAME :: 21
+
+## GDExtensionInterfaceGetVariantFromTypeConstructor
+GetFromType :: @c fn(variant_type: i32) ptr
+
+## GDExtensionInterfaceGetVariantToTypeConstructor
+GetToType :: @c fn(variant_type: i32) ptr
+
+## GDExtensionVariantFromTypeConstructorFunc
+FromType :: @c fn(variant: ptr, value: ptr)
+
+## GDExtensionTypeFromVariantConstructorFunc
+ToType :: @c fn(value: ptr, variant: ptr)
+
+## GDExtensionInterfaceVariantGetType
+VariantGetType :: @c fn(variant: ptr) i32
+
+## GDExtensionInterfaceVariantDestroy
+VariantDestroy :: @c fn(variant: ptr)
+
+## GDExtensionInterfaceStringNewWithUtf8CharsAndLen
+NewString :: @c fn(dest: ptr, contents: ptr, size: i64)
+
+## GDExtensionInterfaceStringToUtf8Chars
+StringUtf8 :: @c fn(string: ptr, text: ptr, max: i64) i64
 
 ## GDExtensionInterfaceClassdbRegisterExtensionClass6
 RegisterClass :: @c fn(library: ptr, name: ptr, parent: ptr, info: ptr)

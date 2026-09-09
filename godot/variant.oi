@@ -1,0 +1,117 @@
+module godot
+
+## Marshal primitives in and out of `Variant`.
+
+## GDExtensionVariantType
+pub Type :: enum { nil, bool, int, float, string }
+
+## Variant in extension_api.json builtin_class_sizes
+VARIANT_SIZE :: 24
+
+## String in extension_api.json builtin_class_sizes
+STRING_SIZE :: 8
+
+## GDExtensionVariantPtr.
+## Wraps the bytes Godot hands us as a call arg or return slot.
+@c pub Variant :: struct { pub at: ptr }
+
+Godot :< {
+	## A fresh nil `Variant` on the heap.
+	pub variant :: fn(self) Variant {
+		Variant.{ unsafe calloc(1, usize(VARIANT_SIZE)) }
+	}
+
+	from_type :: fn(self, t: Type, v: Variant, value: ptr) {
+		ctor := unsafe FromType(self.variant_from_type(i32(t)))
+		ctor(v.at, value)
+	}
+
+	to_type :: fn(self, t: Type, v: Variant, out: ptr) {
+		ctor := unsafe ToType(self.variant_to_type(i32(t)))
+		ctor(out, v.at)
+	}
+}
+
+Variant :< {
+	pub type :: fn(self, gd: Godot) Type {
+		Type.from(gd.variant_type(self.at)) or .nil
+	}
+
+	pub bool :: fn(self, gd: Godot) bool {
+		buf := unsafe malloc(1)
+		gd.to_type(.bool, self, buf)
+		b := unsafe buf.read[u8]()
+		unsafe free(buf)
+		b != 0
+	}
+
+	pub int :: fn(self, gd: Godot) i64 {
+		buf := unsafe malloc(8)
+		gd.to_type(.int, self, buf)
+		n := unsafe buf.read[i64]()
+		unsafe free(buf)
+		n
+	}
+
+	pub float :: fn(self, gd: Godot) f64 {
+		buf := unsafe malloc(8)
+		gd.to_type(.float, self, buf)
+		f := unsafe buf.read[f64]()
+		unsafe free(buf)
+		f
+	}
+
+	pub string :: fn(self, gd: Godot) string {
+		str := unsafe malloc(usize(STRING_SIZE))
+		gd.to_type(.string, self, str)
+		n := gd.string_utf8(str, ptr(0), 0)
+		buf := unsafe malloc(usize(n))
+		gd.string_utf8(str, buf, n)
+		s := unsafe buf.string(int(n))
+		unsafe free(buf)
+		gd.drop_string(str)
+		unsafe free(str)
+		s
+	}
+
+	## Setters overwrite in place.
+	pub set_bool :: fn(self, gd: Godot, b: bool) {
+		buf := unsafe malloc(1)
+		unsafe buf.write(u8(if b { 1 } else { 0 }))
+		gd.from_type(.bool, self, buf)
+		unsafe free(buf)
+	}
+
+	pub set_int :: fn(self, gd: Godot, n: i64) {
+		buf := unsafe malloc(8)
+		unsafe buf.write(n)
+		gd.from_type(.int, self, buf)
+		unsafe free(buf)
+	}
+
+	pub set_float :: fn(self, gd: Godot, f: f64) {
+		buf := unsafe malloc(8)
+		unsafe buf.write(f)
+		gd.from_type(.float, self, buf)
+		unsafe free(buf)
+	}
+
+	pub set_string :: fn(self, gd: Godot, s: string) {
+		str := unsafe malloc(usize(STRING_SIZE))
+		gd.new_string(str, s.ptr, i64(s.len))
+		gd.from_type(.string, self, str)
+		gd.drop_string(str)
+		unsafe free(str)
+	}
+
+	## Release the held value.
+	pub clear :: fn(self, gd: Godot) {
+		gd.variant_destroy(self.at)
+	}
+
+	## Clear and free.
+	pub drop :: fn(self, gd: Godot) {
+		self.clear(gd)
+		unsafe free(self.at)
+	}
+}

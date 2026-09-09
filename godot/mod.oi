@@ -19,6 +19,13 @@ pub Level :: enum { core, servers, scene, editor }
 	get_version: GetVersion,
 	new_string_name: NewStringName,
 	drop_string_name: Destructor,
+	new_string: NewString,
+	string_utf8: StringUtf8,
+	drop_string: Destructor,
+	variant_from_type: GetFromType,
+	variant_to_type: GetToType,
+	variant_type: VariantGetType,
+	variant_destroy: VariantDestroy,
 	register_class: RegisterClass,
 	unregister_class: UnregisterClass,
 	register_method: RegisterMethod,
@@ -34,6 +41,13 @@ pub setup :: fn(get_proc: GetProc, library: ptr, out: ptr, initialize: Callback,
 	new_string_name :: unsafe NewStringName(get_proc("string_name_new_with_latin1_chars"))
 	get_destructor :: unsafe GetDestructor(get_proc("variant_get_ptr_destructor"))
 	drop_string_name :: unsafe Destructor(get_destructor(STRING_NAME))
+	new_string :: unsafe NewString(get_proc("string_new_with_utf8_chars_and_len"))
+	string_utf8 :: unsafe StringUtf8(get_proc("string_to_utf8_chars"))
+	drop_string :: unsafe Destructor(get_destructor(STRING))
+	variant_from_type :: unsafe GetFromType(get_proc("get_variant_from_type_constructor"))
+	variant_to_type :: unsafe GetToType(get_proc("get_variant_to_type_constructor"))
+	variant_type :: unsafe VariantGetType(get_proc("variant_get_type"))
+	variant_destroy :: unsafe VariantDestroy(get_proc("variant_destroy"))
 	register_class :: unsafe RegisterClass(get_proc("classdb_register_extension_class6"))
 	unregister_class :: unsafe UnregisterClass(get_proc("classdb_unregister_extension_class"))
 	register_method :: unsafe RegisterMethod(get_proc("classdb_register_extension_class_method"))
@@ -44,6 +58,7 @@ pub setup :: fn(get_proc: GetProc, library: ptr, out: ptr, initialize: Callback,
 
 	unsafe godot.write(Godot.{
 		get_proc, library, get_version, new_string_name, drop_string_name,
+		new_string, string_utf8, drop_string, variant_from_type, variant_to_type, variant_type, variant_destroy,
 		register_class, unregister_class, register_method, construct_object, set_instance, classes,
 	})
 	unsafe classes.write(ptr(0))

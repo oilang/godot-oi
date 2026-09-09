@@ -28,6 +28,19 @@ init :: fn(get_proc: godot.GetProc, library: ptr, out: ptr) bool {
 
 @c ready :: fn(inst: ptr) {
 	print("oi: ready")
+	gd := godot.of_inst(inst)
+	v := gd.variant()
+	v.set_int(gd, 42)
+	i := v.int(gd)
+	v.set_float(gd, 2.5)
+	f := v.float(gd)
+	v.set_bool(gd, true)
+	b := v.bool(gd)
+	v.set_string(gd, "hi")
+	s := v.string(gd)
+	t := v.type(gd)
+	v.drop(gd)
+	print("oi: variant {i} {f} {b} {s} {t}")
 }
 
 @c ready2d :: fn(inst: ptr) {
