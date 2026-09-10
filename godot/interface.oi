@@ -61,3 +61,9 @@ ConstructObject :: @c fn(name: ptr) ptr
 
 ## GDExtensionInterfaceObjectSetInstance
 SetInstance :: @c fn(object: ptr, name: ptr, instance: ptr)
+
+## GDExtensionInterfaceClassdbGetMethodBind
+GetMethodBind :: @c fn(class: ptr, method: ptr, hash: i64) ptr
+
+## GDExtensionInterfaceObjectMethodBindCall
+MethodBindCall :: @c fn(bind: ptr, object: ptr, args: ptr, argc: i64, ret: ptr, err: ptr)

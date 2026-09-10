@@ -1,0 +1,29 @@
+module godot
+
+## Call engine methods on the object behind an instance.
+
+Godot :< {
+	## The `MethodBind` for a class method, by the hash in `extension_api.json`.
+	## HACK: this is a quick and dirty way to let me move forward for now, until I generate wrapper files
+	pub method_bind :: fn(self, class: cstr, method: cstr, hash: i64) ptr {
+		c := self.string_name(class)
+		m := self.string_name(method)
+		bind := self.get_method_bind(c.at, m.at, hash)
+		c.destroy(self)
+		m.destroy(self)
+		bind
+	}
+
+	## Call `bind` on the engine object behind `inst`.
+	pub call :: fn(self, inst: ptr, bind: ptr, args: []Variant) Variant {
+		packed := unsafe malloc(ptr.size * usize(args.len))
+		loop i in 0..args.len { unsafe ptr(packed.0 + ptr.size * usize(i)).write(args[i].at) }
+		object := unsafe inst.read[Instance]().object
+		out := self.variant()
+		err := unsafe malloc(CallError.size)
+		self.method_bind_call(bind, object, packed, i64(args.len), out.at, err)
+		unsafe free(err)
+		unsafe free(packed)
+		out
+	}
+}

@@ -33,6 +33,8 @@ pub Level :: enum { core, servers, scene, editor }
 	register_property: RegisterProperty,
 	construct_object: ConstructObject,
 	set_instance: SetInstance,
+	get_method_bind: GetMethodBind,
+	method_bind_call: MethodBindCall,
 	# a cell holding the newest registered `Class`
 	classes: ptr,
 }
@@ -57,13 +59,16 @@ pub setup :: fn(get_proc: GetProc, library: ptr, out: ptr, initialize: Callback,
 	register_property :: unsafe RegisterProperty(get_proc("classdb_register_extension_class_property"))
 	construct_object :: unsafe ConstructObject(get_proc("classdb_construct_object3"))
 	set_instance :: unsafe SetInstance(get_proc("object_set_instance"))
+	get_method_bind :: unsafe GetMethodBind(get_proc("classdb_get_method_bind"))
+	method_bind_call :: unsafe MethodBindCall(get_proc("object_method_bind_call"))
 	classes :: unsafe malloc(ptr.size)
 	godot :: unsafe malloc(Godot.size)
 
 	unsafe godot.write(Godot.{
 		get_proc, library, get_version, new_string_name, drop_string_name,
 		new_string, string_utf8, drop_string, variant_from_type, variant_to_type, variant_type, variant_destroy, variant_can_convert,
-		register_class, unregister_class, register_method, register_property, construct_object, set_instance, classes,
+		register_class, unregister_class, register_method, register_property, construct_object, set_instance,
+		get_method_bind, method_bind_call, classes,
 	})
 	unsafe classes.write(ptr(0))
 	unsafe out.write(Init.{ i32(Level.scene), godot, initialize, deinitialize })
