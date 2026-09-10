@@ -28,6 +28,31 @@ Godot :< {
 		Variant.{ unsafe calloc(1, usize(VARIANT_SIZE)) }
 	}
 
+	## Fresh `Variant`s holding a value.
+	pub bool :: fn(self, b: bool) Variant {
+		v := self.variant()
+		v.set_bool(self, b)
+		v
+	}
+
+	pub int :: fn(self, n: i64) Variant {
+		v := self.variant()
+		v.set_int(self, n)
+		v
+	}
+
+	pub float :: fn(self, f: f64) Variant {
+		v := self.variant()
+		v.set_float(self, f)
+		v
+	}
+
+	pub string :: fn(self, s: string) Variant {
+		v := self.variant()
+		v.set_string(self, s)
+		v
+	}
+
 	from_type :: fn(self, t: Type, v: Variant, value: ptr) {
 		ctor := unsafe FromType(self.variant_from_type(i32(t)))
 		ctor(v.at, value)

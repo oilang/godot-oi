@@ -14,13 +14,15 @@ init :: fn(get_proc: godot.GetProc, library: ptr, out: ptr) bool {
 		v := gd.version()
 		status := unsafe v.status.str()
 		print("oi: hello from Godot {v.major}.{v.minor}.{v.patch} {status}")
+		speed := gd.variant()
+		speed.set_float(gd, 1.0)
 		gd.register(
 			"OiNode",
 			"Node",
 			State.size,
 			[godot.ready(ready), godot.process(process)],
 			[godot.method("hello", hello, [], none), godot.method("add", add, [godot.slot("a", .int), godot.slot("b", .int)], godot.returns(.int))],
-			[godot.property("speed", .float, get_speed, set_speed, true)],
+			[godot.property("speed", .float, get_speed, set_speed, true, .range, "0,10,0.5", speed)],
 		)
 		gd.register("OiNode2D", "Node2D", 0, [godot.ready(ready2d)], [], [])
 	}

@@ -103,13 +103,18 @@ pub Slot :: struct { name: cstr, type: Type }
 ## A method scripts can call. The callback sees every slot as a `Variant`.
 pub Method :: struct { name: cstr, call: OnMethod, args: []Slot, ret: ?Type }
 
-## A property, reached through `get_<name>` and `set_<name>` methods. `exported` shows it in the inspector.
+## PropertyHint, the few we use until generated.
+pub Hint :: enum { nil, range, options, file = 13 }
+
 pub Property :: struct {
 	name: cstr,
 	type: Type,
 	get: OnMethod,
 	set: OnMethod,
-	exported: bool
+	exported: bool,
+	hint: Hint,
+	hint_string: string,
+	default: Variant,
 }
 
 pub ready :: fn(cb: OnReady) Virtual { Virtual.{ "_ready", call_ready, ptr(cb) } }
@@ -118,8 +123,14 @@ pub slot :: fn(name: cstr, t: Type) Slot { Slot.{ name, t } }
 # TEMP: until `oi` infers `.int` through `?Type`.
 pub returns :: fn(t: Type) ?Type { t }
 pub method :: fn(name: cstr, cb: OnMethod, args: []Slot, ret: ?Type) Method { Method.{ name, cb, args, ret } }
-pub property :: fn(name: cstr, t: Type, get: OnMethod, set: OnMethod, exported: bool) Property {
-	Property.{ name, t, get, set, exported }
+## A null `Variant`, what `property` takes for no default.
+no_default :: fn() Variant { Variant.{ ptr(0) } }
+
+pub property :: fn(
+	name: cstr, t: Type, get: OnMethod, set: OnMethod, exported: bool,
+	hint: Hint = .nil, hint_string: string = "", default: Variant = no_default(),
+) Property {
+	Property.{ name, t, get, set, exported, hint, hint_string, default }
 }
 
 ## The nth `Variant` of a method's `args`.
@@ -131,7 +142,7 @@ pub arg :: fn(args: ptr, n: int) Variant {
 pub ret :: fn(at: ptr) Variant { Variant.{ at } }
 
 ## A `Virtual` or `Method` once registered.
-@c Bound :: struct { name: StringName, call: ptr, target: ptr, argc: i32, types: ptr, ret: i32 }
+@c Bound :: struct { default: ptr, name: StringName, call: ptr, target: ptr, argc: i32, types: ptr, ret: i32 }
 
 ## Per-class state, handed to Godot as `class_userdata`. Classes chain through `next`.
 @c pub Class :: struct {
@@ -193,15 +204,16 @@ Godot :< {
 		vt := unsafe malloc(Bound.size * usize(virtuals.len))
 		loop i in 0..virtuals.len {
 			v := virtuals[i]
-			unsafe bound(vt, i).write(Bound.{ self.string_name(v.name), ptr(v.call), v.target })
+			unsafe bound(vt, i).write(Bound.{ ptr(0), self.string_name(v.name), ptr(v.call), v.target })
 		}
 		mt := unsafe malloc(Bound.size * usize(methods.len))
 		loop i in 0..methods.len {
 			m := methods[i]
 			types := unsafe malloc(usize(4 * m.args.len))
 			loop j in 0..m.args.len { unsafe ptr(types.0 + usize(4 * j)).write(i32(m.args[j].type)) }
-			unsafe bound(mt, i).write(Bound.{ self.string_name(m.name), ptr(m.call), ptr(0), i32(m.args.len), types, i32(m.ret or .nil) })
+			unsafe bound(mt, i).write(Bound.{ ptr(0), self.string_name(m.name), ptr(m.call), ptr(0), i32(m.args.len), types, i32(m.ret or .nil) })
 		}
+		loop i in 0..props.len { unsafe bound(mt, own.len + 2 * i + 1).write(props[i].default.at) }
 		class := unsafe malloc(Class.size)
 		unsafe class.write(Class.{
 			self, self.string_name(name), self.string_name(parent), state,
@@ -242,7 +254,7 @@ Godot :< {
 		pinfo := unsafe malloc(PropertyInfo.size)
 		loop i in 0..props.len {
 			p := props[i]
-			info := self.slot_info(Slot.{ p.name, p.type })
+			info := self.slot_info(Slot.{ p.name, p.type }, p.hint, p.hint_string)
 			info.usage = u32(if p.exported { USAGE_DEFAULT } else { 0 })
 			unsafe pinfo.write(info)
 			get := unsafe bound(mt, own.len + 2 * i).read[Bound]().name.at
@@ -269,11 +281,11 @@ Godot :< {
 		unsafe self.classes.write(ptr(0))
 	}
 
-	slot_info :: fn(self, s: Slot) PropertyInfo {
-		hint := unsafe malloc(usize(STRING_SIZE))
-		self.new_string(hint, "".ptr, 0)
+	slot_info :: fn(self, s: Slot, hint: Hint = .nil, hint_string: string = "") PropertyInfo {
+		hs := unsafe malloc(usize(STRING_SIZE))
+		self.new_string(hs, hint_string.ptr, i64(hint_string.len))
 		usage := if s.type == .nil { USAGE_VARIANT } else { USAGE_DEFAULT }
-		PropertyInfo.{ i32(s.type), self.string_name(s.name).at, self.string_name("").at, 0, hint, u32(usage) }
+		PropertyInfo.{ i32(s.type), self.string_name(s.name).at, self.string_name("").at, u32(hint), hs, u32(usage) }
 	}
 
 	drop_slot :: fn(self, p: PropertyInfo) {
@@ -288,6 +300,7 @@ Godot :< {
 			b := unsafe bound(table, i).read[Bound]()
 			b.name.destroy(self)
 			unsafe free(b.types)
+			if !b.default.is_null() { Variant.{ b.default }.drop(self) }
 		}
 		unsafe free(table)
 	}
@@ -299,6 +312,11 @@ Godot :< {
 	inst := unsafe calloc(1, Instance.size + c.state)
 	unsafe inst.write(Instance.{ class, object })
 	c.gd.set_instance(object, c.name.at, inst)
+	loop i in 0..c.nmethods {
+		at := bound(c.methods, i)
+		b := unsafe at.read[Bound]()
+		if !b.default.is_null() { unsafe OnMethod(b.call)(inst, at, ptr(0)) }
+	}
 	object
 }
 
