@@ -26,9 +26,11 @@ pub Level :: enum { core, servers, scene, editor }
 	variant_to_type: GetToType,
 	variant_type: VariantGetType,
 	variant_destroy: VariantDestroy,
+	variant_can_convert: CanConvert,
 	register_class: RegisterClass,
 	unregister_class: UnregisterClass,
 	register_method: RegisterMethod,
+	register_property: RegisterProperty,
 	construct_object: ConstructObject,
 	set_instance: SetInstance,
 	# a cell holding the newest registered `Class`
@@ -48,9 +50,11 @@ pub setup :: fn(get_proc: GetProc, library: ptr, out: ptr, initialize: Callback,
 	variant_to_type :: unsafe GetToType(get_proc("get_variant_to_type_constructor"))
 	variant_type :: unsafe VariantGetType(get_proc("variant_get_type"))
 	variant_destroy :: unsafe VariantDestroy(get_proc("variant_destroy"))
+	variant_can_convert :: unsafe CanConvert(get_proc("variant_can_convert_strict"))
 	register_class :: unsafe RegisterClass(get_proc("classdb_register_extension_class6"))
 	unregister_class :: unsafe UnregisterClass(get_proc("classdb_unregister_extension_class"))
 	register_method :: unsafe RegisterMethod(get_proc("classdb_register_extension_class_method"))
+	register_property :: unsafe RegisterProperty(get_proc("classdb_register_extension_class_property"))
 	construct_object :: unsafe ConstructObject(get_proc("classdb_construct_object3"))
 	set_instance :: unsafe SetInstance(get_proc("object_set_instance"))
 	classes :: unsafe malloc(ptr.size)
@@ -58,8 +62,8 @@ pub setup :: fn(get_proc: GetProc, library: ptr, out: ptr, initialize: Callback,
 
 	unsafe godot.write(Godot.{
 		get_proc, library, get_version, new_string_name, drop_string_name,
-		new_string, string_utf8, drop_string, variant_from_type, variant_to_type, variant_type, variant_destroy,
-		register_class, unregister_class, register_method, construct_object, set_instance, classes,
+		new_string, string_utf8, drop_string, variant_from_type, variant_to_type, variant_type, variant_destroy, variant_can_convert,
+		register_class, unregister_class, register_method, register_property, construct_object, set_instance, classes,
 	})
 	unsafe classes.write(ptr(0))
 	unsafe out.write(Init.{ i32(Level.scene), godot, initialize, deinitialize })

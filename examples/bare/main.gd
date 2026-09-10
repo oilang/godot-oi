@@ -7,3 +7,5 @@ func _ready() -> void:
 	print("gd: add ", $OiNode.add(1, 2))
 	var n: OiNode = $OiNode
 	print("gd: typed add ", n.add(3, 4))
+	$OiNode.speed = 1.5
+	print("gd: speed ", $OiNode.speed)

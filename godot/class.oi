@@ -87,6 +87,8 @@ USAGE_DEFAULT :: 6
 ## PROPERTY_USAGE_DEFAULT | PROPERTY_USAGE_NIL_IS_VARIANT, an untyped `Variant` slot
 USAGE_VARIANT :: 131078
 
+## GDEXTENSION_CALL_ERROR_INVALID_ARGUMENT
+INVALID_ARG :: 2
 ## GDEXTENSION_CALL_ERROR_TOO_MANY_ARGUMENTS
 TOO_MANY :: 3
 ## GDEXTENSION_CALL_ERROR_TOO_FEW_ARGUMENTS
@@ -101,12 +103,24 @@ pub Slot :: struct { name: cstr, type: Type }
 ## A method scripts can call. The callback sees every slot as a `Variant`.
 pub Method :: struct { name: cstr, call: OnMethod, args: []Slot, ret: ?Type }
 
+## A property, reached through `get_<name>` and `set_<name>` methods. `exported` shows it in the inspector.
+pub Property :: struct {
+	name: cstr,
+	type: Type,
+	get: OnMethod,
+	set: OnMethod,
+	exported: bool
+}
+
 pub ready :: fn(cb: OnReady) Virtual { Virtual.{ "_ready", call_ready, ptr(cb) } }
 pub process :: fn(cb: OnProcess) Virtual { Virtual.{ "_process", call_process, ptr(cb) } }
 pub slot :: fn(name: cstr, t: Type) Slot { Slot.{ name, t } }
 # TEMP: until `oi` infers `.int` through `?Type`.
 pub returns :: fn(t: Type) ?Type { t }
 pub method :: fn(name: cstr, cb: OnMethod, args: []Slot, ret: ?Type) Method { Method.{ name, cb, args, ret } }
+pub property :: fn(name: cstr, t: Type, get: OnMethod, set: OnMethod, exported: bool) Property {
+	Property.{ name, t, get, set, exported }
+}
 
 ## The nth `Variant` of a method's `args`.
 pub arg :: fn(args: ptr, n: int) Variant {
@@ -167,7 +181,15 @@ type_at :: fn(table: ptr, n: int) Type {
 }
 
 Godot :< {
-	pub register :: fn(self, name: cstr, parent: cstr, state: usize, virtuals: []Virtual, methods: []Method) {
+	pub register :: fn(self, name: cstr, parent: cstr, state: usize, virtuals: []Virtual, own: []Method, props: []Property) {
+		methods: []Method
+		methods << own
+		loop i in 0..props.len {
+			p := props[i]
+			n := unsafe p.name.str()
+			methods << method(("get_" + n).cstr(), p.get, [], returns(p.type))
+			methods << method(("set_" + n).cstr(), p.set, [slot(p.name, p.type)], none)
+		}
 		vt := unsafe malloc(Bound.size * usize(virtuals.len))
 		loop i in 0..virtuals.len {
 			v := virtuals[i]
@@ -217,6 +239,18 @@ Godot :< {
 			unsafe free(ret)
 		}
 		unsafe free(minfo)
+		pinfo := unsafe malloc(PropertyInfo.size)
+		loop i in 0..props.len {
+			p := props[i]
+			info := self.slot_info(Slot.{ p.name, p.type })
+			info.usage = u32(if p.exported { USAGE_DEFAULT } else { 0 })
+			unsafe pinfo.write(info)
+			get := unsafe bound(mt, own.len + 2 * i).read[Bound]().name.at
+			set := unsafe bound(mt, own.len + 2 * i + 1).read[Bound]().name.at
+			self.register_property(self.library, c.name.at, pinfo, set, get)
+			self.drop_slot(info)
+		}
+		unsafe free(pinfo)
 	}
 
 	## Unregister every class, newest first.
@@ -306,6 +340,14 @@ Godot :< {
 	if argc != i64(b.argc) {
 		unsafe err.write(CallError.{ i32(if argc > i64(b.argc) { TOO_MANY } else { TOO_FEW }), 0, b.argc })
 		return
+	}
+	gd := of_inst(inst)
+	loop i in 0..int(b.argc) {
+		t := type_at(b.types, i)
+		if t != .nil && gd.variant_can_convert(i32(arg(args, i).type(gd)), i32(t)) == 0 {
+			unsafe err.write(CallError.{ i32(INVALID_ARG), i32(i), i32(t) })
+			return
+		}
 	}
 	on_method := unsafe OnMethod(b.call)
 	on_method(inst, args, ret)

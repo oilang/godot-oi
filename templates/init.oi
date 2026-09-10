@@ -14,7 +14,7 @@ init :: fn(get_proc: godot.GetProc, library: ptr, out: ptr) bool {
 @c initialize :: fn(userdata: ptr, level: i32) {
 	if godot.level(level) == .scene {
 		gd := godot.of(userdata)
-		gd.register("GameNode", "Node", State.size, [godot.ready(ready), godot.process(process)], [godot.method("hello", hello, [], none)])
+		gd.register("GameNode", "Node", State.size, [godot.ready(ready), godot.process(process)], [godot.method("hello", hello, [], none)], [])
 	}
 }
 

@@ -1,7 +1,7 @@
 use godot
 
 ## Per-instance state.
-@c State :: struct { frames: u64 }
+@c State :: struct { frames: u64, speed: f64 }
 
 @export.{"godot_oi_init"}
 init :: fn(get_proc: godot.GetProc, library: ptr, out: ptr) bool {
@@ -20,8 +20,9 @@ init :: fn(get_proc: godot.GetProc, library: ptr, out: ptr) bool {
 			State.size,
 			[godot.ready(ready), godot.process(process)],
 			[godot.method("hello", hello, [], none), godot.method("add", add, [godot.slot("a", .int), godot.slot("b", .int)], godot.returns(.int))],
+			[godot.property("speed", .float, get_speed, set_speed, true)],
 		)
-		gd.register("OiNode2D", "Node2D", 0, [godot.ready(ready2d)], [])
+		gd.register("OiNode2D", "Node2D", 0, [godot.ready(ready2d)], [], [])
 	}
 }
 
@@ -55,7 +56,7 @@ init :: fn(get_proc: godot.GetProc, library: ptr, out: ptr) bool {
 
 @c process :: fn(inst: ptr, delta: f64) {
 	s := godot.state[State](inst)
-	godot.set_state(inst, State.{ s.frames + 1 })
+	godot.set_state(inst, State.{ s.frames + 1, s.speed })
 	if s.frames == 0 { print("oi: process {delta}") }
 }
 
@@ -66,4 +67,15 @@ init :: fn(get_proc: godot.GetProc, library: ptr, out: ptr) bool {
 @c add :: fn(inst: ptr, args: ptr, ret: ptr) {
 	gd := godot.of_inst(inst)
 	godot.ret(ret).set_int(gd, godot.arg(args, 0).int(gd) + godot.arg(args, 1).int(gd))
+}
+
+@c get_speed :: fn(inst: ptr, args: ptr, ret: ptr) {
+	godot.ret(ret).set_float(godot.of_inst(inst), godot.state[State](inst).speed)
+}
+
+@c set_speed :: fn(inst: ptr, args: ptr, ret: ptr) {
+	godot.set_state(inst, State.{
+		godot.state[State](inst).frames,
+		godot.arg(args, 0).float(godot.of_inst(inst))
+	})
 }
