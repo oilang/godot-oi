@@ -100,7 +100,7 @@ TOO_FEW :: 4
 ## A method arg. `.nil` is an untyped `Variant`.
 pub Slot :: struct { name: cstr, type: Type }
 
-## A method scripts can call. The callback sees every slot as a `Variant`.
+## A method scripts can call. `ret` is `none` for no return. The callback sees every slot as a `Variant`.
 pub Method :: struct { name: cstr, call: OnMethod, args: []Slot, ret: ?Type }
 
 ## PropertyHint, the few we use until generated.
@@ -114,21 +114,17 @@ pub Property :: struct {
 	exported: bool,
 	hint: Hint,
 	hint_string: string,
-	default: Variant,
+	default: ?Variant,
 }
 
 pub ready :: fn(cb: OnReady) Virtual { Virtual.{ "_ready", call_ready, ptr(cb) } }
 pub process :: fn(cb: OnProcess) Virtual { Virtual.{ "_process", call_process, ptr(cb) } }
 pub slot :: fn(name: cstr, t: Type) Slot { Slot.{ name, t } }
-# TEMP: until `oi` infers `.int` through `?Type`.
-pub returns :: fn(t: Type) ?Type { t }
 pub method :: fn(name: cstr, cb: OnMethod, args: []Slot, ret: ?Type) Method { Method.{ name, cb, args, ret } }
-## A null `Variant`, what `property` takes for no default.
-no_default :: fn() Variant { Variant.{ ptr(0) } }
 
 pub property :: fn(
 	name: cstr, t: Type, get: OnMethod, set: OnMethod, exported: bool,
-	hint: Hint = .nil, hint_string: string = "", default: Variant = no_default(),
+	hint: Hint = .nil, hint_string: string = "", default: ?Variant = none,
 ) Property {
 	Property.{ name, t, get, set, exported, hint, hint_string, default }
 }
@@ -198,7 +194,7 @@ Godot :< {
 		loop i in 0..props.len {
 			p := props[i]
 			n := unsafe p.name.str()
-			methods << method(("get_" + n).cstr(), p.get, [], returns(p.type))
+			methods << method(("get_" + n).cstr(), p.get, [], p.type)
 			methods << method(("set_" + n).cstr(), p.set, [slot(p.name, p.type)], none)
 		}
 		vt := unsafe malloc(Bound.size * usize(virtuals.len))
@@ -213,7 +209,7 @@ Godot :< {
 			loop j in 0..m.args.len { unsafe ptr(types.0 + usize(4 * j)).write(i32(m.args[j].type)) }
 			unsafe bound(mt, i).write(Bound.{ ptr(0), self.string_name(m.name), ptr(m.call), ptr(0), i32(m.args.len), types, i32(m.ret or .nil) })
 		}
-		loop i in 0..props.len { unsafe bound(mt, own.len + 2 * i + 1).write(props[i].default.at) }
+		loop i in 0..props.len { unsafe bound(mt, own.len + 2 * i + 1).write((props[i].default or Variant.{ ptr(0) }).at) }
 		class := unsafe malloc(Class.size)
 		unsafe class.write(Class.{
 			self, self.string_name(name), self.string_name(parent), state,
