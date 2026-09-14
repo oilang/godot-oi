@@ -164,6 +164,11 @@ pub of_inst :: fn(inst: ptr) Godot {
 	unsafe inst.read[Instance]().class.read[Class]().gd
 }
 
+## The engine object behind `inst`.
+pub object :: fn(inst: ptr) ptr {
+	unsafe inst.read[Instance]().object
+}
+
 ## The game's state behind `inst`.
 pub state[T] :: fn(inst: ptr) T {
 	unsafe ptr(inst.0 + Instance.size).read[T]()

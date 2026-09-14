@@ -50,7 +50,7 @@ init :: fn(get_proc: godot.GetProc, library: ptr, out: ptr) bool {
 	t := v.type(gd)
 	v.drop(gd)
 	print("oi: variant {i} {f} {b} {s} {t}")
-	name := gd.call(inst, gd.method_bind("Object", "get_class", 201670096), [])
+	name := gd.call(godot.object(inst), gd.bind(0, "Object", "get_class", 201670096), [])
 	class := name.string(gd)
 	name.drop(gd)
 	print("oi: class {class}")

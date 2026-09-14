@@ -1,5 +1,6 @@
 # godot
 .godot/
+extension_api.json
 
 # gen
 *.so

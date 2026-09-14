@@ -1,24 +1,32 @@
 module godot
 
-## Call engine methods on the object behind an instance.
+## Call engine methods on an object.
+
+## Slots in `Godot.binds` for cached `MethodBind`s.
+MAX_BINDS :: 4096
 
 Godot :< {
-	## The `MethodBind` for a class method, by the hash in `extension_api.json`.
-	## HACK: this is a quick and dirty way to let me move forward for now, until I generate wrapper files
-	pub method_bind :: fn(self, class: cstr, method: cstr, hash: i64) ptr {
-		c := self.string_name(class)
-		m := self.string_name(method)
-		bind := self.get_method_bind(c.at, m.at, hash)
-		c.destroy(self)
-		m.destroy(self)
+	## `MethodBind`.
+	pub bind :: fn(self, slot: int, class: cstr, method: cstr, hash: i64) ptr {
+		cell := ptr(self.binds.0 + ptr.size * usize.(slot))
+		bind := unsafe cell.read[ptr]()
+		if !bind.is_null() { return bind }
+
+		class_name := self.string_name(class)
+		method_name := self.string_name(method)
+		bind = self.get_method_bind(class_name.at, method_name.at, hash)
+
+		class_name.destroy(self)
+		method_name.destroy(self)
+		unsafe cell.write(bind)
+
 		bind
 	}
 
-	## Call `bind` on the engine object behind `inst`.
-	pub call :: fn(self, inst: ptr, bind: ptr, args: []Variant) Variant {
-		packed := unsafe malloc(ptr.size * usize(args.len))
-		loop i in 0..args.len { unsafe ptr(packed.0 + ptr.size * usize(i)).write(args[i].at) }
-		object := unsafe inst.read[Instance]().object
+	## Call `bind` on the engine `object`.
+	pub call :: fn(self, object: ptr, bind: ptr, args: []Variant) Variant {
+		packed := unsafe malloc(ptr.size * usize.(args.len))
+		loop i in 0..args.len { unsafe ptr(packed.0 + ptr.size * usize.(i)).write(args[i].at) }
 		out := self.variant()
 		err := unsafe malloc(CallError.size)
 		self.method_bind_call(bind, object, packed, i64.(args.len), out.at, err)

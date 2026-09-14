@@ -35,8 +35,8 @@ pub Level :: enum { core, servers, scene, editor }
 	set_instance: SetInstance,
 	get_method_bind: GetMethodBind,
 	method_bind_call: MethodBindCall,
-	# a cell holding the newest registered `Class`
 	classes: ptr,
+	binds: ptr,
 }
 
 ## Fill in `GDExtensionInitialization` from the entrypoint.
@@ -62,6 +62,7 @@ pub setup :: fn(get_proc: GetProc, library: ptr, out: ptr, initialize: Callback,
 	get_method_bind :: unsafe GetMethodBind(get_proc("classdb_get_method_bind"))
 	method_bind_call :: unsafe MethodBindCall(get_proc("object_method_bind_call"))
 	classes :: unsafe malloc(ptr.size)
+	binds :: unsafe calloc(usize.(MAX_BINDS), ptr.size)
 	godot :: unsafe malloc(Godot.size)
 
 	unsafe godot.write(Godot.{

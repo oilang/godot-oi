@@ -1,0 +1,89 @@
+module gen
+
+## Generator helpers.
+
+use fs
+use json.{ Json, Arr, Obj, parse }
+
+obj :: fn(json: Json) Obj {
+	match json {
+		value @ Obj => value,
+		_ => []
+	}
+}
+arr :: fn(json: Json) Arr {
+	match json {
+		value @ Arr => value,
+		_ => []
+	}
+}
+text :: fn(json: Json) string {
+	match json {
+		value @ string => value,
+		_ => ""
+	}
+}
+flag :: fn(json: Json) bool {
+	match json {
+		value @ bool => value,
+		_ => false
+	}
+}
+has :: fn(obj: Obj, key: string) bool {
+	key in obj.keys
+}
+
+## A JSON number.
+num :: fn(json: Json) i64 {
+	str := match json { value @ float => value.str(), _ => "0.0" }
+	i64.(str[..str.len - 2]) or 0
+}
+
+## The dump at `path`, indexed by class name.
+load :: fn(path: string) [string]Obj {
+	src := fs.read(path) or { panic!("gen: {$.message()}, run `just api`"); "" }
+	api := obj(parse(src) or { panic!("gen: {path}: {$.message()}"); :null })
+	classes: [string]Obj = []
+	list := arr(api["classes"])
+	loop i in 0..list.len {
+		class := obj(list[i])
+		classes[text(class["name"])] = class
+	}
+	classes
+}
+
+## Transform to Godot's snakes.
+snake :: fn(name: string) string {
+	out := ""
+	loop i in 0..name.len {
+		ch := name[i..i + 1]
+		prev := if i > 0 { name[i - 1..i] } else { "" }
+		next := if i + 1 < name.len { name[i + 1..i + 2] } else { "" }
+		up := ch != ch.lower()
+		if i > 0 && ((up && (prev != prev.upper() || next != next.upper())) || (!up && ch == ch.upper() && prev != prev.upper())) { out += "_" }
+		out += ch.lower()
+	}
+	out
+}
+
+reserved :: fn() []string {
+	[
+		"break", "comp", "continue", "else", "enum", "fn", "foreign", "if", "in", "is", "loop", "match",
+		"module", "move", "mut", "none", "or", "pub", "return", "struct", "trait", "unsafe", "use",
+	]
+}
+
+## An engine name that is safe as an Oi identifier.
+safe :: fn(name: string) string { if name in reserved() { name + "_" } else { name } }
+
+## How an engine type crosses into Oi.
+Kind :: struct { oi: string, variant: string }
+kind :: fn(name: string) ?Kind {
+	match name {
+		"int" => Kind.{ "i64", "int" },
+		"float" => Kind.{ "f64", "float" },
+		"bool" => Kind.{ "bool", "bool" },
+		"String" => Kind.{ "string", "string" },
+		_ => none,
+	}
+}
