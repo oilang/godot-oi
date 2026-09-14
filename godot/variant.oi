@@ -25,7 +25,7 @@ STRING_SIZE :: 8
 Godot :< {
 	## A fresh nil `Variant` on the heap.
 	pub variant :: fn(self) Variant {
-		Variant.{ unsafe calloc(1, usize(VARIANT_SIZE)) }
+		Variant.{ unsafe calloc(1, usize.(VARIANT_SIZE)) }
 	}
 
 	## Fresh `Variant`s holding a value.
@@ -54,12 +54,12 @@ Godot :< {
 	}
 
 	from_type :: fn(self, t: Type, v: Variant, value: ptr) {
-		ctor := unsafe FromType(self.variant_from_type(i32(t)))
+		ctor := unsafe FromType(self.variant_from_type(i32.(t)))
 		ctor(v.at, value)
 	}
 
 	to_type :: fn(self, t: Type, v: Variant, out: ptr) {
-		ctor := unsafe ToType(self.variant_to_type(i32(t)))
+		ctor := unsafe ToType(self.variant_to_type(i32.(t)))
 		ctor(out, v.at)
 	}
 }
@@ -94,12 +94,12 @@ Variant :< {
 	}
 
 	pub string :: fn(self, gd: Godot) string {
-		str := unsafe malloc(usize(STRING_SIZE))
+		str := unsafe malloc(usize.(STRING_SIZE))
 		gd.to_type(.string, self, str)
 		n := gd.string_utf8(str, ptr(0), 0)
-		buf := unsafe malloc(usize(n))
+		buf := unsafe malloc(usize.(n))
 		gd.string_utf8(str, buf, n)
-		s := unsafe buf.string(int(n))
+		s := unsafe buf.string(int.(n))
 		unsafe free(buf)
 		gd.drop_string(str)
 		unsafe free(str)
@@ -109,7 +109,7 @@ Variant :< {
 	## Setters overwrite in place.
 	pub set_bool :: fn(self, gd: Godot, b: bool) {
 		buf := unsafe malloc(1)
-		unsafe buf.write(u8(if b { 1 } else { 0 }))
+		unsafe buf.write(u8.(if b { 1 } else { 0 }))
 		gd.from_type(.bool, self, buf)
 		unsafe free(buf)
 	}
@@ -129,8 +129,8 @@ Variant :< {
 	}
 
 	pub set_string :: fn(self, gd: Godot, s: string) {
-		str := unsafe malloc(usize(STRING_SIZE))
-		gd.new_string(str, s.ptr, i64(s.len))
+		str := unsafe malloc(usize.(STRING_SIZE))
+		gd.new_string(str, s.ptr, i64.(s.len))
 		gd.from_type(.string, self, str)
 		gd.drop_string(str)
 		unsafe free(str)

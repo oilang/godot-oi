@@ -21,7 +21,7 @@ Godot :< {
 		object := unsafe inst.read[Instance]().object
 		out := self.variant()
 		err := unsafe malloc(CallError.size)
-		self.method_bind_call(bind, object, packed, i64(args.len), out.at, err)
+		self.method_bind_call(bind, object, packed, i64.(args.len), out.at, err)
 		unsafe free(err)
 		unsafe free(packed)
 		out

@@ -44,10 +44,10 @@ pub setup :: fn(get_proc: GetProc, library: ptr, out: ptr, initialize: Callback,
 	get_version :: unsafe GetVersion(get_proc("get_godot_version2"))
 	new_string_name :: unsafe NewStringName(get_proc("string_name_new_with_latin1_chars"))
 	get_destructor :: unsafe GetDestructor(get_proc("variant_get_ptr_destructor"))
-	drop_string_name :: unsafe Destructor(get_destructor(i32(Type.string_name)))
+	drop_string_name :: unsafe Destructor(get_destructor(i32.(Type.string_name)))
 	new_string :: unsafe NewString(get_proc("string_new_with_utf8_chars_and_len"))
 	string_utf8 :: unsafe StringUtf8(get_proc("string_to_utf8_chars"))
-	drop_string :: unsafe Destructor(get_destructor(i32(Type.string)))
+	drop_string :: unsafe Destructor(get_destructor(i32.(Type.string)))
 	variant_from_type :: unsafe GetFromType(get_proc("get_variant_from_type_constructor"))
 	variant_to_type :: unsafe GetToType(get_proc("get_variant_to_type_constructor"))
 	variant_type :: unsafe VariantGetType(get_proc("variant_get_type"))
@@ -68,10 +68,10 @@ pub setup :: fn(get_proc: GetProc, library: ptr, out: ptr, initialize: Callback,
 		get_proc, library, get_version, new_string_name, drop_string_name,
 		new_string, string_utf8, drop_string, variant_from_type, variant_to_type, variant_type, variant_destroy, variant_can_convert,
 		register_class, unregister_class, register_method, register_property, construct_object, set_instance,
-		get_method_bind, method_bind_call, classes,
+		get_method_bind, method_bind_call, classes, binds,
 	})
 	unsafe classes.write(ptr(0))
-	unsafe out.write(Init.{ i32(Level.scene), godot, initialize, deinitialize })
+	unsafe out.write(Init.{ i32.(Level.scene), godot, initialize, deinitialize })
 
 	true
 }
