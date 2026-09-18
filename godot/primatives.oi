@@ -12,12 +12,12 @@ Godot :< {
 }
 
 StringName :< {
-	pub destroy :: fn(self, gd: Godot) {
+	pub destroy :: fn(self) {
 		gd.drop_string_name(self.at)
 		unsafe free(self.at)
 	}
 
-	## Compare against the `GDExtensionConstStringNamePtr` Godot passed us.
+	## Compare against the `GDExtensionConstStringNamePtr` passed by Godot.
 	pub same :: fn(self, other: ptr) bool {
 		unsafe self.at.read[usize]() == other.read[usize]()
 	}

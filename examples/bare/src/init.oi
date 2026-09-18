@@ -15,7 +15,7 @@ init :: fn(get_proc: godot.GetProc, library: ptr, out: ptr) bool {
 		status := unsafe v.status.str()
 		print("oi: hello from Godot {v.major}.{v.minor}.{v.patch} {status}")
 		speed := gd.variant()
-		speed.set_float(gd, 1.0)
+		speed.set_float(1.0)
 		gd.register(
 			"OiNode",
 			"Node",
@@ -37,22 +37,22 @@ init :: fn(get_proc: godot.GetProc, library: ptr, out: ptr) bool {
 
 @c ready :: fn(inst: ptr) {
 	print("oi: ready")
-	gd := godot.of_inst(inst)
+	gd := godot.gd
 	v := gd.variant()
-	v.set_int(gd, 42)
-	i := v.int(gd)
-	v.set_float(gd, 2.5)
-	f := v.float(gd)
-	v.set_bool(gd, true)
-	b := v.bool(gd)
-	v.set_string(gd, "hi")
-	s := v.string(gd)
-	t := v.type(gd)
-	v.drop(gd)
+	v.set_int(42)
+	i := v.int()
+	v.set_float(2.5)
+	f := v.float()
+	v.set_bool(true)
+	b := v.bool()
+	v.set_string("hi")
+	s := v.string()
+	t := v.type()
+	v.drop()
 	print("oi: variant {i} {f} {b} {s} {t}")
 	name := gd.call(godot.object(inst), gd.bind(0, "Object", "get_class", 201670096), [])
-	class := name.string(gd)
-	name.drop(gd)
+	class := name.string()
+	name.drop()
 	print("oi: class {class}")
 }
 
@@ -63,7 +63,9 @@ init :: fn(get_proc: godot.GetProc, library: ptr, out: ptr) bool {
 @c process :: fn(inst: ptr, delta: f64) {
 	s := godot.state[State](inst)
 	godot.set_state(inst, State.{ s.frames + 1, s.speed })
-	if s.frames == 0 { print("oi: process {delta}") }
+	if s.frames == 0 {
+		print("oi: process {delta}")
+	}
 }
 
 @c hello :: fn(inst: ptr, args: ptr, ret: ptr) {
@@ -71,17 +73,16 @@ init :: fn(get_proc: godot.GetProc, library: ptr, out: ptr) bool {
 }
 
 @c add :: fn(inst: ptr, args: ptr, ret: ptr) {
-	gd := godot.of_inst(inst)
-	godot.ret(ret).set_int(gd, godot.arg(args, 0).int(gd) + godot.arg(args, 1).int(gd))
+	godot.ret(ret).set_int(godot.arg(args, 0).int() + godot.arg(args, 1).int())
 }
 
 @c get_speed :: fn(inst: ptr, args: ptr, ret: ptr) {
-	godot.ret(ret).set_float(godot.of_inst(inst), godot.state[State](inst).speed)
+	godot.ret(ret).set_float(godot.state[State](inst).speed)
 }
 
 @c set_speed :: fn(inst: ptr, args: ptr, ret: ptr) {
 	godot.set_state(inst, State.{
 		godot.state[State](inst).frames,
-		godot.arg(args, 0).float(godot.of_inst(inst))
+		godot.arg(args, 0).float()
 	})
 }

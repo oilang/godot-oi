@@ -73,7 +73,14 @@ MethodPtrCall :: @c fn(userdata: ptr, inst: ptr, args: ptr, ret: ptr)
 }
 
 ## GDExtensionPropertyInfo
-@c PropertyInfo :: struct { type: i32, name: ptr, class_name: ptr, hint: u32, hint_string: ptr, usage: u32 }
+@c PropertyInfo :: struct {
+	type: i32,
+	name: ptr,
+	class_name: ptr,
+	hint: u32,
+	hint_string: ptr,
+	usage: u32
+}
 
 ## GDExtensionCallError
 @c CallError :: struct { error: i32, argument: i32, expected: i32 }
@@ -101,7 +108,12 @@ TOO_FEW :: 4
 pub Slot :: struct { name: cstr, type: Type }
 
 ## A method scripts can call. `ret` is `none` for no return. The callback sees every slot as a `Variant`.
-pub Method :: struct { name: cstr, call: OnMethod, args: []Slot, ret: ?Type }
+pub Method :: struct {
+	name: cstr,
+	call: OnMethod,
+	args: []Slot,
+	ret: ?Type
+}
 
 ## PropertyHint, the few we use until generated.
 pub Hint :: enum { nil, range, options, file = 13 }
@@ -117,10 +129,18 @@ pub Property :: struct {
 	default: ?Variant,
 }
 
-pub ready :: fn(cb: OnReady) Virtual { Virtual.{ "_ready", call_ready, ptr(cb) } }
-pub process :: fn(cb: OnProcess) Virtual { Virtual.{ "_process", call_process, ptr(cb) } }
-pub slot :: fn(name: cstr, t: Type) Slot { Slot.{ name, t } }
-pub method :: fn(name: cstr, cb: OnMethod, args: []Slot, ret: ?Type) Method { Method.{ name, cb, args, ret } }
+pub ready :: fn(cb: OnReady) Virtual {
+	Virtual.{ "_ready", call_ready, ptr(cb) }
+}
+pub process :: fn(cb: OnProcess) Virtual {
+	Virtual.{ "_process", call_process, ptr(cb) }
+}
+pub slot :: fn(name: cstr, t: Type) Slot {
+	Slot.{ name, t }
+}
+pub method :: fn(name: cstr, cb: OnMethod, args: []Slot, ret: ?Type) Method {
+	Method.{ name, cb, args, ret }
+}
 
 pub property :: fn(
 	name: cstr, t: Type, get: OnMethod, set: OnMethod, exported: bool,
@@ -138,11 +158,18 @@ pub arg :: fn(args: ptr, n: int) Variant {
 pub ret :: fn(at: ptr) Variant { Variant.{ at } }
 
 ## A `Virtual` or `Method` once registered.
-@c Bound :: struct { default: ptr, name: StringName, call: ptr, target: ptr, argc: i32, types: ptr, ret: i32 }
+@c Bound :: struct {
+	default: ptr,
+	name: StringName,
+	call: ptr,
+	target: ptr,
+	argc: i32,
+	types: ptr,
+	ret: i32
+}
 
 ## Per-class state, handed to Godot as `class_userdata`. Classes chain through `next`.
 @c pub Class :: struct {
-	gd: Godot,
 	name: StringName,
 	parent: StringName,
 	state: usize,
@@ -157,11 +184,6 @@ pub ret :: fn(at: ptr) Variant { Variant.{ at } }
 @c pub Instance :: struct {
 	pub class: ptr,
 	pub object: ptr,
-}
-
-## The handle behind an instance callback.
-pub of_inst :: fn(inst: ptr) Godot {
-	unsafe inst.read[Instance]().class.read[Class]().gd
 }
 
 ## The engine object behind `inst`.
@@ -193,7 +215,9 @@ type_at :: fn(table: ptr, n: int) Type {
 }
 
 Godot :< {
-	pub register :: fn(self, name: cstr, parent: cstr, state: usize, virtuals: []Virtual, own: []Method, props: []Property) {
+	pub register :: fn(
+		self, name: cstr, parent: cstr, state: usize, virtuals: []Virtual, own: []Method, props: []Property,
+	) {
 		methods: []Method
 		methods << own
 		loop i in 0..props.len {
@@ -205,19 +229,37 @@ Godot :< {
 		vt := unsafe malloc(Bound.size * usize.(virtuals.len))
 		loop i in 0..virtuals.len {
 			v := virtuals[i]
-			unsafe bound(vt, i).write(Bound.{ ptr(0), self.string_name(v.name), ptr(v.call), v.target })
+			unsafe bound(vt, i).write(Bound.{
+				ptr(0),
+				self.string_name(v.name),
+				ptr(v.call),
+				v.target
+			})
 		}
 		mt := unsafe malloc(Bound.size * usize.(methods.len))
 		loop i in 0..methods.len {
 			m := methods[i]
 			types := unsafe malloc(usize.(4 * m.args.len))
-			loop j in 0..m.args.len { unsafe ptr(types.0 + usize.(4 * j)).write(i32.(m.args[j].type)) }
-			unsafe bound(mt, i).write(Bound.{ ptr(0), self.string_name(m.name), ptr(m.call), ptr(0), i32.(m.args.len), types, i32.(m.ret or .nil) })
+			loop j in 0..m.args.len {
+				unsafe ptr(types.0 + usize.(4 * j)).write(i32.(m.args[j].type))
+			}
+			b := Bound.{
+				ptr(0),
+				self.string_name(m.name),
+				ptr(m.call),
+				ptr(0),
+				i32.(m.args.len),
+				types,
+				i32.(m.ret or .nil)
+			}
+			unsafe bound(mt, i).write(b)
 		}
-		loop i in 0..props.len { unsafe bound(mt, own.len + 2 * i + 1).write((props[i].default or Variant.{ ptr(0) }).at) }
+		loop i in 0..props.len {
+			unsafe bound(mt, own.len + 2 * i + 1).write((props[i].default or Variant.{ ptr(0) }).at)
+		}
 		class := unsafe malloc(Class.size)
 		unsafe class.write(Class.{
-			self, self.string_name(name), self.string_name(parent), state,
+			self.string_name(name), self.string_name(parent), state,
 			vt, virtuals.len, mt, methods.len, self.classes.read[ptr](),
 		})
 		unsafe self.classes.write(class)
@@ -237,7 +279,9 @@ Godot :< {
 			b := bound(mt, i)
 			args := unsafe malloc(PropertyInfo.size * usize.(m.args.len))
 			meta := unsafe calloc(usize.(m.args.len), 4)
-			loop j in 0..m.args.len { unsafe prop(args, j).write(self.slot_info(m.args[j])) }
+			loop j in 0..m.args.len {
+				unsafe prop(args, j).write(self.slot_info(m.args[j]))
+			}
 			ret := unsafe malloc(PropertyInfo.size)
 			unsafe ret.write(self.slot_info(Slot.{ "", m.ret or .nil }))
 			unsafe minfo.write(MethodInfo.{
@@ -245,7 +289,9 @@ Godot :< {
 				u8.(if m.ret == none { 0 } else { 1 }), ret, 0, u32.(m.args.len), args, meta,
 			})
 			self.register_method(self.library, c.name.at, minfo)
-			loop j in 0..m.args.len { self.drop_slot(unsafe prop(args, j).read[PropertyInfo]()) }
+			loop j in 0..m.args.len {
+				self.drop_slot(unsafe prop(args, j).read[PropertyInfo]())
+			}
 			self.drop_slot(unsafe ret.read[PropertyInfo]())
 			unsafe free(args)
 			unsafe free(meta)
@@ -272,8 +318,8 @@ Godot :< {
 		loop !class.is_null() {
 			c := unsafe class.read[Class]()
 			self.unregister_class(self.library, c.name.at)
-			c.name.destroy(self)
-			c.parent.destroy(self)
+			c.name.destroy()
+			c.parent.destroy()
 			self.unbind(c.virtuals, c.nvirtuals)
 			self.unbind(c.methods, c.nmethods)
 			unsafe free(class)
@@ -286,12 +332,19 @@ Godot :< {
 		hs := unsafe malloc(usize.(STRING_SIZE))
 		self.new_string(hs, hint_string.ptr, i64.(hint_string.len))
 		usage := if s.type == .nil { USAGE_VARIANT } else { USAGE_DEFAULT }
-		PropertyInfo.{ i32.(s.type), self.string_name(s.name).at, self.string_name("").at, u32.(hint), hs, u32.(usage) }
+		PropertyInfo.{
+			i32.(s.type),
+			self.string_name(s.name).at,
+			self.string_name("").at,
+			u32.(hint),
+			hs,
+			u32.(usage)
+		}
 	}
 
 	drop_slot :: fn(self, p: PropertyInfo) {
-		StringName.{ p.name }.destroy(self)
-		StringName.{ p.class_name }.destroy(self)
+		StringName.{ p.name }.destroy()
+		StringName.{ p.class_name }.destroy()
 		self.drop_string(p.hint_string)
 		unsafe free(p.hint_string)
 	}
@@ -299,9 +352,11 @@ Godot :< {
 	unbind :: fn(self, table: ptr, n: int) {
 		loop i in 0..n {
 			b := unsafe bound(table, i).read[Bound]()
-			b.name.destroy(self)
+			b.name.destroy()
 			unsafe free(b.types)
-			if !b.default.is_null() { Variant.{ b.default }.drop(self) }
+			if !b.default.is_null() {
+				Variant.{ b.default }.drop()
+			}
 		}
 		unsafe free(table)
 	}
@@ -309,14 +364,16 @@ Godot :< {
 
 @c create_instance :: fn(class: ptr, notify: u8) ptr {
 	c := unsafe class.read[Class]()
-	object := c.gd.construct_object(c.parent.at)
+	object := gd.construct_object(c.parent.at)
 	inst := unsafe calloc(1, Instance.size + c.state)
 	unsafe inst.write(Instance.{ class, object })
-	c.gd.set_instance(object, c.name.at, inst)
+	gd.set_instance(object, c.name.at, inst)
 	loop i in 0..c.nmethods {
 		at := bound(c.methods, i)
 		b := unsafe at.read[Bound]()
-		if !b.default.is_null() { unsafe OnMethod(b.call)(inst, at, ptr(0)) }
+		if !b.default.is_null() {
+			unsafe OnMethod(b.call)(inst, at, ptr(0))
+		}
 	}
 	object
 }
@@ -331,7 +388,7 @@ Godot :< {
 	loop i in 0..c.nvirtuals {
 		at := bound(c.virtuals, i)
 		b := unsafe at.read[Bound]()
-		if b.name.same(name) { return at }
+		if b.name.same(name) do return at
 	}
 	ptr(0)
 }
@@ -357,14 +414,21 @@ Godot :< {
 @c call_method :: fn(userdata: ptr, inst: ptr, args: ptr, argc: i64, ret: ptr, err: ptr) {
 	b := unsafe userdata.read[Bound]()
 	if argc != i64.(b.argc) {
-		unsafe err.write(CallError.{ i32.(if argc > i64.(b.argc) { TOO_MANY } else { TOO_FEW }), 0, b.argc })
+		unsafe err.write(CallError.{
+			i32.(if argc > i64.(b.argc) { TOO_MANY } else { TOO_FEW }),
+			0,
+			b.argc
+		})
 		return
 	}
-	gd := of_inst(inst)
 	loop i in 0..int.(b.argc) {
 		t := type_at(b.types, i)
-		if t != .nil && gd.variant_can_convert(i32.(arg(args, i).type(gd)), i32.(t)) == 0 {
-			unsafe err.write(CallError.{ i32.(INVALID_ARG), i32.(i), i32.(t) })
+		if t != .nil && gd.variant_can_convert(i32.(arg(args, i).type()), i32.(t)) == 0 {
+			unsafe err.write(CallError.{
+				i32.(INVALID_ARG),
+				i32.(i),
+				i32.(t)
+			})
 			return
 		}
 	}
@@ -375,13 +439,14 @@ Godot :< {
 ## The typed call path.
 @c ptrcall_method :: fn(userdata: ptr, inst: ptr, args: ptr, ret: ptr) {
 	b := unsafe userdata.read[Bound]()
-	gd := of_inst(inst)
 	n := int.(b.argc)
 	boxed := unsafe malloc(ptr.size * usize.(n))
 	loop i in 0..n {
 		t := type_at(b.types, i)
 		v := if t == .nil { arg(args, i) } else { gd.variant() }
-		if t != .nil { gd.from_type(t, v, arg(args, i).at) }
+		if t != .nil {
+			gd.from_type(t, v, arg(args, i).at)
+		}
 		unsafe ptr(boxed.0 + ptr.size * usize.(i)).write(v.at)
 	}
 	rt := Type.from(b.ret) or .nil
@@ -390,8 +455,12 @@ Godot :< {
 	on_method(inst, boxed, out.at)
 	if rt != .nil {
 		gd.to_type(rt, out, ret)
-		out.drop(gd)
+		out.drop()
 	}
-	loop i in 0..n { if type_at(b.types, i) != .nil { arg(boxed, i).drop(gd) } }
+	loop i in 0..n {
+		if type_at(b.types, i) != .nil {
+			arg(boxed, i).drop()
+		}
+	}
 	unsafe free(boxed)
 }

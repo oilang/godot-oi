@@ -10,14 +10,14 @@ Godot :< {
 	pub bind :: fn(self, slot: int, class: cstr, method: cstr, hash: i64) ptr {
 		cell := ptr(self.binds.0 + ptr.size * usize.(slot))
 		bind := unsafe cell.read[ptr]()
-		if !bind.is_null() { return bind }
+		if !bind.is_null() do return bind
 
 		class_name := self.string_name(class)
 		method_name := self.string_name(method)
 		bind = self.get_method_bind(class_name.at, method_name.at, hash)
 
-		class_name.destroy(self)
-		method_name.destroy(self)
+		class_name.destroy()
+		method_name.destroy()
 		unsafe cell.write(bind)
 
 		bind
@@ -26,7 +26,9 @@ Godot :< {
 	## Call `bind` on the engine `object`.
 	pub call :: fn(self, object: ptr, bind: ptr, args: []Variant) Variant {
 		packed := unsafe malloc(ptr.size * usize.(args.len))
-		loop i in 0..args.len { unsafe ptr(packed.0 + ptr.size * usize.(i)).write(args[i].at) }
+		loop i in 0..args.len {
+			unsafe ptr(packed.0 + ptr.size * usize.(i)).write(args[i].at)
+		}
 		out := self.variant()
 		err := unsafe malloc(CallError.size)
 		self.method_bind_call(bind, object, packed, i64.(args.len), out.at, err)

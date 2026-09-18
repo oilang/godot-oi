@@ -31,25 +31,25 @@ Godot :< {
 	## Fresh `Variant`s holding a value.
 	pub bool :: fn(self, b: bool) Variant {
 		v := self.variant()
-		v.set_bool(self, b)
+		v.set_bool(b)
 		v
 	}
 
 	pub int :: fn(self, n: i64) Variant {
 		v := self.variant()
-		v.set_int(self, n)
+		v.set_int(n)
 		v
 	}
 
 	pub float :: fn(self, f: f64) Variant {
 		v := self.variant()
-		v.set_float(self, f)
+		v.set_float(f)
 		v
 	}
 
 	pub string :: fn(self, s: string) Variant {
 		v := self.variant()
-		v.set_string(self, s)
+		v.set_string(s)
 		v
 	}
 
@@ -65,11 +65,11 @@ Godot :< {
 }
 
 Variant :< {
-	pub type :: fn(self, gd: Godot) Type {
+	pub type :: fn(self) Type {
 		Type.from(gd.variant_type(self.at)) or .nil
 	}
 
-	pub bool :: fn(self, gd: Godot) bool {
+	pub bool :: fn(self) bool {
 		buf := unsafe malloc(1)
 		gd.to_type(.bool, self, buf)
 		b := unsafe buf.read[u8]()
@@ -77,7 +77,7 @@ Variant :< {
 		b != 0
 	}
 
-	pub int :: fn(self, gd: Godot) i64 {
+	pub int :: fn(self) i64 {
 		buf := unsafe malloc(8)
 		gd.to_type(.int, self, buf)
 		n := unsafe buf.read[i64]()
@@ -85,7 +85,7 @@ Variant :< {
 		n
 	}
 
-	pub float :: fn(self, gd: Godot) f64 {
+	pub float :: fn(self) f64 {
 		buf := unsafe malloc(8)
 		gd.to_type(.float, self, buf)
 		f := unsafe buf.read[f64]()
@@ -93,7 +93,7 @@ Variant :< {
 		f
 	}
 
-	pub string :: fn(self, gd: Godot) string {
+	pub string :: fn(self) string {
 		str := unsafe malloc(usize.(STRING_SIZE))
 		gd.to_type(.string, self, str)
 		n := gd.string_utf8(str, ptr(0), 0)
@@ -107,28 +107,28 @@ Variant :< {
 	}
 
 	## Setters overwrite in place.
-	pub set_bool :: fn(self, gd: Godot, b: bool) {
+	pub set_bool :: fn(self, b: bool) {
 		buf := unsafe malloc(1)
 		unsafe buf.write(u8.(if b { 1 } else { 0 }))
 		gd.from_type(.bool, self, buf)
 		unsafe free(buf)
 	}
 
-	pub set_int :: fn(self, gd: Godot, n: i64) {
+	pub set_int :: fn(self, n: i64) {
 		buf := unsafe malloc(8)
 		unsafe buf.write(n)
 		gd.from_type(.int, self, buf)
 		unsafe free(buf)
 	}
 
-	pub set_float :: fn(self, gd: Godot, f: f64) {
+	pub set_float :: fn(self, f: f64) {
 		buf := unsafe malloc(8)
 		unsafe buf.write(f)
 		gd.from_type(.float, self, buf)
 		unsafe free(buf)
 	}
 
-	pub set_string :: fn(self, gd: Godot, s: string) {
+	pub set_string :: fn(self, s: string) {
 		str := unsafe malloc(usize.(STRING_SIZE))
 		gd.new_string(str, s.ptr, i64.(s.len))
 		gd.from_type(.string, self, str)
@@ -137,13 +137,13 @@ Variant :< {
 	}
 
 	## Release the held value.
-	pub clear :: fn(self, gd: Godot) {
+	pub clear :: fn(self) {
 		gd.variant_destroy(self.at)
 	}
 
 	## Clear and free.
-	pub drop :: fn(self, gd: Godot) {
-		self.clear(gd)
+	pub drop :: fn(self) {
+		self.clear()
 		unsafe free(self.at)
 	}
 }

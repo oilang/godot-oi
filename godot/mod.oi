@@ -39,6 +39,9 @@ pub Level :: enum { core, servers, scene, editor }
 	binds: ptr,
 }
 
+## Global, filled by `setup`.
+pub gd := Godot.{}
+
 ## Fill in `GDExtensionInitialization` from the entrypoint.
 pub setup :: fn(get_proc: GetProc, library: ptr, out: ptr, initialize: Callback, deinitialize: Callback) bool {
 	get_version :: unsafe GetVersion(get_proc("get_godot_version2"))
@@ -65,12 +68,14 @@ pub setup :: fn(get_proc: GetProc, library: ptr, out: ptr, initialize: Callback,
 	binds :: unsafe calloc(usize.(MAX_BINDS), ptr.size)
 	godot :: unsafe malloc(Godot.size)
 
-	unsafe godot.write(Godot.{
+	gd = Godot.{
 		get_proc, library, get_version, new_string_name, drop_string_name,
-		new_string, string_utf8, drop_string, variant_from_type, variant_to_type, variant_type, variant_destroy, variant_can_convert,
+		new_string, string_utf8, drop_string, variant_from_type, variant_to_type, variant_type,
+		variant_destroy, variant_can_convert,
 		register_class, unregister_class, register_method, register_property, construct_object, set_instance,
 		get_method_bind, method_bind_call, classes, binds,
-	})
+	}
+	unsafe godot.write(gd)
 	unsafe classes.write(ptr(0))
 	unsafe out.write(Init.{ i32.(Level.scene), godot, initialize, deinitialize })
 
