@@ -2,6 +2,22 @@ module godot
 
 ## Call engine methods on an object.
 
+## An engine object, the root of `api/classes/`.
+## Its own methods are generated into `api/classes/object.oi`.
+@c pub Object :: struct { pub object: ptr }
+
+Object :< {
+	pub from_ptr :: fn(p: ptr) Object { .{ p } }
+
+	## `is_class` from a literal.
+	pub is_a :: fn(self, class: string) bool {
+		name := gd.string_name(class.cstr())
+		yes := self.is_class(name)
+		name.destroy()
+		yes
+	}
+}
+
 Godot :< {
 	## `MethodBind`.
 	pub bind :: fn(self, slot: int, class: cstr, method: cstr, hash: i64) ptr {

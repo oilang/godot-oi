@@ -1,0 +1,25 @@
+module godot
+
+## RefCounted, the engine rc driven by the Copy and Drop hooks.
+@c pub RefCounted :: struct { Object }
+
+RefCounted :< {
+	pub from_ptr :: fn(p: ptr) RefCounted {
+		.{ Object.{ p } }
+	}
+}
+
+RefCounted : Drop, Copy < {
+	drop :: fn(mut self) {
+		if self.object.is_null() do return
+		if self.unreference() {
+			gd.object_destroy(self.object)
+		}
+	}
+
+	copy :: fn(mut self) {
+		if !self.object.is_null() {
+			_ := self.reference()
+		}
+	}
+}

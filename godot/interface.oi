@@ -70,3 +70,12 @@ MethodBindCall :: @c fn(bind: ptr, object: ptr, args: ptr, argc: i64, ret: ptr, 
 
 ## GDExtensionInterfaceObjectMethodBindPtrcall
 MethodBindPtrcall :: @c fn(bind: ptr, object: ptr, args: ptr, ret: ptr)
+
+## GDExtensionInterfaceGlobalGetSingleton
+GetSingleton :: @c fn(name: ptr) ptr
+
+## GDExtensionInterfaceRefGetObject
+RefGetObject :: @c fn(ref: ptr) ptr
+
+## GDExtensionInterfaceObjectDestroy
+ObjectDestroy :: @c fn(object: ptr)

@@ -1,4 +1,5 @@
 use godot
+use godot.{ String, NodePath, StringName, Vector2, Color }
 
 ## Per-instance state.
 @c State :: struct { frames: u64, speed: f64 }
@@ -54,10 +55,33 @@ init :: fn(get_proc: godot.GetProc, library: ptr, out: ptr) bool {
 	class := name.string()
 	name.drop()
 	print("oi: class {class}")
+	hi := String.("hi there")
+	same := hi == String.("hi there")
+	path := NodePath.("Player/Sprite")
+	sn := StringName.("ready")
+	print("oi: string {hi} {same} {path} {sn}")
+	z := Vector2.ZERO
+	w := Color.WHITE
+	print("oi: const {z.x} {z.y} {w.r} {w.g} {w.b} {w.a}")
 }
 
 @c ready2d :: fn(inst: ptr) {
 	print("oi: ready 2d")
+	o := godot.Object.from_ptr(godot.object(inst))
+	n := godot.Node2D.from_ptr(o.object)
+	v := Vector2.{ 1.0, 2.0 }
+	n.set_position(v)
+	p := n.get_position()
+	print("oi: position {p.x} {p.y}")
+	print("oi: physics ticks {godot.Engine.singleton().get_physics_ticks_per_second()}")
+	same := o.is_a("Node2D")
+	yes := godot.Node2D.cast(o) != none
+	no := godot.Node3D.cast(o) == none
+	static := godot.PortableCompressedTexture2D.is_keeping_all_compressed_buffers()
+	print("oi: is_a {same} cast {yes} {no} static {static}")
+	kid := godot.Node.new()
+	n.add_child(kid)
+	print("oi: children {n.get_child_count()}")
 }
 
 @c process :: fn(inst: ptr, delta: f64) {

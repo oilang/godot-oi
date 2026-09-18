@@ -38,6 +38,10 @@ pub Level :: enum { core, servers, scene, editor }
 	classes: ptr,
 	binds: ptr,
 	method_bind_ptrcall: MethodBindPtrcall,
+	get_singleton: GetSingleton,
+	ref_get_object: RefGetObject,
+	object_destroy: ObjectDestroy,
+	singletons: ptr,
 }
 
 ## Global, filled by `setup`.
@@ -68,6 +72,10 @@ pub setup :: fn(get_proc: GetProc, library: ptr, out: ptr, initialize: Callback,
 	classes :: unsafe malloc(ptr.size)
 	binds :: unsafe calloc(usize.(BINDS), ptr.size)
 	method_bind_ptrcall :: unsafe MethodBindPtrcall(get_proc("object_method_bind_ptrcall"))
+	get_singleton :: unsafe GetSingleton(get_proc("global_get_singleton"))
+	ref_get_object :: unsafe RefGetObject(get_proc("ref_get_object"))
+	object_destroy :: unsafe ObjectDestroy(get_proc("object_destroy"))
+	singletons :: unsafe calloc(usize.(SINGLETONS), ptr.size)
 	godot :: unsafe malloc(Godot.size)
 
 	gd = Godot.{
@@ -75,7 +83,8 @@ pub setup :: fn(get_proc: GetProc, library: ptr, out: ptr, initialize: Callback,
 		new_string, string_utf8, drop_string, variant_from_type, variant_to_type, variant_type,
 		variant_destroy, variant_can_convert,
 		register_class, unregister_class, register_method, register_property, construct_object, set_instance,
-		get_method_bind, method_bind_call, classes, binds, method_bind_ptrcall,
+		get_method_bind, method_bind_call, classes, binds, method_bind_ptrcall, get_singleton, ref_get_object,
+		object_destroy, singletons,
 	}
 	unsafe godot.write(gd)
 	unsafe classes.write(ptr(0))

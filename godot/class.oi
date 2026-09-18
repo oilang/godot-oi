@@ -368,6 +368,9 @@ Godot :< {
 	inst := unsafe calloc(1, Instance.size + c.state)
 	unsafe inst.write(Instance.{ class, object })
 	gd.set_instance(object, c.name.at, inst)
+	if notify != 0 {
+		Object.from_ptr(object).notification(0)
+	}
 	loop i in 0..c.nmethods {
 		at := bound(c.methods, i)
 		b := unsafe at.read[Bound]()
