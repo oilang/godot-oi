@@ -23,6 +23,8 @@ main :: fn() {
 	}
 	prepare(api)
 	counts := [ enums(api) constants(api) structs(api) builtins(api) classes(api) singletons(api) ]
+	counts << utility(api)
+	counts << binds(api)
 	index(api)
 	print("gen: " + counts.join(", "))
 }

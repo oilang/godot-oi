@@ -1,5 +1,5 @@
 use godot
-use godot.{ String, NodePath, StringName, Vector2, Color }
+use godot.{ String, NodePath, StringName, Vector2, Color, Array }
 
 ## Per-instance state.
 @c State :: struct { frames: u64, speed: f64 }
@@ -63,6 +63,17 @@ init :: fn(get_proc: godot.GetProc, library: ptr, out: ptr) bool {
 	z := Vector2.ZERO
 	w := Color.WHITE
 	print("oi: const {z.x} {z.y} {w.r} {w.g} {w.b} {w.a}")
+	up := hi.to_upper()
+	v2 := Vector2.{ 3.0, 4.0 }
+	list := Array.new()
+	seven := gd.int(7)
+	list.push_back(seven)
+	seven.drop()
+	print("oi: builtin {hi.length()} {up} {v2.length()} {list.size()}")
+	hello := gd.string("oi: utility print")
+	godot.print([ hello ])
+	hello.drop()
+	print("oi: utility {godot.deg_to_rad(180.0)} {godot.type_string(2)}")
 }
 
 @c ready2d :: fn(inst: ptr) {

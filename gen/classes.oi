@@ -169,12 +169,11 @@ Sig :: struct {
 	ropt: bool,
 }
 
-## Args and return of a method.
-sig :: fn(m: Obj) ?Sig {
+## Args of a method, `none` when a type does not resolve.
+args_of :: fn(raw: []Obj) ?[]Arg {
 	typs := []Typ.[]
 	defs := []string.[]
 
-	raw := arr(m, "arguments")
 	loop a in raw {
 		typ := resolve(text(a, "type"), text(a, "meta")) or { return none }
 		typs << typ
@@ -204,21 +203,26 @@ sig :: fn(m: Obj) ?Sig {
 		}
 	}
 
+	args
+}
+
+## Args and return.
+sig :: fn(m: Obj) ?Sig {
+	args := args_of(arr(m, "arguments")) or { return none }
 	rt := Typ.{ "void", "", 0, "" }
 	ropt := false
-	if has(m, "return_value") {
-		r := node(m, "return_value")
-		rt = resolve(text(r, "type"), text(r, "meta")) or { return none }
-		if rt.kind in ["object", "refobj"] {
-			ropt = text(r, "meta") != "required"
-		}
+	ret := if has(m, "return_value") { node(m, "return_value") } else { m }
+	key := if has(m, "return_value") { "type" } else { "return_type" }
+	if has(ret, key) {
+		rt = resolve(text(ret, key), text(ret, "meta")) or { return none }
+		ropt = rt.kind in [ "object", "refobj" ] && text(ret, "meta") != "required"
 	}
 	Sig.{ args, rt, ropt }
 }
 
-params :: fn(args: []Arg, static: bool) string {
+params :: fn(args: []Arg, recv: string) string {
 	list: []string = []
-	if !static { list << "self" }
+	if recv != "" { list << recv }
 	loop a in args {
 		t := if a.opt { "?{a.typ.sig}" } else { a.typ.sig }
 		list << if a.def == "" { "{a.name}: {t}" } else { "{a.name}: {t} = {a.def}" }
@@ -308,36 +312,32 @@ vararg :: fn(bind: string, this: string, args: []Arg, rt: Typ) s: string {
 	"{s}\t\tcode := {rt.sig}.from(rv.int()) or .{enum_first[rt.name]}\n\t\trv.drop()\n\t\tcode\n"
 }
 
-## Storage is a pointer cell per arg, then 8-aligned storage per arg, then the return.
-method :: fn(cname: string, m: Obj) s: string {
-	g :: sig(m) or {
-		skipped += 1
-		return ""
-	}
-	args := g.args
-	rt := g.rt
-	name := text(m, "name")
-	static := flag(m, "is_static")
-	hash := lit(m, "hash")
-	this := if static { "ptr(0)" } else { "self.object" }
-	fname := safe(name, [ "copy", "drop" ])
-	ps := params(args, static)
-	n := slot
-	slot += 1
-	bind := "mb := gd.bind({n}, \"{cname}\", \"{name}\", {hash})"
+## The engine fn a wrapper wraps, what it is called on, and how it disposes of the receiver.
+Call :: struct {
+	kind: string,
+	this: string,
+	bind: string,
+	after: string,
+}
 
-	if flag(m, "is_vararg") {
-		rs := if rt.kind == "enum" { rt.sig } else { "Variant" }
-		return "\tpub {fname} :: fn({ps}, varargs: []Variant) {rs} {{\n" + vararg(bind, this, args, rt) + "\t}}\n"
+invoke :: fn(c: Call, argp: string, rptr: string, argc: int) string {
+	match c.kind {
+		"builtin" => "unsafe BuiltinMethod(mb)({c.this}, {argp}, {rptr}, {argc})",
+		"utility" => "unsafe UtilityFunction(mb)({rptr}, {argp}, {argc})",
+		_ => "gd.method_bind_ptrcall(mb, {c.this}, {argp}, {rptr})",
 	}
-	rsig := match true {
+}
+
+ret_sig :: fn(rt: Typ, ropt: bool) string {
+	match true {
 		rt.kind == "void" => { "" },
-		g.ropt => { " ?" + rt.sig },
+		ropt => { " ?" + rt.sig },
 		_ => { " " + rt.sig }
 	}
+}
 
-	s += "\tpub {fname} :: fn({ps}){rsig} {{\n"
-
+## Storage is a pointer cell per arg, then 8-aligned storage per arg, then the return.
+ptrcall_body :: fn(args: []Arg, rt: Typ, ropt: bool, c: Call) s: string {
 	cursor := 8 * args.len
 	offs: []int = []
 	loop a in args {
@@ -373,11 +373,12 @@ method :: fn(cname: string, m: Obj) s: string {
 		s += "\t\tat := unsafe calloc(1, StringName.size)\n"
 	}
 	argp := if args.len > 0 do "blk" else do "ptr(0)"
-	s += "\t\t{bind}\n\t\tgd.method_bind_ptrcall(mb, {this}, {argp}, {rptr})\n"
-	got := get(rt, g.ropt, roff)
+	s += "\t\t{c.bind}\n\t\t{invoke(c, argp, rptr, args.len)}\n"
+	got := get(rt, ropt, roff)
 	if got != "" {
 		s += "\t\t{got}\n"
 	}
+	s += c.after
 
 	loop i in 0..args.len {
 		a := args[i]
@@ -393,7 +394,32 @@ method :: fn(cname: string, m: Obj) s: string {
 		s += "\t\trv\n"
 	}
 
-	s + "\t}}\n"
+	s
+}
+
+method :: fn(cname: string, m: Obj) string {
+	g :: sig(m) or {
+		skipped += 1
+		return ""
+	}
+	args := g.args
+	rt := g.rt
+	name := text(m, "name")
+	static := flag(m, "is_static")
+	hash := lit(m, "hash")
+	this := if static { "ptr(0)" } else { "self.object" }
+	fname := safe(name, [ "copy", "drop" ])
+	ps := params(args, if static { "" } else { "self" })
+	n := slot
+	slot += 1
+	bind := "mb := gd.bind({n}, \"{cname}\", \"{name}\", {hash})"
+
+	if flag(m, "is_vararg") {
+		rs := if rt.kind == "enum" { rt.sig } else { "Variant" }
+		return "\tpub {fname} :: fn({ps}, varargs: []Variant) {rs} {{\n" + vararg(bind, this, args, rt) + "\t}}\n"
+	}
+	c := Call.{ "class", this, bind, "" }
+	"\tpub {fname} :: fn({ps}){ret_sig(rt, g.ropt)} {{\n" + ptrcall_body(args, rt, g.ropt, c) + "\t}}\n"
 }
 
 ## Generate method body.
@@ -451,7 +477,7 @@ chain :: fn(name: string, parents: [string]string) string {
 	"{name}.{{ {inner} }}"
 }
 
-classes :: fn(api: Obj) s: string {
+classes :: fn(api: Obj) string {
 	items := arr(api, "classes")
 	parents: [string]string = []
 	loop c in items {
@@ -462,6 +488,7 @@ classes :: fn(api: Obj) s: string {
 		name := text(c, "name")
 		if name in skip do continue
 
+		s := ""
 		if name in hand {
 			s += "## The rest of `{name}`, the struct is hand-written in `godot/`.\n{name} :< {{\n"
 		} else {
@@ -478,11 +505,16 @@ classes :: fn(api: Obj) s: string {
 		emit("{out}/classes/{snake(name)}.oi", head + s + body(c) + "}}\n")
 		n += 1
 	}
+	"{n} classes, {slot} methods, {skipped} skipped"
+}
+
+## Slot counts.
+binds :: fn(api: Obj) string {
+	doc := "## Slots in `Godot.binds`, one per generated call, and in `Godot.singletons`."
 	nsing := arr(api, "singletons").len
-	doc := "## Slots in `Godot.binds`, one per generated method, and in `Godot.singletons`."
 
 	emit("{out}/binds.oi", "{head}{doc}\npub BINDS :: {slot}\npub SINGLETONS :: {nsing}\n")
-	"{n} classes, {slot} methods, {skipped} skipped"
+	"{slot} binds"
 }
 
 singletons :: fn(api: Obj) string {

@@ -2,37 +2,88 @@ module main
 
 ## Generate Godot builtins.
 
-## An opaque builtin.
-opaque :: fn(name: string, size: int, destructor: bool, ctors: []Obj, opaques: []string) string {
-	t := vtype(name)
-	words := (size + 7) / 8
-	fields: []string = []
-	reads: []string = []
-	loop i in 0..words {
-		fields << "w{i}: u64"
-		reads << "b.offset({8 * i}).read[u64]()"
-	}
-	fs := fields.join(", ")
-	rs := reads.join(", ")
+Member :: struct {
+	name: string,
+	typ: string,
+	off: int,
+}
 
-	lines: []string = [ "@c pub {name} :: struct {{ {fs} }}", "", "{name} :< {{" ]
-	lines << "\t## A malloc'd copy of the words for the ptr fns, which free it."
+## `bytes` / `from_bytes` / `set_bytes`.
+movers :: fn(name: string, size: int, ms: []Member) lines: []string {
+	lines << "\t## A malloc'd copy of the bytes for the ptr fns, which free it."
 	lines << "\tpub bytes :: fn(self) ptr {{"
 	lines << "\t\tb := unsafe malloc({size})"
 
-	loop i in 0..words {
-		lines << "\t\tunsafe b.offset({8 * i}).write(self.w{i})"
+	loop m in ms {
+		lines << "\t\tunsafe b.offset({m.off}).write(self.{m.name})"
 	}
 
 	lines << "\t\tb"
 	lines << "\t}}"
 	lines << ""
-	lines << "\t## Take what a ptr fn wrote into `b` and free it."
-	lines << "\tpub from_bytes :: fn(b: ptr) {name} {{"
-	lines << "\t\tv := unsafe {name}.{{ {rs} }}"
+	lines << "\t## Take `b` back in place, for a method that mutates its base. Frees `b`."
+	lines << "\tpub set_bytes :: fn(mut self, b: ptr) {{"
+
+	loop m in ms {
+		lines << "\t\tself.{m.name} = unsafe b.offset({m.off}).read[{m.typ}]()"
+	}
+
 	lines << "\t\tunsafe free(b)"
+	lines << "\t}}"
+	lines << ""
+	lines << "\tpub from_bytes :: fn(b: ptr) {name} {{"
+	lines << "\t\tv := {name}.{{}}"
+	lines << "\t\tv.set_bytes(b)"
 	lines << "\t\tv"
 	lines << "\t}}"
+
+	lines
+}
+
+## A math builtin as a `@c` struct with real fields, its constants as fills.
+math :: fn(name: string, size: int, members: []Obj, consts: []Obj, methods: string) s: string {
+	metas: []string = []
+	ms: []Member = []
+
+	s += "@c pub {name} :: struct {{\n"
+	loop m in members {
+		meta := text(m, "meta")
+		mname := text(m, "member")
+		metas << meta
+		ms << Member.{ mname, member_type(meta), num(m, "offset") }
+		s += "\tpub {mname}: {member_type(meta)}\n"
+	}
+	s += "}}\n\n"
+
+	lines := movers(name, size, ms)
+	loop k in consts {
+		kname := text(k, "name")
+		f := fill(name, text(k, "value"), metas) or { continue }
+		lines << "\tpub {kname} :: {f}"
+	}
+
+	"{s}{name} :< {{\n" + lines.join("\n") + "\n{methods}}}\n"
+}
+
+## An opaque builtin, sized in `u64` words because a fixed array field comes back garbage.
+opaque :: fn(
+	name: string,
+	size: int,
+	destructor: bool,
+	ctors: []Obj,
+	opaques: []string,
+	methods: string
+) string {
+	t := vtype(name)
+	ms: []Member = []
+	decls: []string = []
+	loop i in 0..(size + 7) / 8 {
+		ms << Member.{ "w{i}", "u64", 8 * i }
+		decls << "w{i}: u64"
+	}
+
+	lines: []string = [ "@c pub {name} :: struct {{ " + decls.join(", ") + " }}", "", "{name} :< {{" ]
+	lines << movers(name, size, ms)
 	lines << ""
 	lines << "\tpub new :: fn() {name} {{ {name}.from_bytes(construct(.{t}, {size}, 0, [])) }}"
 
@@ -53,30 +104,53 @@ opaque :: fn(name: string, size: int, destructor: bool, ctors: []Obj, opaques: [
 		lines << "\t}}"
 	}
 
-	lines << "}}"
+	body := lines.join("\n") + "\n{methods}}}\n"
 
 	if destructor {
-		lines << ""
-		lines << "{name} : Drop < {{ drop :: fn(mut self) {{ destroy(.{t}, self.bytes()) }} }}"
-		lines << ""
-		lines << "{name} : Copy < {{"
-		lines << "\tcopy :: fn(mut self) {{"
-		lines << "\t\tb := construct(.{t}, {size}, 1, [self.bytes()])"
-
-		loop i in 0..words {
-			lines << "\t\tself.w{i} = unsafe b.offset({8 * i}).read[u64]()"
-		}
-
-		lines << "\t\tunsafe free(b)"
-		lines << "\t}}"
-		lines << "}}"
+		body += "\n{name} : Drop < {{ drop :: fn(mut self) {{ destroy(.{t}, self.bytes()) }} }}\n"
+		body += "\n{name} : Copy < {{\n"
+		body += "\tcopy :: fn(mut self) {{ self.set_bytes(construct(.{t}, {size}, 1, [self.bytes()])) }}\n"
+		body += "}}\n"
 	}
 
-	lines << ""
-	lines << "{name} : Eq < {{"
-	lines << "\teq :: fn(self, other: {name}) bool {{ equal(.{t}, self.bytes(), other.bytes()) }}"
-	lines << "}}"
-	lines.join("\n") + "\n"
+	body += "\n{name} : Eq < {{\n\teq :: fn(self, other: {name}) bool {{ equal(.{t}, self.bytes(), other.bytes()) }}\n}}\n"
+
+	body
+}
+
+## A builtin method over `variant_get_ptr_builtin_method`.
+builtin_method :: fn(bname: string, m: Obj) string {
+	g :: sig(m) or {
+		skipped += 1
+		return ""
+	}
+	name := text(m, "name")
+	fname := safe(name, [ "new", "bytes", "from_bytes", "set_bytes", "copy", "drop", "eq", "str" ])
+	n := slot
+	slot += 1
+	hash := lit(m, "hash")
+	bind := "mb := gd.ptr_bind({n}, .{vtype(bname)}, \"{name}\", {hash})"
+
+	# static vs. const vs. non-const
+	static := flag(m, "is_static")
+	recv := match true {
+		static => { "" },
+		flag(m, "is_const") => { "self" },
+		_ => { "mut self" }
+	}
+	base := if static { "" } else { "\t\tbase := self.bytes()\n" }
+
+	# a const method just frees its copy of the base, a mutating one reads it back
+	after := match true {
+		static => { "" },
+		recv == "self" => { "\t\tunsafe free(base)\n" },
+		_ => { "\t\tself.set_bytes(base)\n" }
+	}
+
+	c := Call.{ "builtin", if static { "ptr(0)" } else { "base" }, bind, after }
+	ps := params(g.args, recv)
+
+	"\tpub {fname} :: fn({ps}){ret_sig(g.rt, g.ropt)} {{\n{base}" + ptrcall_body(g.args, g.rt, g.ropt, c) + "\t}}\n"
 }
 
 ## Fill a struct.

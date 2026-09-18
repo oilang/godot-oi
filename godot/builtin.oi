@@ -14,6 +14,18 @@ GetEvaluator :: @c fn(op: i32, left: i32, right: i32) ptr
 ## GDExtensionPtrOperatorEvaluator
 Evaluator :: @c fn(left: ptr, right: ptr, result: ptr)
 
+## GDExtensionInterfaceVariantGetPtrBuiltinMethod
+GetBuiltinMethod :: @c fn(variant_type: i32, method: ptr, hash: i64) ptr
+
+## GDExtensionPtrBuiltInMethod
+pub BuiltinMethod :: @c fn(base: ptr, args: ptr, ret: ptr, argc: i32)
+
+## GDExtensionInterfaceVariantGetPtrUtilityFunction
+GetUtilityFunction :: @c fn(function: ptr, hash: i64) ptr
+
+## GDExtensionPtrUtilityFunction
+pub UtilityFunction :: @c fn(ret: ptr, args: ptr, argc: i32)
+
 ## GDExtensionVariantOperator
 EQUAL :: 0
 
@@ -23,6 +35,8 @@ STRING_NAME_SIZE :: 8
 	constructor: ptr,
 	destructor: ptr,
 	evaluator: ptr,
+	builtin_method: ptr,
+	utility: ptr,
 }
 procs := Procs.{}
 
@@ -32,9 +46,31 @@ lookups :: fn() Procs {
 			gd.proc("variant_get_ptr_constructor"),
 			gd.proc("variant_get_ptr_destructor"),
 			gd.proc("variant_get_ptr_operator_evaluator"),
+			gd.proc("variant_get_ptr_builtin_method"),
+			gd.proc("variant_get_ptr_utility_function"),
 		}
 	}
 	procs
+}
+
+Godot :< {
+	## `PtrBuiltInMethod` / `PtrUtilityFunction`.
+	pub ptr_bind :: fn(self, slot: int, type: Type, name: cstr, hash: i64) ptr {
+		cell := ptr(self.binds.0 + ptr.size * usize.(slot))
+		fp := unsafe cell.read[ptr]()
+		if !fp.is_null() do return fp
+
+		sn := self.string_name(name)
+		fp = if type == .nil {
+			unsafe GetUtilityFunction(lookups().utility)(sn.at, hash)
+		} else {
+			unsafe GetBuiltinMethod(lookups().builtin_method)(i32.(type), sn.at, hash)
+		}
+		sn.destroy()
+		unsafe cell.write(fp)
+
+		fp
+	}
 }
 
 ## Constructor `index` of `type` over `args` into fresh storage taken on by the caller.

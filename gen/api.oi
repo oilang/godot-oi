@@ -56,7 +56,7 @@ enum_block :: fn(doc: string, name: string, owner: string, values: []Obj, bitfie
 	}
 
 	n_enums += 1
-	if bitfield { "{s}\n" } else { s + "{s}}}\n\n" }
+	if bitfield { "{s}\n" } else { "{s}}}\n\n" }
 }
 
 ## The enums nested in builtins or classes, as `{Owner}{Enum}`.
@@ -174,28 +174,6 @@ member_type :: fn(meta: string) string {
 	}
 }
 
-## A math builtin as a `@c` struct with its constants as fills.
-math :: fn(name: string, fields: []Obj, consts: []Obj) s: string {
-	metas: []string = []
-	s += "@c pub {name} :: struct {{\n"
-	loop m in fields {
-		meta := text(m, "meta")
-		mname := text(m, "member")
-		metas << meta
-		s += "\tpub {mname}: {member_type(meta)}\n"
-	}
-	s += "}}\n"
-	fills := ""
-	loop k in consts {
-		kname := text(k, "name")
-		match fill(name, text(k, "value"), metas) {
-			.some(f) => { fills += "\tpub {kname} :: {f}\n" },
-			.none => {},
-		}
-	}
-	if fills == "" { s } else { "{s}\n{name} :< {{\n{fills}}}\n" }
-}
-
 builtins :: fn(api: Obj) string {
 	items := arr(api, "builtin_classes")
 	offsets := arr(config(api, "builtin_class_member_offsets"), "classes")
@@ -207,21 +185,32 @@ builtins :: fn(api: Obj) string {
 		}
 	}
 	n := 0
+	nm := slot
 	loop b in items {
 		name := text(b, "name")
 		if name in skip || name in scalars { continue }
 
+		## Varargs need the `variant_call` path, not a ptr fn.
+		ms := ""
+		loop m in arr(b, "methods") {
+			if flag(m, "is_vararg") {
+				skipped += 1
+				continue
+			}
+			ms += builtin_method(name, m)
+		}
+
 		fields := layout(offsets, name)
 		body := if fields.len > 0 {
-			math(name, fields, arr(b, "constants"))
+			math(name, sizes[name], fields, arr(b, "constants"), ms)
 		} else {
-			opaque(name, sizes[name], flag(b, "has_destructor"), arr(b, "constructors"), opaques)
+			opaque(name, sizes[name], flag(b, "has_destructor"), arr(b, "constructors"), opaques, ms)
 		}
 
 		emit("{out}/builtins/{snake(name)}.oi", "{head}## {name}\n{body}")
 		n += 1
 	}
-	"{n} builtins"
+	"{n} builtins, {slot - nm} methods"
 }
 
 ## Wrap in quotes.

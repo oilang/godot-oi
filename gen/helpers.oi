@@ -49,14 +49,16 @@ arr :: fn(o: Obj, k: string) []Obj {
 	out
 }
 
-## An integer literal, the i64 extremes spelled so they lex.
+INT_MIN :: "-9223372036854775807 - 1"
+INT_MAX :: "9223372036854775807"
+
 lit :: fn(o: Obj, k: string) string {
 	s := match at(o, k) {
 		v @ float => v.str(),
 		_ => "0.0"
 	}
 	if s.contains("e") {
-		return if s.starts_with("-") { "{int.min}" } else { "{int.max}" }
+		return if s.starts_with("-") { INT_MIN } else { INT_MAX }
 	}
 	s[..s.len - 2]
 }

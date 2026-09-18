@@ -1,0 +1,64 @@
+module main
+
+## Generate the `@GlobalScope` utility functions.
+
+## A vararg utility fn.
+## The ptr fn reads every cell as a `Variant`.
+utility_vararg :: fn(fname: string, bind: string, rt: Typ) s: string {
+	rptr := match rt.kind {
+		"void" => "ptr(0)",
+		"variant" => "rv.at",
+		_ => "out",
+	}
+	tail := match rptr {
+		"rv.at" => "\trv\n",
+		"out" => "\t{rt.sig}.from_bytes(out)\n",
+		_ => "",
+	}
+
+	s += "pub {fname} :: fn(varargs: []Variant){ret_sig(rt, false)} {{\n"
+	s += "\tblk := unsafe malloc(ptr.size * usize.(varargs.len))\n"
+	s += "\tloop i in 0..varargs.len {{ unsafe ptr(blk.0 + ptr.size * usize.(i)).write(varargs[i].at) }}\n"
+	if rt.kind == "variant" {
+		s += "\trv := gd.variant()\n"
+	}
+	if rptr == "out" {
+		s += "\tout := unsafe calloc(1, usize.({rt.size}))\n"
+	}
+	s += "\t{bind}\n"
+	s += "\tunsafe UtilityFunction(mb)({rptr}, blk, i32.(varargs.len))\n"
+	s += "\tunsafe free(blk)\n"
+
+	s + tail + "}}\n"
+}
+
+utility :: fn(api: Obj) string {
+	lines: []string = []
+	n := 0
+	loop f in arr(api, "utility_functions") {
+		g := sig(f) or {
+			skipped += 1
+			continue
+		}
+		name := text(f, "name")
+		hash := lit(f, "hash")
+		i := slot
+		slot += 1
+		bind := "mb := gd.ptr_bind({i}, .nil, \"{name}\", {hash})"
+		fname := safe(name, [])
+		n += 1
+
+		if flag(f, "is_vararg") {
+			lines << utility_vararg(fname, bind, g.rt)
+			continue
+		}
+
+		c := Call.{ "utility", "", bind, "" }
+		body := ("\n" + ptrcall_body(g.args, g.rt, g.ropt, c)).split("\n\t").join("\n")
+		ps := params(g.args, "")
+		lines << "pub {fname} :: fn({ps}){ret_sig(g.rt, g.ropt)} {{" + body + "}}\n"
+	}
+
+	emit("{out}/utility.oi", head + lines.join("\n"))
+	"{n} utility fns"
+}
