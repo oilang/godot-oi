@@ -1,0 +1,259 @@
+module main
+
+## Generate Godot types.
+## Enums, constants, structs, builtins, etc.
+
+n_enums := 0
+
+## The prefix every value of a Godot enum shares.
+prefix :: fn(names: []string) string {
+	if names.len < 2 do return ""
+	pre := ""
+	loop word in names[0].split("_") {
+		cand := pre + word + "_"
+		loop name in names {
+			if !name.starts_with(cand) do return pre
+		}
+		pre = cand
+	}
+	pre
+}
+
+## A flat enum, or an `i64` plus consts for a bitfield.
+enum_block :: fn(doc: string, name: string, owner: string, values: []Obj, bitfield: bool) s: string {
+	names: []string = []
+	loop v in values {
+		names << text(v, "name")
+	}
+
+	pre := prefix(names)
+	if bitfield {
+		s += "## {doc} (bitfield)\npub {name} :: i64\n"
+	} else {
+		s += "## {doc}\npub {name} :: enum {{\n"
+	}
+
+	seen: []string = []
+	loop v in values {
+		vname := text(v, "name")
+		n := lit(v, "value")
+		if bitfield {
+			s += "pub {owner}{vname} :: {n}\n"
+			continue
+		}
+		if n in seen do continue
+
+		seen << n
+		vn := variant(vname[pre.len..vname.len])
+		s += "\t{vn} = {n}\n"
+		key := "{name}:{n}"
+		if !(name in enum_first.keys) {
+			enum_first[name] = vn
+		}
+		if !(key in enum_values.keys) {
+			enum_values[key] = vn
+		}
+	}
+
+	n_enums += 1
+	if bitfield { "{s}\n" } else { s + "{s}}}\n\n" }
+}
+
+## The enums nested in builtins or classes, as `{Owner}{Enum}`.
+owner_enums :: fn(items: []Obj) s: string {
+	loop c in items {
+		cname := text(c, "name")
+		pre := snake(cname).upper() + "_"
+		loop e in arr(c, "enums") {
+			ename := text(e, "name")
+			s += enum_block(
+				"{cname}.{ename}",
+				cname + ename,
+				pre,
+				arr(e, "values"),
+				flag(e, "is_bitfield")
+			)
+		}
+	}
+	s
+}
+
+enums :: fn(api: Obj) s: string {
+	loop e in arr(api, "global_enums") {
+		raw := text(e, "name")
+		s += enum_block(raw, enum_name(raw), "", arr(e, "values"), flag(e, "is_bitfield"))
+	}
+	emit(
+		"{out}/enums.oi",
+		head + s + owner_enums(arr(api, "builtin_classes")) + owner_enums(arr(api, "classes"))
+	)
+	"{n_enums} enums"
+}
+
+constants :: fn(api: Obj) s: string {
+	items := arr(api, "global_constants")
+	loop c in items {
+		cname := text(c, "name")
+		n := lit(c, "value")
+		s += "## @GlobalScope.{cname}\npub {cname} :: {n}\n"
+	}
+	emit("{out}/constants.oi", head + s)
+	"{items.len} constants"
+}
+
+## Get the C type for a native struct format.
+ctype :: fn(t: string) string {
+	match t {
+		"int" => "i32",
+		"int32_t" => "i32",
+		"int64_t" => "i64",
+		"uint8_t" => "u8",
+		"uint16_t" => "u16",
+		"uint32_t" => "u32",
+		"uint64_t" => "u64",
+		"float" => "f32",
+		"real_t" => "f32",
+		"double" => "f64",
+		"bool" => "bool",
+		_ => if t.contains("::") { "i32" } else { t },
+	}
+}
+
+## A native struct as a `@c` struct, "" when a field has no C layout in Oi.
+struct_block :: fn(s: Obj) string {
+	name := text(s, "name")
+	body := ""
+	loop field in text(s, "format").split(";") {
+		parts := field.split(" = ")[0].split(" ")
+		typ := ctype(parts[0])
+		fname := parts[parts.len - 1]
+		if fname.starts_with("*") {
+			typ = "ptr"
+			fname = fname[1..fname.len]
+		}
+		if fname.contains("[") {
+			if !(typ in [ "i32", "i64", "u8", "u16", "u32", "u64", "f32", "f64", "bool", "ptr" ]) do return ""
+			halves := fname.split("[")
+			count := halves[1].split("]")[0]
+			fname = halves[0]
+			typ = "[{count}]{typ}"
+		}
+		fname = safe(fname, [])
+		body += "\tpub {fname}: {typ}\n"
+	}
+	"## {name}\n@c pub {name} :: struct {{\n{body}}}\n\n"
+}
+
+structs :: fn(api: Obj) s: string {
+	n := 0
+	loop item in arr(api, "native_structures") {
+		block := struct_block(item)
+		if block == "" do continue
+		s += block
+		n += 1
+	}
+	emit("{out}/structs.oi", head + s)
+	"{n} structs"
+}
+
+## The member layout of a math builtin, empty when it is opaque.
+layout :: fn(offsets: []Obj, name: string) []Obj {
+	loop c in offsets {
+		if text(c, "name") == name {
+			return arr(c, "members")
+		}
+	}
+	[]
+}
+
+member_type :: fn(meta: string) string {
+	match meta {
+		"float" => "f32",
+		"int32" => "i32",
+		_ => meta
+	}
+}
+
+## A math builtin as a `@c` struct with its constants as fills.
+math :: fn(name: string, fields: []Obj, consts: []Obj) s: string {
+	metas: []string = []
+	s += "@c pub {name} :: struct {{\n"
+	loop m in fields {
+		meta := text(m, "meta")
+		mname := text(m, "member")
+		metas << meta
+		s += "\tpub {mname}: {member_type(meta)}\n"
+	}
+	s += "}}\n"
+	fills := ""
+	loop k in consts {
+		kname := text(k, "name")
+		match fill(name, text(k, "value"), metas) {
+			.some(f) => { fills += "\tpub {kname} :: {f}\n" },
+			.none => {},
+		}
+	}
+	if fills == "" { s } else { "{s}\n{name} :< {{\n{fills}}}\n" }
+}
+
+builtins :: fn(api: Obj) string {
+	items := arr(api, "builtin_classes")
+	offsets := arr(config(api, "builtin_class_member_offsets"), "classes")
+	opaques: []string = []
+	loop b in items {
+		name := text(b, "name")
+		if layout(offsets, name).len == 0 && !(name in scalars) {
+			opaques << name
+		}
+	}
+	n := 0
+	loop b in items {
+		name := text(b, "name")
+		if name in skip || name in scalars { continue }
+
+		fields := layout(offsets, name)
+		body := if fields.len > 0 {
+			math(name, fields, arr(b, "constants"))
+		} else {
+			opaque(name, sizes[name], flag(b, "has_destructor"), arr(b, "constructors"), opaques)
+		}
+
+		emit("{out}/builtins/{snake(name)}.oi", "{head}## {name}\n{body}")
+		n += 1
+	}
+	"{n} builtins"
+}
+
+## Wrap in quotes.
+q :: fn(s: string) string { "\"{s}\"" }
+
+## Write index.json.
+index :: fn(api: Obj) {
+	entries: []string = []
+	loop c in arr(api, "classes") {
+		virtuals: []string = []
+		loop m in arr(c, "methods") {
+			if !flag(m, "is_virtual") do continue
+
+			args: []string = []
+			loop a in arr(m, "arguments") {
+				args << q(text(a, "type"))
+			}
+			ret := if has(m, "return_value") {
+				text(node(m, "return_value"), "type")
+			} else do "void"
+			req := flag(m, "is_required")
+			hash := lit(m, "hash")
+			mname := q(text(m, "name"))
+			open := "{{\"name\":{mname},\"hash\":{hash},\"required\":{req},\"args\":["
+			virtuals << open + args.join(",") + "],\"ret\":" + q(ret) + "}}"
+		}
+		names: []string = []
+		loop e in arr(c, "enums") {
+			names << q(text(e, "name"))
+		}
+		body := ",\"virtuals\":[" + virtuals.join(",") + "],\"enums\":[" + names.join(",") + "]}}"
+		entries << q(text(c, "name")) + ":{{\"parent\":" + q(text(c, "inherits")) + body
+	}
+	emit("{out}/index.json", "{{" + entries.join(",") + "}}\n")
+}

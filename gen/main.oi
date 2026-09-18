@@ -1,0 +1,28 @@
+module main
+
+## Writes `godot/api/` from `godot/extension_api.json`.
+
+fopen : fn(path: cstr, mode: cstr) ptr : foreign
+fputs : fn(s: cstr, stream: ptr) i32 : foreign
+fclose : fn(stream: ptr) i32 : foreign
+mkdir : fn(path: cstr, mode: i32) i32 : foreign
+
+out := "godot/api"
+head := "module godot\n\n"
+
+emit :: fn(path: string, body: string) {
+	f := unsafe fopen(path.cstr(), "w".cstr())
+	_ := unsafe fputs(body.cstr(), f)
+	if unsafe fclose(f) != 0 do print("gen: cannot write {path}")
+}
+
+main :: fn() {
+	api := load("godot/extension_api.json")
+	loop d in [ "", "/builtins", "/classes" ] {
+		_ := unsafe mkdir((out + d).cstr(), 493)
+	}
+	prepare(api)
+	counts := [ enums(api) constants(api) structs(api) builtins(api) classes(api) singletons(api) ]
+	index(api)
+	print("gen: " + counts.join(", "))
+}

@@ -1,89 +1,156 @@
-module gen
-
-## Generator helpers.
+module main
 
 use fs
 use json.{ Json, Arr, Obj, parse }
 
-obj :: fn(json: Json) Obj {
-	match json {
-		value @ Obj => value,
-		_ => []
-	}
+at :: fn(o: Obj, k: string) Json {
+	if k in o.keys { o[k] } else { :null }
 }
-arr :: fn(json: Json) Arr {
-	match json {
-		value @ Arr => value,
-		_ => []
-	}
+has :: fn(o: Obj, k: string) bool {
+	k in o.keys
 }
-text :: fn(json: Json) string {
-	match json {
-		value @ string => value,
+text :: fn(o: Obj, k: string) string {
+	match at(o, k) {
+		v @ string => v,
 		_ => ""
 	}
 }
-flag :: fn(json: Json) bool {
-	match json {
-		value @ bool => value,
+flag :: fn(o: Obj, k: string) bool {
+	match at(o, k) {
+		v @ bool => v,
 		_ => false
 	}
 }
-has :: fn(obj: Obj, key: string) bool {
-	key in obj.keys
-}
-
-## A JSON number.
-num :: fn(json: Json) i64 {
-	str := match json { value @ float => value.str(), _ => "0.0" }
-	i64.(str[..str.len - 2]) or 0
-}
-
-## The dump at `path`, indexed by class name.
-load :: fn(path: string) [string]Obj {
-	src := fs.read(path) or { panic!("gen: {$.message()}, run `just api`"); "" }
-	api := obj(parse(src) or { panic!("gen: {path}: {$.message()}"); :null })
-	classes: [string]Obj = []
-	list := arr(api["classes"])
-	loop i in 0..list.len {
-		class := obj(list[i])
-		classes[text(class["name"])] = class
+num :: fn(o: Obj, k: string) int {
+	match at(o, k) {
+		v @ float => int.(v),
+		_ => 0
 	}
-	classes
+}
+node :: fn(o: Obj, k: string) Obj {
+	match at(o, k) {
+		v @ Obj => v,
+		_ => []
+	}
 }
 
-## Transform to Godot's snakes.
-snake :: fn(name: string) string {
-	out := ""
-	loop i in 0..name.len {
-		ch := name[i..i + 1]
-		prev := if i > 0 { name[i - 1..i] } else { "" }
-		next := if i + 1 < name.len { name[i + 1..i + 2] } else { "" }
-		up := ch != ch.lower()
-		if i > 0 && ((up && (prev != prev.upper() || next != next.upper())) || (!up && ch == ch.upper() && prev != prev.upper())) { out += "_" }
-		out += ch.lower()
+arr :: fn(o: Obj, k: string) []Obj {
+	out: []Obj = []
+	raw: Arr = match at(o, k) {
+		v @ Arr => v,
+		_ => []
+	}
+	loop item in raw {
+		out << match item {
+			v @ Obj => v,
+			_ => []
+		}
 	}
 	out
 }
 
-reserved :: fn() []string {
-	[
-		"break", "comp", "continue", "else", "enum", "fn", "foreign", "if", "in", "is", "loop", "match",
-		"module", "move", "mut", "none", "or", "pub", "return", "struct", "trait", "unsafe", "use",
-	]
+## An integer literal, the i64 extremes spelled so they lex.
+lit :: fn(o: Obj, k: string) string {
+	s := match at(o, k) {
+		v @ float => v.str(),
+		_ => "0.0"
+	}
+	if s.contains("e") {
+		return if s.starts_with("-") { "{int.min}" } else { "{int.max}" }
+	}
+	s[..s.len - 2]
 }
 
-## An engine name that is safe as an Oi identifier.
-safe :: fn(name: string) string { if name in reserved() { name + "_" } else { name } }
-
-## How an engine type crosses into Oi.
-Kind :: struct { oi: string, variant: string }
-kind :: fn(name: string) ?Kind {
-	match name {
-		"int" => Kind.{ "i64", "int" },
-		"float" => Kind.{ "f64", "float" },
-		"bool" => Kind.{ "bool", "bool" },
-		"String" => Kind.{ "string", "string" },
-		_ => none,
+## The `float_64` row of a per-build table.
+config :: fn(api: Obj, table: string) Obj {
+	loop c in arr(api, table) {
+		if text(c, "build_configuration") == "float_64" do return c
 	}
+	[]
+}
+
+load :: fn(path: string) Obj {
+	src := fs.read(path) or {
+		panic!("gen: {$.message()}, run `just api`")
+		""
+	}
+	parsed :: parse(src) or {
+		panic!("gen: {path}: {$.message()}")
+		:null
+	}
+	match parsed {
+		v @ Obj => v,
+		_ => []
+	}
+}
+
+caps :: fn(c: u8) bool { c >= 65 && c <= 90 }
+low :: fn(c: u8) bool { c >= 97 && c <= 122 }
+digit :: fn(c: u8) bool { c >= 48 && c <= 57 }
+
+## `AStar2D` to `a_star_2d`.
+snake :: fn(name: string) string {
+	out := ""
+	loop i in 0..name.len {
+		c := name[i]
+		if i > 0 {
+			p := name[i - 1]
+			nl := if i + 1 < name.len {
+				low(name[i + 1])
+			} else {
+				false
+			}
+			split := if caps(c) {
+				low(p) || nl
+			} else {
+				digit(c) && low(p)
+			}
+			if split { out += "_" }
+		}
+		out += name[i..i + 1].lower()
+	}
+	out
+}
+
+## The `Type` variant of a builtin, `PackedInt32Array` to `packed_int32_array`.
+vtype :: fn(name: string) string {
+	s := snake(name)
+	out := ""
+	loop i in 0..s.len {
+		if s[i] == 95 && i + 1 < s.len && digit(s[i + 1]) do continue
+		out += s[i..i + 1]
+	}
+	out
+}
+
+keywords: []string = [
+	"break", "comp", "continue", "else", "enum", "fn", "foreign", "if", "in", "is", "loop", "match",
+	"module", "move", "mut", "none", "or", "pub", "return", "struct", "trait", "unsafe", "use",
+]
+
+## `name` as an identifier, `clash` naming what else is taken where it lands.
+safe :: fn(name: string, clash: []string) string {
+	if name in keywords || name in clash {
+		name + "_"
+	} else {
+		name
+	}
+}
+
+## `INHERIT` to `inherit`, `2D` to `_2d`.
+variant :: fn(name: string) string {
+	if digit(name[0]) {
+		"_" + name.lower()
+	} else {
+		safe(name.lower(), [])
+	}
+}
+
+## Hand-written in `godot/`: `skip` entirely, `hand` only the struct.
+skip: []string = ["StringName"]
+hand: []string = ["Object", "RefCounted"]
+scalars: []string = ["Nil", "bool", "int", "float"]
+
+rename :: fn(name: string) string {
+	if name == "Error" { "GodotError" } else { name }
 }

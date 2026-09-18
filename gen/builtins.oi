@@ -1,0 +1,102 @@
+module main
+
+## Generate Godot builtins.
+
+## An opaque builtin.
+opaque :: fn(name: string, size: int, destructor: bool, ctors: []Obj, opaques: []string) string {
+	t := vtype(name)
+	words := (size + 7) / 8
+	fields: []string = []
+	reads: []string = []
+	loop i in 0..words {
+		fields << "w{i}: u64"
+		reads << "b.offset({8 * i}).read[u64]()"
+	}
+	fs := fields.join(", ")
+	rs := reads.join(", ")
+
+	lines: []string = [ "@c pub {name} :: struct {{ {fs} }}", "", "{name} :< {{" ]
+	lines << "\t## A malloc'd copy of the words for the ptr fns, which free it."
+	lines << "\tpub bytes :: fn(self) ptr {{"
+	lines << "\t\tb := unsafe malloc({size})"
+
+	loop i in 0..words {
+		lines << "\t\tunsafe b.offset({8 * i}).write(self.w{i})"
+	}
+
+	lines << "\t\tb"
+	lines << "\t}}"
+	lines << ""
+	lines << "\t## Take what a ptr fn wrote into `b` and free it."
+	lines << "\tpub from_bytes :: fn(b: ptr) {name} {{"
+	lines << "\t\tv := unsafe {name}.{{ {rs} }}"
+	lines << "\t\tunsafe free(b)"
+	lines << "\t\tv"
+	lines << "\t}}"
+	lines << ""
+	lines << "\tpub new :: fn() {name} {{ {name}.from_bytes(construct(.{t}, {size}, 0, [])) }}"
+
+	loop c in ctors {
+		args := arr(c, "arguments")
+		if args.len != 1 { continue }
+
+		at := text(args[0], "type")
+		if at == name || !(at in opaques) { continue }
+
+		an := text(args[0], "name")
+		idx := lit(c, "index")
+		vt := vtype(at)
+
+		lines << ""
+		lines << "\tpub from_{vt} :: fn({an}: {at}) {name} {{"
+		lines << "\t\t{name}.from_bytes(construct(.{t}, {size}, {idx}, [{an}.bytes()]))"
+		lines << "\t}}"
+	}
+
+	lines << "}}"
+
+	if destructor {
+		lines << ""
+		lines << "{name} : Drop < {{ drop :: fn(mut self) {{ destroy(.{t}, self.bytes()) }} }}"
+		lines << ""
+		lines << "{name} : Copy < {{"
+		lines << "\tcopy :: fn(mut self) {{"
+		lines << "\t\tb := construct(.{t}, {size}, 1, [self.bytes()])"
+
+		loop i in 0..words {
+			lines << "\t\tself.w{i} = unsafe b.offset({8 * i}).read[u64]()"
+		}
+
+		lines << "\t\tunsafe free(b)"
+		lines << "\t}}"
+		lines << "}}"
+	}
+
+	lines << ""
+	lines << "{name} : Eq < {{"
+	lines << "\teq :: fn(self, other: {name}) bool {{ equal(.{t}, self.bytes(), other.bytes()) }}"
+	lines << "}}"
+	lines.join("\n") + "\n"
+}
+
+## Fill a struct.
+fill :: fn(name: string, value: string, metas: []string) ?string {
+	inner := value.split("(")[1].split(")")[0]
+	parts: []string = []
+	toks := inner.split(", ")
+	loop i in 0..toks.len {
+		tok := toks[i]
+		match metas[i] {
+			"float" => {
+				parts << match true {
+					tok == "inf" => { "1e400" },
+					tok.contains(".") => { tok },
+					_ => { "{tok}.0" }
+				}
+			},
+			"int32" => { parts << tok },
+			_ => { return none },
+		}
+	}
+	"{name}.{{ " + parts.join(", ") + " }}"
+}
