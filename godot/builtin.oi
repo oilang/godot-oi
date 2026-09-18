@@ -1,0 +1,77 @@
+module godot
+
+## Godot builtins.
+
+## GDExtensionInterfaceVariantGetPtrConstructor
+GetConstructor :: @c fn(variant_type: i32, index: i32) ptr
+
+## GDExtensionPtrConstructor
+Constructor :: @c fn(base: ptr, args: ptr)
+
+## GDExtensionInterfaceVariantGetPtrOperatorEvaluator
+GetEvaluator :: @c fn(op: i32, left: i32, right: i32) ptr
+
+## GDExtensionPtrOperatorEvaluator
+Evaluator :: @c fn(left: ptr, right: ptr, result: ptr)
+
+## GDExtensionVariantOperator
+EQUAL :: 0
+
+STRING_NAME_SIZE :: 8
+
+@c Procs :: struct {
+	constructor: ptr,
+	destructor: ptr,
+	evaluator: ptr,
+}
+procs := Procs.{}
+
+lookups :: fn() Procs {
+	if procs.constructor.is_null() {
+		procs = Procs.{
+			gd.proc("variant_get_ptr_constructor"),
+			gd.proc("variant_get_ptr_destructor"),
+			gd.proc("variant_get_ptr_operator_evaluator"),
+		}
+	}
+	procs
+}
+
+## Constructor `index` of `type` over `args` into fresh storage taken on by the caller.
+## Frees `args`.
+pub construct :: fn(type: Type, size: usize, index: int, args: []ptr) ptr {
+	get := unsafe GetConstructor(lookups().constructor)
+	ctor := unsafe Constructor(get(i32.(type), i32.(index)))
+	packed := unsafe malloc(ptr.size * usize.(args.len))
+	loop i in 0..args.len {
+		unsafe packed.offset(i * int.(ptr.size)).write(args[i])
+	}
+	base := unsafe malloc(size)
+	ctor(base, packed)
+	loop a in args {
+		unsafe free(a)
+	}
+	unsafe free(packed)
+	base
+}
+
+## Run the destructor of `type` on `b` and free it.
+pub destroy :: fn(type: Type, b: ptr) {
+	get := unsafe GetDestructor(lookups().destructor)
+	dtor := unsafe Destructor(get(i32.(type)))
+	dtor(b)
+	unsafe free(b)
+}
+
+## Equality check through the engine's Equal operator.
+pub equal :: fn(type: Type, left: ptr, right: ptr) bool {
+	get :: unsafe GetEvaluator(lookups().evaluator)
+	eval :: unsafe Evaluator(get(i32.(EQUAL), i32.(type), i32.(type)))
+	out := unsafe malloc(1)
+	eval(left, right, out)
+	hit := unsafe out.read[u8]()
+	unsafe free(out)
+	unsafe free(left)
+	unsafe free(right)
+	hit != 0
+}
