@@ -2,9 +2,6 @@ module godot
 
 ## Call engine methods on an object.
 
-## Slots in `Godot.binds` for cached `MethodBind`s.
-MAX_BINDS :: 4096
-
 Godot :< {
 	## `MethodBind`.
 	pub bind :: fn(self, slot: int, class: cstr, method: cstr, hash: i64) ptr {
