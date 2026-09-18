@@ -8,11 +8,12 @@ install:
 # dump extension_api.json from Godot
 api:
 	cd godot && godot --headless --dump-extension-api
+	{{oi}} run gen
 
 # build an example's extension into its lib/
 build name:
 	@test -e {{home}}/lib/godot || just install
-	@test -f godot/extension_api.json || just api
+	@test -d godot/api || just api
 	{{oi}} build examples/{{name}}/src/init.oi --lib -o examples/{{name}}/lib/liboi.so
 
 # run an example headless
