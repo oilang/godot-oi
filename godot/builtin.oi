@@ -75,3 +75,59 @@ pub equal :: fn(type: Type, left: ptr, right: ptr) bool {
 	unsafe free(right)
 	hit != 0
 }
+
+String :< {
+	pub str :: fn(self) string {
+		b := self.bytes()
+		n := gd.string_utf8(b, ptr(0), 0)
+		buf := unsafe malloc(usize.(n))
+		_ := gd.string_utf8(b, buf, n)
+		s := unsafe buf.string(int.(n))
+		unsafe free(buf)
+		unsafe free(b)
+		s
+	}
+}
+
+String : From[string] < {
+	from :: fn(v: string) String {
+		b := unsafe malloc(String.size)
+		gd.new_string(b, v.ptr, i64.(v.len))
+		String.from_bytes(b)
+	}
+}
+
+NodePath :< {
+	pub str :: fn(self) string {
+		s := String.from_node_path(self)
+		s.str()
+	}
+}
+
+NodePath : From[string] < {
+	from :: fn(v: string) NodePath {
+		NodePath.from_string(String.(v))
+	}
+}
+
+StringName :< {
+	## A malloc'd copy of the engine's 8 bytes, the shape `construct` takes.
+	pub bytes :: fn(self) ptr {
+		b := unsafe malloc(usize.(STRING_NAME_SIZE))
+		word := unsafe self.at.read[u64]()
+		unsafe b.write(word)
+		b
+	}
+
+	pub str :: fn(self) string {
+		s := String.from_string_name(self)
+		s.str()
+	}
+}
+
+StringName : From[string] < {
+	from :: fn(v: string) StringName {
+		s := String.(v)
+		StringName.{ construct(.string_name, usize.(STRING_NAME_SIZE), 2, [ s.bytes() ]) }
+	}
+}
