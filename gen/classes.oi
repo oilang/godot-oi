@@ -152,10 +152,10 @@ value :: fn(a: Arg) string {
 		"float" => if a.typ.sig == "f32" { "f64.({n})" } else do n,
 		"enum" => "i64.({n})",
 		"object" => if a.opt {
-			"match {n} {{ .some(o_) => o_.object, .none => ptr(0) }}"
+			"match {n} {{ .some.(o_) => o_.object, .none => ptr(0) }}"
 		} else do "{n}.object",
 		"refobj" => if a.opt {
-			"match {n} {{ .some(o_) => o_.object, .none => ptr(0) }}"
+			"match {n} {{ .some.(o_) => o_.object, .none => ptr(0) }}"
 		} else do "{n}.object",
 		_ => n,
 	}
@@ -241,10 +241,10 @@ put :: fn(a: Arg, i: int, store: string) string {
 		return "\t\tva_{i} := {n} or gd.variant()\n\t\t{cell}va_{i}.at)\n"
 	}
 	if a.typ.kind == "string_name" {
-		return "\t\t{cell}match {n} {{ .some(s_) => s_.at, .none => {store} }})\n"
+		return "\t\t{cell}match {n} {{ .some.(s_) => s_.at, .none => {store} }})\n"
 	}
 	set := if a.opt && a.typ.kind == "builtin" {
-		"match {n} {{ .some(b_) => unsafe {store}.write(b_), .none => {{}} }}"
+		"match {n} {{ .some.(b_) => unsafe {store}.write(b_), .none => {{}} }}"
 	} else {
 		"unsafe {store}.write({value(a)})"
 	}
@@ -430,7 +430,7 @@ body :: fn(c: Obj) s: string {
 
 	if name != "Object" {
 		lines << "\tpub cast :: fn(o: Object) ?{name} {{"
-		lines << "\t\tif !o.is_a(\"{name}\") {{ return none }}"
+		lines << "\t\tif !o.is_a(\"{name}\") {{ return ?{name}.(none) }}"
 		if refcounted[name] {
 			lines << "\t\tr_ := {name}.from_ptr(o.object)"
 			lines << "\t\t_ := r_.init_ref()"

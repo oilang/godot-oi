@@ -73,8 +73,7 @@ config :: fn(api: Obj, table: string) Obj {
 
 load :: fn(path: string) Obj {
 	src := fs.read(path) or {
-		panic!("gen: {$.message()}, run `just api`")
-		""
+		panic!("gen: cannot read {path}, run `just api`")
 	}
 	parsed :: parse(src) or {
 		panic!("gen: {path}: {$.message()}")
