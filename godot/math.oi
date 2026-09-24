@@ -1,0 +1,59 @@
+module godot
+
+## Hand-written arithmetic on the generated math builtins.
+
+Vector2 : Add, Sub, Neg, Mul, Div < {
+	add :: fn(self, other: Self) Self { .{ self.x + other.x, self.y + other.y } }
+	sub :: fn(self, other: Self) Self { .{ self.x - other.x, self.y - other.y } }
+	neg :: fn(self) Self { .{ -self.x, -self.y } }
+	mul :: fn(self, other: Self) Self { .{ self.x * other.x, self.y * other.y } }
+	div :: fn(self, other: Self) Self { .{ self.x / other.x, self.y / other.y } }
+}
+
+Vector2i : Add, Sub, Neg, Mul, Div < {
+	add :: fn(self, other: Self) Self { .{ self.x + other.x, self.y + other.y } }
+	sub :: fn(self, other: Self) Self { .{ self.x - other.x, self.y - other.y } }
+	neg :: fn(self) Self { .{ -self.x, -self.y } }
+	mul :: fn(self, other: Self) Self { .{ self.x * other.x, self.y * other.y } }
+	div :: fn(self, other: Self) Self { .{ self.x / other.x, self.y / other.y } }
+}
+
+Vector3 : Add, Sub, Neg, Mul, Div < {
+	add :: fn(self, other: Self) Self { .{ self.x + other.x, self.y + other.y, self.z + other.z } }
+	sub :: fn(self, other: Self) Self { .{ self.x - other.x, self.y - other.y, self.z - other.z } }
+	neg :: fn(self) Self { .{ -self.x, -self.y, -self.z } }
+	mul :: fn(self, other: Self) Self { .{ self.x * other.x, self.y * other.y, self.z * other.z } }
+	div :: fn(self, other: Self) Self { .{ self.x / other.x, self.y / other.y, self.z / other.z } }
+}
+
+Vector3i : Add, Sub, Neg, Mul, Div < {
+	add :: fn(self, other: Self) Self { .{ self.x + other.x, self.y + other.y, self.z + other.z } }
+	sub :: fn(self, other: Self) Self { .{ self.x - other.x, self.y - other.y, self.z - other.z } }
+	neg :: fn(self) Self { .{ -self.x, -self.y, -self.z } }
+	mul :: fn(self, other: Self) Self { .{ self.x * other.x, self.y * other.y, self.z * other.z } }
+	div :: fn(self, other: Self) Self { .{ self.x / other.x, self.y / other.y, self.z / other.z } }
+}
+
+Vector4 : Add, Sub, Neg, Mul, Div < {
+	add :: fn(self, other: Self) Self { .{ self.x + other.x, self.y + other.y, self.z + other.z, self.w + other.w } }
+	sub :: fn(self, other: Self) Self { .{ self.x - other.x, self.y - other.y, self.z - other.z, self.w - other.w } }
+	neg :: fn(self) Self { .{ -self.x, -self.y, -self.z, -self.w } }
+	mul :: fn(self, other: Self) Self { .{ self.x * other.x, self.y * other.y, self.z * other.z, self.w * other.w } }
+	div :: fn(self, other: Self) Self { .{ self.x / other.x, self.y / other.y, self.z / other.z, self.w / other.w } }
+}
+
+Vector4i : Add, Sub, Neg, Mul, Div < {
+	add :: fn(self, other: Self) Self { .{ self.x + other.x, self.y + other.y, self.z + other.z, self.w + other.w } }
+	sub :: fn(self, other: Self) Self { .{ self.x - other.x, self.y - other.y, self.z - other.z, self.w - other.w } }
+	neg :: fn(self) Self { .{ -self.x, -self.y, -self.z, -self.w } }
+	mul :: fn(self, other: Self) Self { .{ self.x * other.x, self.y * other.y, self.z * other.z, self.w * other.w } }
+	div :: fn(self, other: Self) Self { .{ self.x / other.x, self.y / other.y, self.z / other.z, self.w / other.w } }
+}
+
+Color : Add, Sub, Neg, Mul, Div < {
+	add :: fn(self, other: Self) Self { .{ self.r + other.r, self.g + other.g, self.b + other.b, self.a + other.a } }
+	sub :: fn(self, other: Self) Self { .{ self.r - other.r, self.g - other.g, self.b - other.b, self.a - other.a } }
+	neg :: fn(self) Self { .{ -self.r, -self.g, -self.b, -self.a } }
+	mul :: fn(self, other: Self) Self { .{ self.r * other.r, self.g * other.g, self.b * other.b, self.a * other.a } }
+	div :: fn(self, other: Self) Self { .{ self.r / other.r, self.g / other.g, self.b / other.b, self.a / other.a } }
+}
