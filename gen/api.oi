@@ -33,7 +33,8 @@ enum_block :: fn(doc: string, name: string, owner: string, values: []Obj, bitfie
 		s += "## {doc}\npub {name} :: enum {{\n"
 	}
 
-	seen: []string = []
+	seen: []string
+	aliases: []string
 	loop v in values {
 		vname := text(v, "name")
 		n := lit(v, "value")
@@ -41,22 +42,26 @@ enum_block :: fn(doc: string, name: string, owner: string, values: []Obj, bitfie
 			s += "pub {owner}{vname} :: {n}\n"
 			continue
 		}
-		if n in seen do continue
+		vn := variant(vname[pre.len..vname.len])
+		key := "{name}:{n}"
+		if n in seen {
+			aliases << "\tpub {vn} :: fn() {name} {{ {name}.{enum_values[key]} }}\n"
+			continue
+		}
 
 		seen << n
-		vn := variant(vname[pre.len..vname.len])
 		s += "\t{vn} = {n}\n"
-		key := "{name}:{n}"
 		if !(name in enum_first.keys) {
 			enum_first[name] = vn
 		}
-		if !(key in enum_values.keys) {
-			enum_values[key] = vn
-		}
+		enum_values[key] = vn
 	}
 
 	n_enums += 1
-	if bitfield { "{s}\n" } else { "{s}}}\n\n" }
+	body := if bitfield { "{s}\n" } else { "{s}}}\n\n" }
+	if aliases.len > 0 {
+		body + "{name} :< {{\n" + aliases.join("") + "}}\n\n"
+	} else do body
 }
 
 ## The enums nested in builtins or classes, as `{Owner}{Enum}`.

@@ -64,6 +64,7 @@ init :: fn(get_proc: godot.GetProc, library: ptr, out: ptr) bool {
 	z := Vector2.ZERO
 	w := Color.WHITE
 	print("oi: const {z.x} {z.y} {w.r} {w.g} {w.b} {w.a}")
+	print("oi: enum alias {godot.InlineAlignment.top() == godot.InlineAlignment.to_top()}")
 	p := Vector2.{ 1.0, 2.0 }
 	q := Vector2.{ 3.0, 4.0 }
 	sum := p + q
