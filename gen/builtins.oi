@@ -176,13 +176,14 @@ builtin_method :: fn(bname: string, m: Obj) string {
 	}
 	name := text(m, "name")
 	fname := safe(name, [ "new", "bytes", "from_bytes", "set_bytes", "copy", "drop", "eq", "str" ])
+	d := doc(m, "\t## ")
 
 	if flag(m, "is_vararg") {
 		if flag(m, "is_static") || !flag(m, "is_const") || g.rt.kind in [ "object", "refobj" ] {
 			skipped += 1
 			return ""
 		}
-		return variant_call(bname, name, fname, g)
+		return d + variant_call(bname, name, fname, g)
 	}
 
 	n := slot
@@ -209,7 +210,7 @@ builtin_method :: fn(bname: string, m: Obj) string {
 	c := Call.{ "builtin", if static { "ptr(0)" } else { "base" }, bind, after }
 	ps := params(g.args, recv)
 
-	"\tpub {fname} :: fn({ps}){ret_sig(g.rt, g.ropt)} {{\n{base}" + ptrcall_body(g.args, g.rt, g.ropt, c) + "\t}}\n"
+	d + "\tpub {fname} :: fn({ps}){ret_sig(g.rt, g.ropt)} {{\n{base}" + ptrcall_body(g.args, g.rt, g.ropt, c) + "\t}}\n"
 }
 
 ## Fill a struct.

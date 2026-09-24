@@ -6,8 +6,9 @@ install:
 	{{oi}} install godot --link
 
 # dump extension_api.json from Godot
-api:
-	cd godot && godot --headless --dump-extension-api
+# pass `docs` to keep the doc strings
+api mode="":
+	cd godot && godot --headless --dump-extension-api{{ if mode == "docs" { "-with-docs" } else { "" } }}
 	{{oi}} run gen
 
 # build an example's extension into its lib/

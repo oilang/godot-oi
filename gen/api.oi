@@ -20,7 +20,7 @@ prefix :: fn(names: []string) string {
 }
 
 ## A flat enum, or an `i64` plus consts for a bitfield.
-enum_block :: fn(doc: string, name: string, owner: string, values: []Obj, bitfield: bool) s: string {
+enum_block :: fn(label: string, name: string, owner: string, values: []Obj, bitfield: bool) s: string {
 	names: []string = []
 	loop v in values {
 		names << text(v, "name")
@@ -28,9 +28,9 @@ enum_block :: fn(doc: string, name: string, owner: string, values: []Obj, bitfie
 
 	pre := prefix(names)
 	if bitfield {
-		s += "## {doc} (bitfield)\npub {name} :: i64\n"
+		s += "## {label} (bitfield)\npub {name} :: i64\n"
 	} else {
-		s += "## {doc}\npub {name} :: enum {{\n"
+		s += "## {label}\npub {name} :: enum {{\n"
 	}
 
 	seen: []string
@@ -39,7 +39,7 @@ enum_block :: fn(doc: string, name: string, owner: string, values: []Obj, bitfie
 		vname := text(v, "name")
 		n := lit(v, "value")
 		if bitfield {
-			s += "pub {owner}{vname} :: {n}\n"
+			s += doc(v, "## ") + "pub {owner}{vname} :: {n}\n"
 			continue
 		}
 		vn := variant(vname[pre.len..vname.len])
@@ -50,7 +50,7 @@ enum_block :: fn(doc: string, name: string, owner: string, values: []Obj, bitfie
 		}
 
 		seen << n
-		s += "\t{vn} = {n}\n"
+		s += doc(v, "\t# ") + "\t{vn} = {n}\n"
 		if !(name in enum_first.keys) {
 			enum_first[name] = vn
 		}
@@ -100,7 +100,7 @@ constants :: fn(api: Obj) s: string {
 	loop c in items {
 		cname := text(c, "name")
 		n := lit(c, "value")
-		s += "## @GlobalScope.{cname}\npub {cname} :: {n}\n"
+		s += "## @GlobalScope.{cname}\n" + doc(c, "## ") + "pub {cname} :: {n}\n"
 	}
 	emit("{out}/constants.oi", head + s)
 	"{items.len} constants"

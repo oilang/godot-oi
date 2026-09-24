@@ -46,17 +46,18 @@ utility :: fn(api: Obj) string {
 		slot += 1
 		bind := "mb := gd.ptr_bind({i}, .nil, \"{name}\", {hash})"
 		fname := safe(name, [])
+		d := doc(f, "## ")
 		n += 1
 
 		if flag(f, "is_vararg") {
-			lines << utility_vararg(fname, bind, g.rt)
+			lines << d + utility_vararg(fname, bind, g.rt)
 			continue
 		}
 
 		c := Call.{ "utility", "", bind, "" }
 		body := ("\n" + ptrcall_body(g.args, g.rt, g.ropt, c)).split("\n\t").join("\n")
 		ps := params(g.args, "")
-		lines << "pub {fname} :: fn({ps}){ret_sig(g.rt, g.ropt)} {{" + body + "}}\n"
+		lines << d + "pub {fname} :: fn({ps}){ret_sig(g.rt, g.ropt)} {{" + body + "}}\n"
 	}
 
 	emit("{out}/utility.oi", head + lines.join("\n"))

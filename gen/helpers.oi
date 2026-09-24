@@ -124,6 +124,64 @@ vtype :: fn(name: string) string {
 	out
 }
 
+## Godot's BBCode-ish doc markup as plain text.
+plain :: fn(s: string) string {
+	out := ""
+	i := 0
+	loop i < s.len {
+		if s[i] != 91 {
+			out += s[i..i + 1]
+			i += 1
+			continue
+		}
+		j := i + 1
+		loop j < s.len && s[j] != 93 {
+			j += 1
+		}
+		if j == s.len do break
+
+		tag := s[i + 1..j]
+		i = j + 1
+		if tag == "code" || tag == "/code" {
+			out += "`"
+			continue
+		}
+		if tag.len == 0 do continue
+
+		# `[method foo]`, `[Node]` and `[@GlobalScope.x]` name something, `[b]` and `[url=..]` are markup
+		words := tag.split(" ")
+		if words.len > 1 || caps(tag[0]) || tag[0] == 64 {
+			last := words[words.len - 1]
+			out += "`{last}`"
+		}
+	}
+	out
+}
+
+## The docs for an api item as comment lines.
+## `--dump-extension-api-with-docs` writes whole manual pages.
+doc :: fn(o: Obj, lead: string) string {
+	src := text(o, "brief_description")
+	if src == "" {
+		src = text(o, "description")
+	}
+	if src == "" do return ""
+
+	out := ""
+	n := 0
+	loop line in plain(src).split("\n") {
+		t := line.trim()
+		if t == "" {
+			if n > 0 do break
+			continue
+		}
+		out += "{lead}{t}\n"
+		n += 1
+		if n == 4 do break
+	}
+	out
+}
+
 keywords: []string = [
 	"break", "comp", "continue", "else", "enum", "fn", "foreign", "if", "in", "is", "loop", "match",
 	"module", "move", "mut", "none", "or", "pub", "return", "struct", "trait", "unsafe", "use",

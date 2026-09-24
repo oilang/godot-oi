@@ -413,13 +413,14 @@ method :: fn(cname: string, m: Obj) string {
 	n := slot
 	slot += 1
 	bind := "mb := gd.bind({n}, \"{cname}\", \"{name}\", {hash})"
+	d := doc(m, "\t## ")
 
 	if flag(m, "is_vararg") {
 		rs := if rt.kind == "enum" { rt.sig } else { "Variant" }
-		return "\tpub {fname} :: fn({ps}, varargs: []Variant) {rs} {{\n" + vararg(bind, this, args, rt) + "\t}}\n"
+		return d + "\tpub {fname} :: fn({ps}, varargs: []Variant) {rs} {{\n" + vararg(bind, this, args, rt) + "\t}}\n"
 	}
 	c := Call.{ "class", this, bind, "" }
-	"\tpub {fname} :: fn({ps}){ret_sig(rt, g.ropt)} {{\n" + ptrcall_body(args, rt, g.ropt, c) + "\t}}\n"
+	d + "\tpub {fname} :: fn({ps}){ret_sig(rt, g.ropt)} {{\n" + ptrcall_body(args, rt, g.ropt, c) + "\t}}\n"
 }
 
 ## Generate method body.
@@ -532,7 +533,8 @@ classes :: fn(api: Obj) string {
 		} else {
 			parent := parents[name]
 			link := chain(parent, parents)
-			s += "## {name}\npub {name} :: struct {{ {parent} }}\n\n{name} :< {{\n\tpub from_ptr :: fn(p: ptr) {name} {{ .{{ {link} }} }}\n"
+			d := doc(c, "## ")
+			s += "## {name}\n{d}pub {name} :: struct {{ {parent} }}\n\n{name} :< {{\n\tpub from_ptr :: fn(p: ptr) {name} {{ .{{ {link} }} }}\n"
 		}
 
 		loop k in arr(c, "constants") {
@@ -549,10 +551,10 @@ classes :: fn(api: Obj) string {
 
 ## Slot counts.
 binds :: fn(api: Obj) string {
-	doc := "## Slots in `Godot.binds`, one per generated call, and in `Godot.singletons`."
+	note := "## Slots in `Godot.binds`, one per generated call, and in `Godot.singletons`."
 	nsing := arr(api, "singletons").len
 
-	emit("{out}/binds.oi", "{head}{doc}\npub BINDS :: {slot}\npub SINGLETONS :: {nsing}\n")
+	emit("{out}/binds.oi", "{head}{note}\npub BINDS :: {slot}\npub SINGLETONS :: {nsing}\n")
 	"{slot} binds"
 }
 
