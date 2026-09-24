@@ -207,6 +207,7 @@ builtins :: fn(api: Obj) string {
 			opaque(name, sizes[name], flag(b, "has_destructor"), arr(b, "constructors"), opaques, ms)
 		}
 
+		body += conv(name, vtype(name), sizes[name], false, false)
 		emit("{out}/builtins/{snake(name)}.oi", "{head}## {name}\n{body}")
 		n += 1
 	}

@@ -1,5 +1,4 @@
-use godot
-use godot.{ String, NodePath, StringName, Vector2, Color, Array }
+gd :: use godot
 
 ## Per-instance state.
 @c State :: struct { frames: u64, speed: f64 }
@@ -55,17 +54,17 @@ init :: fn(get_proc: godot.GetProc, library: ptr, out: ptr) bool {
 	class := name.string()
 	name.drop()
 	print("oi: class {class}")
-	hi := String.("hi there")
-	same := hi == String.("hi there")
-	path := NodePath.("Player/Sprite")
-	sn := StringName.("ready")
+	hi := gd.String.("hi there")
+	same := hi == gd.String.("hi there")
+	path := gd.NodePath.("Player/Sprite")
+	sn := gd.StringName.("ready")
 	print("oi: string {hi} {same} {path} {sn}")
-	z := Vector2.ZERO
-	w := Color.WHITE
+	z := gd.Vector2.ZERO
+	w := gd.Color.WHITE
 	print("oi: const {z.x} {z.y} {w.r} {w.g} {w.b} {w.a}")
 	up := hi.to_upper()
-	v2 := Vector2.{ 3.0, 4.0 }
-	list := Array.new()
+	v2 := gd.Vector2.{ 3.0, 4.0 }
+	list := gd.Array.new()
 	seven := gd.int(7)
 	list.push_back(seven)
 	seven.drop()
@@ -79,20 +78,28 @@ init :: fn(get_proc: godot.GetProc, library: ptr, out: ptr) bool {
 @c ready2d :: fn(inst: ptr) {
 	print("oi: ready 2d")
 	o := godot.Object.from_ptr(godot.object(inst))
-	n := godot.Node2D.from_ptr(o.object)
-	v := Vector2.{ 1.0, 2.0 }
+	n := gd.Node2D.from_ptr(o.object)
+	v := gd.Vector2.{ 1.0, 2.0 }
 	n.set_position(v)
 	p := n.get_position()
 	print("oi: position {p.x} {p.y}")
 	print("oi: physics ticks {godot.Engine.singleton().get_physics_ticks_per_second()}")
 	same := o.is_a("Node2D")
-	yes := godot.Node2D.cast(o) != none
+	yes := gd.Node2D.cast(o) != none
 	no := godot.Node3D.cast(o) == none
 	static := godot.PortableCompressedTexture2D.is_keeping_all_compressed_buffers()
 	print("oi: is_a {same} cast {yes} {no} static {static}")
 	kid := godot.Node.new()
 	n.add_child(kid)
 	print("oi: children {n.get_child_count()}")
+	pt := gd.Vector2.{ 3.0, 4.0 }
+	vv := gd.Variant.(pt)
+	w := gd.Vector2.(vv)
+	vo := gd.Variant.(n)
+	back := gd.Node2D.(vo)
+	print("oi: from {vv.type()} {w.x} {vo.type()} {back.get_child_count()}")
+	vv.drop()
+	vo.drop()
 }
 
 @c process :: fn(inst: ptr, delta: f64) {

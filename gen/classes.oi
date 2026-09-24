@@ -470,6 +470,44 @@ body :: fn(c: Obj) s: string {
 	s
 }
 
+## Generate From fills.
+conv :: fn(name: string, vt: string, size: int, obj: bool, refc: bool) string {
+	lines: []string = [ "", "Variant : From[{name}] < {{", "\tfrom :: fn(v: {name}) Variant {{", "\t\tx := gd.variant()" ]
+	if obj {
+		lines << "\t\tb := unsafe malloc(8)"
+		lines << "\t\tunsafe b.write(v.object)"
+	} else {
+		lines << "\t\tb := v.bytes()"
+	}
+	lines << "\t\tgd.from_type(.{vt}, x, b)"
+	lines << "\t\tunsafe free(b)"
+	lines << "\t\tx"
+	lines << "\t}}"
+	lines << "}}"
+	lines << ""
+	lines << "{name} : From[Variant] < {{"
+	lines << "\tfrom :: fn(v: Variant) {name} {{"
+	lines << "\t\tout := unsafe malloc({size})"
+	lines << "\t\tgd.to_type(.{vt}, v, out)"
+	if !obj {
+		lines << "\t\t{name}.from_bytes(out)"
+	} else {
+		lines << "\t\tp_ := unsafe out.read[ptr]()"
+		lines << "\t\tunsafe free(out)"
+		if refc {
+			lines << "\t\tr_ := {name}.from_ptr(p_)"
+			lines << "\t\t_ := r_.init_ref()"
+			lines << "\t\tr_"
+		} else {
+			lines << "\t\t{name}.from_ptr(p_)"
+		}
+	}
+	lines << "\t}}"
+	lines << "}}"
+
+	lines.join("\n") + "\n"
+}
+
 ## The embed chain down to `Object.{ p }`.
 chain :: fn(name: string, parents: [string]string) string {
 	if name == "Object" do return "Object.{{ p }}"
@@ -502,7 +540,8 @@ classes :: fn(api: Obj) string {
 			kval := lit(k, "value")
 			s += "\tpub {kname} :: {kval}\n"
 		}
-		emit("{out}/classes/{snake(name)}.oi", head + s + body(c) + "}}\n")
+		tail := conv(name, "object", 8, true, refcounted[name])
+		emit("{out}/classes/{snake(name)}.oi", head + s + body(c) + "}}\n{tail}")
 		n += 1
 	}
 	"{n} classes, {slot} methods, {skipped} skipped"
