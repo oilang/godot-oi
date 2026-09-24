@@ -78,9 +78,8 @@ init :: fn(get_proc: godot.GetProc, library: ptr, out: ptr) bool {
 	list.push_back(seven)
 	seven.drop()
 	print("oi: builtin {hi.length()} {up} {v2.length()} {list.size()}")
-	hello := gd.string("oi: utility print")
-	godot.print([ hello ])
-	hello.drop()
+	godot.printl("oi: utility print")
+	godot.warn("oi: warn")
 	print("oi: utility {godot.deg_to_rad(180.0)} {godot.type_string(2)}")
 }
 

@@ -1,0 +1,21 @@
+module godot
+
+## Wrap the print family.
+
+pub printl :: fn(s: string) {
+	v := gd.string(s)
+	(print)([ v ])
+	v.drop()
+}
+
+pub warn :: fn(s: string) {
+	v := gd.string(s)
+	push_warning([ v ])
+	v.drop()
+}
+
+pub err :: fn(s: string) {
+	v := gd.string(s)
+	push_error([ v ])
+	v.drop()
+}
