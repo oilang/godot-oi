@@ -20,6 +20,9 @@ GetBuiltinMethod :: @c fn(variant_type: i32, method: ptr, hash: i64) ptr
 ## GDExtensionPtrBuiltInMethod
 pub BuiltinMethod :: @c fn(base: ptr, args: ptr, ret: ptr, argc: i32)
 
+## GDExtensionInterfaceVariantCall
+VariantCall :: @c fn(base: ptr, method: ptr, args: ptr, argc: i64, ret: ptr, err: ptr)
+
 ## GDExtensionInterfaceVariantGetPtrUtilityFunction
 GetUtilityFunction :: @c fn(function: ptr, hash: i64) ptr
 
@@ -37,6 +40,7 @@ STRING_NAME_SIZE :: 8
 	evaluator: ptr,
 	builtin_method: ptr,
 	utility: ptr,
+	call: ptr,
 }
 procs := Procs.{}
 
@@ -48,12 +52,26 @@ lookups :: fn() Procs {
 			gd.proc("variant_get_ptr_operator_evaluator"),
 			gd.proc("variant_get_ptr_builtin_method"),
 			gd.proc("variant_get_ptr_utility_function"),
+			gd.proc("variant_call"),
 		}
 	}
 	procs
 }
 
 Godot :< {
+	pub variant_call :: fn(self, base: Variant, method: StringName, args: []Variant) Variant {
+		packed := unsafe malloc(ptr.size * usize.(args.len))
+		loop i in 0..args.len {
+			unsafe ptr(packed.0 + ptr.size * usize.(i)).write(args[i].at)
+		}
+		out := self.variant()
+		err := unsafe malloc(CallError.size)
+		unsafe VariantCall(lookups().call)(base.at, method.at, packed, i64.(args.len), out.at, err)
+		unsafe free(err)
+		unsafe free(packed)
+		out
+	}
+
 	## `PtrBuiltInMethod` / `PtrUtilityFunction`.
 	pub ptr_bind :: fn(self, slot: int, type: Type, name: cstr, hash: i64) ptr {
 		cell := ptr(self.binds.0 + ptr.size * usize.(slot))

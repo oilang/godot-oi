@@ -190,13 +190,8 @@ builtins :: fn(api: Obj) string {
 		name := text(b, "name")
 		if name in skip || name in scalars { continue }
 
-		## Varargs need the `variant_call` path, not a ptr fn.
 		ms := ""
 		loop m in arr(b, "methods") {
-			if flag(m, "is_vararg") {
-				skipped += 1
-				continue
-			}
 			ms += builtin_method(name, m)
 		}
 

@@ -118,6 +118,56 @@ opaque :: fn(
 	body
 }
 
+## A vararg builtin method over `variant_call`, the base and fixed args boxed into Variants.
+## Const instance methods only.
+variant_call :: fn(bname: string, name: string, fname: string, g: Sig) string {
+	t := vtype(bname)
+	lines: []string = []
+	lines << "\t\tbase := self.bytes()"
+	lines << "\t\tsv := gd.variant()"
+	lines << "\t\tgd.from_type(.{t}, sv, base)"
+	lines << "\t\tunsafe free(base)"
+
+	all := "varargs"
+	drops: []string = []
+	if g.args.len > 0 {
+		all = "all"
+		lines << "\t\tblk := unsafe calloc(1, usize.({8 * g.args.len}))"
+		lines << "\t\tall: []Variant = []"
+		loop i in 0..g.args.len {
+			a := g.args[i]
+			store := "ptr(blk.0 + {8 * i})"
+			lines << "\t\tva_{i} := gd.variant()"
+			lines << "\t\tunsafe {store}.write({value(a)})"
+			lines << "\t\tgd.from_type(.{vtype(a.typ.name)}, va_{i}, {store})"
+			lines << "\t\tall << va_{i}"
+			drops << "\t\tva_{i}.drop()"
+		}
+		lines << "\t\tall << varargs"
+		drops << "\t\tunsafe free(blk)"
+	}
+
+	lines << "\t\tmn := gd.string_name(\"{name}\")"
+	lines << "\t\trv := gd.variant_call(sv, mn, {all})"
+	lines << "\t\tmn.destroy()"
+	lines << drops
+	lines << "\t\tsv.drop()"
+
+	match g.rt.kind {
+		"void" => { lines << "\t\trv.drop()" },
+		"variant" => { lines << "\t\trv" },
+		_ => {
+			lines << "\t\tout := unsafe malloc(usize.({g.rt.size}))"
+			lines << "\t\tgd.to_type(.{vtype(g.rt.name)}, rv, out)"
+			lines << "\t\trv.drop()"
+			lines << "\t\t{g.rt.sig}.from_bytes(out)"
+		},
+	}
+
+	ps := params(g.args, "self")
+	"\tpub {fname} :: fn({ps}, varargs: []Variant){ret_sig(g.rt, g.ropt)} {{\n" + lines.join("\n") + "\n\t}}\n"
+}
+
 ## A builtin method over `variant_get_ptr_builtin_method`.
 builtin_method :: fn(bname: string, m: Obj) string {
 	g :: sig(m) or {
@@ -126,6 +176,15 @@ builtin_method :: fn(bname: string, m: Obj) string {
 	}
 	name := text(m, "name")
 	fname := safe(name, [ "new", "bytes", "from_bytes", "set_bytes", "copy", "drop", "eq", "str" ])
+
+	if flag(m, "is_vararg") {
+		if flag(m, "is_static") || !flag(m, "is_const") || g.rt.kind in [ "object", "refobj" ] {
+			skipped += 1
+			return ""
+		}
+		return variant_call(bname, name, fname, g)
+	}
+
 	n := slot
 	slot += 1
 	hash := lit(m, "hash")
