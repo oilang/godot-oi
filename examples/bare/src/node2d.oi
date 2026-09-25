@@ -28,7 +28,7 @@ OiNode2D :< {
 			print("oi: entered {who.get_name().str()}")
 		}))
 		kid := godot.Node.new()
-		kid.set_name(StringName.("Kid"))
+		kid.set_name("Kid")
 		self.add_child(kid)
 		print("oi: children {self.get_child_count()}")
 		pt := Vector2.{ 3.0, 4.0 }
@@ -40,9 +40,7 @@ OiNode2D :< {
 		vv.drop()
 		vo.drop()
 		ov := Variant.(o)
-		mn := StringName.("add")
-		c := godot.Callable.create(ov, mn)
-		mn.destroy()
+		c := godot.Callable.create(ov, "add")
 		ov.drop()
 		one := gd.int(1)
 		two := gd.int(2)
@@ -81,12 +79,11 @@ OiNode2D :< {
 	@godot.func
 	fire :: fn(self, damage: i64) {
 		o := godot.Object.from_ptr(self.object)
-		n := StringName.("hit")
 		v := godot.gd.int(damage)
-		print("oi: has_signal {o.has_signal(n)}")
+		known := o.has_signal("hit")
+		print("oi: has_signal {known}")
 		sg := godot.Signal.of(self.object, "hit")
 		sg.emit([v])
 		v.drop()
-		n.destroy()
 	}
 }

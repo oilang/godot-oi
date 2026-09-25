@@ -204,8 +204,7 @@ pub payload :: fn(inst: ptr) ptr {
 
 ## Resolve `path` against the object and store it in the payload, for `@godot.onready` fields.
 pub bind_node :: fn(inst: ptr, at: int, path: string) {
-	np := NodePath.(path)
-	n := Node.from_ptr(object(inst)).get_node(np) or {
+	n := Node.from_ptr(object(inst)).get_node(path) or {
 		err("godot: onready path {path} did not resolve, left null")
 		return
 	}

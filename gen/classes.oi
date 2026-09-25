@@ -4,16 +4,22 @@ module main
 
 slot := 0
 skipped := 0
-sizes: [string]int = []
-class_set: [string]bool = []
-refcounted: [string]bool = []
+sizes: [string]int
+class_set: [string]bool
+refcounted: [string]bool
 
 ## Builtins with a Drop hook.
-hooked: [string]bool = []
+hooked: [string]bool
+
+## Member metas per math builtin, comma-joined, to `fill` a default.
+member_metas: [string]string
+
+## Params of these types take a plain `string`, built into the engine type inside the wrapper.
+strargs: []string = [ "String" "StringName" "NodePath" ]
 
 ## Enum to first variant, and `<enum>:<value>` to variant, for defaults.
-enum_first: [string]string = []
-enum_values: [string]string = []
+enum_first: [string]string
+enum_values: [string]string
 narrow: []string = [ "int8" "int16" "int32" "uint8" "uint16" ]
 
 ## Arg names that would shadow a local of the wrapper.
@@ -33,6 +39,13 @@ prepare :: fn(api: Obj) {
 	}
 	loop b in arr(api, "builtin_classes") {
 		hooked[text(b, "name")] = flag(b, "has_destructor")
+	}
+	loop c in arr(config(api, "builtin_class_member_offsets"), "classes") {
+		metas: []string
+		loop m in arr(c, "members") {
+			metas << text(m, "meta")
+		}
+		member_metas[text(c, "name")] = metas.join(",")
 	}
 }
 
@@ -114,9 +127,22 @@ zeroish :: fn(d: string) bool {
 	true
 }
 
+## An api `String` / `StringName` / `NodePath` default as an Oi string literal.
+str_default :: fn(d: string) string {
+	lit := match true {
+		d.starts_with("&\"") => { d[1..d.len] },
+		d.starts_with("NodePath(\"") => { d[9..d.len - 1] },
+		d.starts_with("\"") => { d },
+		_ => { "" }
+	}
+	# a brace would read as interpolation
+	if lit.contains("{{") do "" else do lit
+}
+
 ## The Oi default for an api default.
 default :: fn(typ: Typ, d: string) string {
 	if d == "" do return ""
+	if typ.sig == "string" do return str_default(d)
 
 	key := "{typ.name}:{d}"
 	match typ.kind {
@@ -124,15 +150,21 @@ default :: fn(typ: Typ, d: string) string {
 		"bitfield" => d,
 		"bool" => d,
 		"float" => match true {
-			d.contains("e") || d.contains("inf") || d.contains("nan") => { "" },
-			d.contains(".") => { d },
-			_ => { "{d}.0" },
+			d.contains("e") || d.contains("inf") || d.contains("nan") => "",
+			d.contains(".") => d,
+			_ => "{d}.0",
 		},
-		"enum" => if key in enum_values.keys { "." + enum_values[key] } else { "" },
-		"object" => if d == "null" { "none" } else { "" },
-		"variant" => if d == "null" { "none" } else { "" },
-		"string_name" => if zeroish(d) { "none" } else { "" },
-		"builtin" => if zeroish(d) && !hooked[typ.name] { "none" } else { "" },
+		"enum" => if key in enum_values.keys { "." + enum_values[key] },
+		"object" => if d == "null" do "none",
+		"variant" => if d == "null" do "none",
+		"builtin" => match true {
+			hooked[typ.name] => "",
+			typ.name in member_metas.keys => {
+				fill(typ.name, d, member_metas[typ.name].split(",")) or ""
+			},
+			zeroish(d) => "none",
+			_ => ""
+		},
 		_ => "",
 	}
 }
@@ -144,12 +176,12 @@ Arg :: struct {
 	def: string,
 }
 
-## The raw value stored for an arg.
-value :: fn(a: Arg) string {
-	n := a.name
+## The raw value stored for arg `i`, the converted local when it came in as a `string`.
+value :: fn(a: Arg, i: int) string {
+	n := if a.typ.sig == "string" do "sa_{i}" else do a.name
 	match a.typ.kind {
-		"int" => if a.typ.sig == "i32" { "i64.({n})" } else do n,
-		"float" => if a.typ.sig == "f32" { "f64.({n})" } else do n,
+		"int" => if a.typ.sig == "i32" do "i64.({n})" else do n,
+		"float" => if a.typ.sig == "f32" do "f64.({n})" else do n,
 		"enum" => "i64.({n})",
 		"object" => if a.opt {
 			"match {n} {{ .some.(o_) => o_.object, .none => ptr(0) }}"
@@ -175,20 +207,23 @@ args_of :: fn(raw: []Obj) ?[]Arg {
 	defs := []string.[]
 
 	loop a in raw {
-		typ := resolve(text(a, "type"), text(a, "meta")) or { return none }
+		typ := resolve(text(a, "type"), text(a, "meta")) or do return none
+		if typ.name in strargs {
+			typ.sig = "string"
+		}
 		typs << typ
 		defs << default(typ, text(a, "default_value"))
 	}
 
 	first := defs.len
 	loop i in 0..defs.len {
-		if defs[defs.len - 1 - i] == "" { break }
+		if defs[defs.len - 1 - i] == "" do break
 		first = defs.len - 1 - i
 	}
 
-	args: []Arg = []
+	args: []Arg
 	loop i in 0..raw.len {
-		def := if i < first { "" } else { defs[i] }
+		def := if i >= first do defs[i]
 		byref := typs[i].kind in [ "object", "refobj" ]
 		opt := if byref {
 			text(raw[i], "meta") != "required"
@@ -206,49 +241,59 @@ args_of :: fn(raw: []Obj) ?[]Arg {
 	args
 }
 
-## Args and return.
+## Args and return signatures.
 sig :: fn(m: Obj) ?Sig {
-	args := args_of(arr(m, "arguments")) or { return none }
+	args := args_of(arr(m, "arguments")) or do return none
+
 	rt := Typ.{ "void", "", 0, "" }
 	ropt := false
-	ret := if has(m, "return_value") { node(m, "return_value") } else { m }
-	key := if has(m, "return_value") { "type" } else { "return_type" }
+	ret := if has(m, "return_value") { node(m, "return_value") } else do m
+	key := if has(m, "return_value") do "type" else do "return_type"
 	if has(ret, key) {
-		rt = resolve(text(ret, key), text(ret, "meta")) or { return none }
+		rt = resolve(text(ret, key), text(ret, "meta")) or do return none
 		ropt = rt.kind in [ "object", "refobj" ] && text(ret, "meta") != "required"
 	}
 	Sig.{ args, rt, ropt }
 }
 
 params :: fn(args: []Arg, recv: string) string {
-	list: []string = []
+	list: []string
 	if recv != "" { list << recv }
 	loop a in args {
-		t := if a.opt { "?{a.typ.sig}" } else { a.typ.sig }
+		t := if a.opt do "?{a.typ.sig}" else do a.typ.sig
 		list << if a.def == "" { "{a.name}: {t}" } else { "{a.name}: {t} = {a.def}" }
 	}
 	list.join(", ")
+}
+
+## A string param as the engine type it stands for.
+strarg :: fn(a: Arg, i: int) string {
+	if a.typ.kind == "string_name" {
+		return "\t\tsa_{i} := gd.string_name({a.name}.cstr())\n"
+	}
+	"\t\tsa_{i} := {a.typ.name}.({a.name})\n"
 }
 
 ## Write arg `i` into its storage.
 put :: fn(a: Arg, i: int, store: string) string {
 	n :: a.name
 	cell :: "unsafe ptr(blk.0 + {8 * i}).write("
+	pre := if a.typ.sig == "string" do strarg(a, i)
+
 	if a.typ.kind in ["variant", "string_name"] && !a.opt {
-		return "\t\t{cell}{n}.at)\n"
+		return pre + "\t\t{cell}{value(a, i)}.at)\n"
 	}
 	if a.typ.kind == "variant" {
 		return "\t\tva_{i} := {n} or gd.variant()\n\t\t{cell}va_{i}.at)\n"
 	}
-	if a.typ.kind == "string_name" {
-		return "\t\t{cell}match {n} {{ .some.(s_) => s_.at, .none => {store} }})\n"
-	}
+
 	set := if a.opt && a.typ.kind == "builtin" {
 		"match {n} {{ .some.(b_) => unsafe {store}.write(b_), .none => {{}} }}"
 	} else {
-		"unsafe {store}.write({value(a)})"
+		"unsafe {store}.write({value(a, i)})"
 	}
-	"\t\t{cell}{store})\n\t\t{set}\n"
+
+	"{pre}\t\t{cell}{store})\n\t\t{set}\n"
 }
 
 object_return :: fn(rt: Typ, opt: bool, p: string) string {
@@ -287,17 +332,21 @@ vararg :: fn(bind: string, this: string, args: []Arg, rt: Typ) s: string {
 	if args.len > 0 {
 		s += "\t\tblk := unsafe calloc(1, usize.({8 * args.len}))\n"
 	}
-	s += "\t\tall: []Variant = []\n"
+	s += "\t\tall: []Variant\n"
 	drops := ""
 	loop i in 0..args.len {
 		a := args[i]
+		if a.typ.sig == "string" {
+			s += strarg(a, i)
+		}
 		s += "\t\tva_{i} := gd.variant()\n"
 		if a.typ.kind == "string_name" {
-			s += "\t\tgd.from_type(.string_name, va_{i}, {a.name}.at)\n"
+			s += "\t\tgd.from_type(.string_name, va_{i}, {value(a, i)}.at)\n"
+			drops += "\t\tsa_{i}.destroy()\n"
 		} else {
 			store := "ptr(blk.0 + {8 * i})"
 			vt := vtype(a.typ.name)
-			s += "\t\tunsafe {store}.write({value(a)})\n\t\tgd.from_type(.{vt}, va_{i}, {store})\n"
+			s += "\t\tunsafe {store}.write({value(a, i)})\n\t\tgd.from_type(.{vt}, va_{i}, {store})\n"
 		}
 		s += "\t\tall << va_{i}\n"
 		drops += "\t\tva_{i}.drop()\n"
@@ -339,10 +388,10 @@ ret_sig :: fn(rt: Typ, ropt: bool) string {
 ## Storage is a pointer cell per arg, then 8-aligned storage per arg, then the return.
 ptrcall_body :: fn(args: []Arg, rt: Typ, ropt: bool, c: Call) s: string {
 	cursor := 8 * args.len
-	offs: []int = []
+	offs: []int
 	loop a in args {
 		offs << cursor
-		if a.typ.kind == "variant" || (a.typ.kind == "string_name" && !a.opt) {
+		if a.typ.kind in [ "variant", "string_name" ] {
 			continue
 		}
 		cursor += round8(a.typ.size)
@@ -384,6 +433,9 @@ ptrcall_body :: fn(args: []Arg, rt: Typ, ropt: bool, c: Call) s: string {
 		a := args[i]
 		if a.typ.kind == "variant" && a.opt {
 			s += "\t\tif {a.name} == none {{ va_{i}.drop() }}\n"
+		}
+		if a.typ.kind == "string_name" {
+			s += "\t\tsa_{i}.destroy()\n"
 		}
 	}
 
@@ -427,7 +479,7 @@ method :: fn(cname: string, m: Obj) string {
 ## `cast` from a bare `Object`, `new` when instantiable, then every non-virtual method.
 body :: fn(c: Obj) s: string {
 	name := text(c, "name")
-	lines: []string = []
+	lines: []string
 
 	if name != "Object" {
 		lines << "\tpub cast :: fn(o: Object) ?{name} {{"
@@ -442,7 +494,7 @@ body :: fn(c: Obj) s: string {
 		lines << "\t}}"
 	}
 
-	names: []string = []
+	names: []string
 	loop m in arr(c, "methods") {
 		names << text(m, "name")
 	}
@@ -524,7 +576,7 @@ chain :: fn(name: string, parents: [string]string) string {
 
 classes :: fn(api: Obj) string {
 	items := arr(api, "classes")
-	parents: [string]string = []
+	parents: [string]string
 	loop c in items {
 		parents[text(c, "name")] = text(c, "inherits")
 	}

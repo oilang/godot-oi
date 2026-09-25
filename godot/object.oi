@@ -9,13 +9,7 @@ module godot
 Object :< {
 	pub from_ptr :: fn(p: ptr) Object { .{ p } }
 
-	## `is_class` from a literal.
-	pub is_a :: fn(self, class: string) bool {
-		name := gd.string_name(class.cstr())
-		yes := self.is_class(name)
-		name.destroy()
-		yes
-	}
+	pub is_a :: fn(self, class: string) bool { self.is_class(class) }
 }
 
 Godot :< {

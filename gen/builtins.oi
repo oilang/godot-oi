@@ -138,7 +138,7 @@ variant_call :: fn(bname: string, name: string, fname: string, g: Sig) string {
 			a := g.args[i]
 			store := "ptr(blk.0 + {8 * i})"
 			lines << "\t\tva_{i} := gd.variant()"
-			lines << "\t\tunsafe {store}.write({value(a)})"
+			lines << "\t\tunsafe {store}.write({value(a, i)})"
 			lines << "\t\tgd.from_type(.{vtype(a.typ.name)}, va_{i}, {store})"
 			lines << "\t\tall << va_{i}"
 			drops << "\t\tva_{i}.drop()"
@@ -215,9 +215,13 @@ builtin_method :: fn(bname: string, m: Obj) string {
 
 ## Fill a struct.
 fill :: fn(name: string, value: string, metas: []string) ?string {
-	inner := value.split("(")[1].split(")")[0]
+	open := value.split("(")
+	if open.len != 2 do return none
+
 	parts: []string = []
-	toks := inner.split(", ")
+	toks := open[1].split(")")[0].split(", ")
+	if toks.len != metas.len do return none
+
 	loop i in 0..toks.len {
 		tok := toks[i]
 		match metas[i] {
