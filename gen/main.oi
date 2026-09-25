@@ -6,6 +6,7 @@ fopen : fn(path: cstr, mode: cstr) ptr : foreign
 fputs : fn(s: cstr, stream: ptr) i32 : foreign
 fclose : fn(stream: ptr) i32 : foreign
 mkdir : fn(path: cstr, mode: i32) i32 : foreign
+system : fn(cmd: cstr) i32 : foreign
 
 out := "godot/api"
 head := "module godot\n\n"
@@ -18,6 +19,7 @@ emit :: fn(path: string, body: string) {
 
 main :: fn() {
 	api := load("godot/extension_api.json")
+	_ := unsafe system(("rm -rf {out}").cstr())
 	loop d in [ "", "/builtins", "/classes" ] {
 		_ := unsafe mkdir((out + d).cstr(), 493)
 	}
