@@ -124,8 +124,14 @@ pub Property :: struct {
 	default: ?Variant,
 }
 
+## A signal a class declares.
+pub Sig :: struct { name: cstr, args: []Slot }
+
 pub slot :: fn(name: cstr, t: Type) Slot {
 	Slot.{ name, t }
+}
+pub sig :: fn(name: cstr, args: []Slot) Sig {
+	Sig.{ name, args }
 }
 pub method :: fn(name: cstr, cb: OnMethod, args: []Slot, ret: ?Type) Method {
 	Method.{ name, cb, args, ret }
@@ -202,7 +208,7 @@ type_at :: fn(table: ptr, n: int) Type {
 Godot :< {
 	pub register :: fn(
 		self, name: cstr, parent: cstr, state: usize, virtuals: []Method, own: []Method, props: []Property,
-		init: OnInit,
+		signals: []Sig, init: OnInit,
 	) {
 		methods: []Method
 		methods << own
@@ -270,6 +276,20 @@ Godot :< {
 			self.drop_slot(info)
 		}
 		unsafe free(pinfo)
+		loop i in 0..signals.len {
+			sg := signals[i]
+			args := unsafe malloc(PropertyInfo.size * usize.(sg.args.len))
+			loop j in 0..sg.args.len {
+				unsafe prop(args, j).write(self.slot_info(sg.args[j]))
+			}
+			sn := self.string_name(sg.name)
+			self.register_signal(self.library, c.name.at, sn.at, args, i64.(sg.args.len))
+			sn.destroy()
+			loop j in 0..sg.args.len {
+				self.drop_slot(unsafe prop(args, j).read[PropertyInfo]())
+			}
+			unsafe free(args)
+		}
 	}
 
 	## Unregister every class, newest first.

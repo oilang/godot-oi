@@ -31,6 +31,7 @@ pub Level :: enum { core, servers, scene, editor }
 	unregister_class: UnregisterClass,
 	register_method: RegisterMethod,
 	register_property: RegisterProperty,
+	register_signal: RegisterSignal,
 	construct_object: ConstructObject,
 	set_instance: SetInstance,
 	get_method_bind: GetMethodBind,
@@ -65,6 +66,7 @@ pub setup :: fn(get_proc: GetProc, library: ptr, out: ptr, initialize: Callback,
 	unregister_class :: unsafe UnregisterClass(get_proc("classdb_unregister_extension_class"))
 	register_method :: unsafe RegisterMethod(get_proc("classdb_register_extension_class_method"))
 	register_property :: unsafe RegisterProperty(get_proc("classdb_register_extension_class_property"))
+	register_signal :: unsafe RegisterSignal(get_proc("classdb_register_extension_class_signal"))
 	construct_object :: unsafe ConstructObject(get_proc("classdb_construct_object3"))
 	set_instance :: unsafe SetInstance(get_proc("object_set_instance"))
 	get_method_bind :: unsafe GetMethodBind(get_proc("classdb_get_method_bind"))
@@ -82,7 +84,8 @@ pub setup :: fn(get_proc: GetProc, library: ptr, out: ptr, initialize: Callback,
 		get_proc, library, get_version, new_string_name, drop_string_name,
 		new_string, string_utf8, drop_string, variant_from_type, variant_to_type, variant_type,
 		variant_destroy, variant_can_convert,
-		register_class, unregister_class, register_method, register_property, construct_object, set_instance,
+		register_class, unregister_class, register_method, register_property, register_signal,
+		construct_object, set_instance,
 		get_method_bind, method_bind_call, classes, binds, method_bind_ptrcall, get_singleton, ref_get_object,
 		object_destroy, singletons,
 	}

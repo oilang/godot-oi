@@ -46,4 +46,18 @@ OiNode2D :< {
 
 	@godot.func
 	add :: fn(self, a: i64, b: i64) i64 { a + b }
+
+	@godot.signal
+	hit :: fn(self, damage: i64) {}
+
+	@godot.func
+	fire :: fn(self, damage: i64) {
+		o := godot.Object.from_ptr(self.object)
+		n := StringName.("hit")
+		v := godot.gd.int(damage)
+		print("oi: has_signal {o.has_signal(n)}")
+		_ := o.emit_signal(n, [v])
+		v.drop()
+		n.destroy()
+	}
 }

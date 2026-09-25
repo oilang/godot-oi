@@ -1,6 +1,7 @@
 module godot
 
 pub func :: ()
+pub signal :: ()
 pub export :: struct { range: string = "" }
 
 pub kind :: fn(t: Ast) string {

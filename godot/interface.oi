@@ -56,6 +56,9 @@ RegisterMethod :: @c fn(library: ptr, name: ptr, info: ptr)
 ## GDExtensionInterfaceClassdbRegisterExtensionClassProperty
 RegisterProperty :: @c fn(library: ptr, name: ptr, info: ptr, setter: ptr, getter: ptr)
 
+## GDExtensionInterfaceClassdbRegisterExtensionClassSignal
+RegisterSignal :: @c fn(library: ptr, name: ptr, signal: ptr, args: ptr, argc: i64)
+
 ## GDExtensionInterfaceClassdbConstructObject3
 ConstructObject :: @c fn(name: ptr) ptr
 

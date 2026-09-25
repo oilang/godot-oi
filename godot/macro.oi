@@ -68,8 +68,8 @@ pub class! :: fn(input: Ast) Ast {
 			unsafe p.write(%n.{})
 			unsafe p.write(godot.object(inst))
 		}
-		%reg :: fn(virtuals: []godot.Method, methods: []godot.Method) {
-			godot.gd.register(%name, %parent, %n.size, virtuals, methods, [%{..props}], %init)
+		%reg :: fn(virtuals: []godot.Method, methods: []godot.Method, signals: []godot.Sig) {
+			godot.gd.register(%name, %parent, %n.size, virtuals, methods, [%{..props}], signals, %init)
 		}`
 	} else {
 		cls := ident(name + "_class")
@@ -78,9 +78,24 @@ pub class! :: fn(input: Ast) Ast {
 		x := ident("x")
 		virtuals: []Ast
 		methods: []Ast
-
+		signals: []Ast
 		loop it in items {
 			fname := it.name.str()
+			if noted(it, "signal") {
+				sslots: []Ast
+				loop j in 1..it.items.len {
+					a := it.items[j]
+					aname := a.name.str()
+					ty := match kind(a.typ) {
+						"float" => `.float`,
+						"int" => `.int`,
+						_ => `.bool`
+					}
+					sslots << `godot.slot(%aname, %ty)`
+				}
+				signals << `godot.sig(%fname, [%{..sslots}])`
+				continue
+			}
 			virtual := fname == "ready" || fname == "process" || fname == "physics_process"
 			if !virtual && !noted(it, "func") do continue
 
@@ -155,7 +170,7 @@ pub class! :: fn(input: Ast) Ast {
 		`%{..defs}
 		%input
 		%cls :: fn() {
-			%reg([%{..virtuals}], [%{..methods}])
+			%reg([%{..virtuals}], [%{..methods}], [%{..signals}])
 		}`
 	}
 }
