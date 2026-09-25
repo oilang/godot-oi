@@ -47,6 +47,23 @@ OiNode2D :< {
 		loop v in [one, two, nine, r] {
 			v.drop()
 		}
+
+		# rc testing
+		rc := godot.RefCounted.new()
+		rc_before := rc.get_reference_count()
+		vrc := Variant.(rc)
+		rc_boxed := rc.get_reference_count()
+		vrc.drop()
+		rc_after := rc.get_reference_count()
+		print("oi: refcount variant {rc_before} {rc_boxed} {rc_after}")
+		rc2 := godot.RefCounted.new()
+		rc2_before := rc2.get_reference_count()
+		raw := godot.Object.from_ptr(rc2.object)
+		vraw := Variant.(raw)
+		rc2_boxed := rc2.get_reference_count()
+		vraw.drop()
+		rc2_after := rc2.get_reference_count()
+		print("oi: refcount object {rc2_before} {rc2_boxed} {rc2_after}")
 	}
 
 	@godot.func
