@@ -191,6 +191,16 @@ pub payload :: fn(inst: ptr) ptr {
 	ptr(inst.0 + Instance.size)
 }
 
+## Resolve `path` against the object and store it in the payload, for `@godot.onready` fields.
+pub bind_node :: fn(inst: ptr, at: int, path: string) {
+	np := NodePath.(path)
+	n := Node.from_ptr(object(inst)).get_node(np) or {
+		err("godot: onready path {path} did not resolve, left null")
+		return
+	}
+	unsafe ptr(payload(inst).0 + usize.(at)).write(n.object)
+}
+
 ## The nth entry of a `Bound` table.
 bound :: fn(table: ptr, n: int) ptr {
 	ptr(table.0 + Bound.size * usize.(n))

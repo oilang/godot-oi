@@ -10,7 +10,9 @@ pub class! :: fn(input: Ast) Ast {
 		parent := items[0].typ.str()
 		init := ident(name + "_init")
 		reg := ident(name + "_register")
+		on := ident(name + "_onready")
 		props: []Ast
+		ons: []Ast
 		off := 0
 
 		loop f in items {
@@ -22,6 +24,14 @@ pub class! :: fn(input: Ast) Ast {
 
 			at := (off + w - 1) / w * w
 			off = at + w
+			path := ""
+			loop a in f.notes {
+				path = match a {
+					`godot.onready.{ %p }` => p.str(),
+					_ => path
+				}
+			}
+			if path != "" do ons << `godot.bind_node(inst, %at, %path)`
 			if !noted(f, "export") do continue
 
 			fname := f.name.str()
@@ -68,6 +78,9 @@ pub class! :: fn(input: Ast) Ast {
 			unsafe p.write(%n.{})
 			unsafe p.write(godot.object(inst))
 		}
+		%on :: fn(inst: ptr) {
+			%{..ons}
+		}
 		%reg :: fn(virtuals: []godot.Method, methods: []godot.Method, signals: []godot.Sig) {
 			godot.gd.register(%name, %parent, %n.size, virtuals, methods, [%{..props}], signals, %init)
 		}`
@@ -75,10 +88,12 @@ pub class! :: fn(input: Ast) Ast {
 		cls := ident(name + "_class")
 		reg := ident(name + "_register")
 		rd := ident(name + ".from_payload")
+		on := ident(name + "_onready")
 		x := ident("x")
 		virtuals: []Ast
 		methods: []Ast
 		signals: []Ast
+		has_ready := false
 		loop it in items {
 			fname := it.name.str()
 			if noted(it, "signal") {
@@ -101,9 +116,14 @@ pub class! :: fn(input: Ast) Ast {
 
 			t := ident(name + "_" + fname)
 			slots: []Ast
-
+			pre: []Ast
 			body := if virtual {
-				if fname != "ready" do slots << `godot.slot("delta", .float)`
+				if fname == "ready" {
+					has_ready = true
+					pre << `%on(inst)`
+				} else {
+					slots << `godot.slot("delta", .float)`
+				}
 				vname := "_" + fname
 				virtuals << `godot.method(%vname, %t, [%{..slots}], none)`
 				match fname {
@@ -161,9 +181,17 @@ pub class! :: fn(input: Ast) Ast {
 			}
 
 			defs << `@c %t :: fn(inst: ptr, args: ptr, ret: ptr) {
+				%{..pre}
 				%x := %rd(inst)
 				%body
 				unsafe godot.payload(inst).write(%x)
+			}`
+		}
+		if !has_ready {
+			tr := ident(name + "_ready")
+			virtuals << `godot.method("_ready", %tr, [], none)`
+			defs << `@c %tr :: fn(inst: ptr, args: ptr, ret: ptr) {
+				%on(inst)
 			}`
 		}
 

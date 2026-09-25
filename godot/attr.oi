@@ -4,6 +4,9 @@ pub func :: ()
 pub signal :: ()
 pub export :: struct { range: string = "" }
 
+## Marks a field as a scene-relative node path, resolved by `get_node`.
+pub onready :: struct { path: string = "" }
+
 pub kind :: fn(t: Ast) string {
 	if t == "f64" do return "float"
 	if t == "bool" do return "bool"
@@ -13,6 +16,7 @@ pub kind :: fn(t: Ast) string {
 
 pub width :: fn(f: Ast) int {
 	if f.name.str() == f.typ.str() do return 8
+	if noted(f, "onready") do return 8
 	t := f.typ.str()
 	if t == "f64" || t == "i64" || t == "int" || t == "u64" || t == "usize" || t == "ptr" do return 8
 	if t == "f32" || t == "i32" || t == "u32" do return 4

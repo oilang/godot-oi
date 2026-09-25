@@ -1,10 +1,15 @@
 @godot.class!
-OiNode2D :: struct { Node2D }
+OiNode2D :: struct {
+	Node2D,
+	sprite: godot.Sprite2D @godot.onready.{ "../Sprite" },
+}
 
 @godot.class!
 OiNode2D :< {
 	ready :: fn(mut self) {
 		print("oi: ready 2d")
+		sp := self.sprite.get_position()
+		print("oi: onready {self.sprite.get_name()} {sp.x} {sp.y}")
 		gd := godot.gd
 		o := godot.Object.from_ptr(self.object)
 		v := Vector2.{ 1.0, 2.0 }
