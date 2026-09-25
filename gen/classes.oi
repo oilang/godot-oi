@@ -4,6 +4,7 @@ module main
 
 slot := 0
 skipped := 0
+accs := 0
 sizes: [string]int
 class_set: [string]bool
 refcounted: [string]bool
@@ -475,6 +476,66 @@ method :: fn(cname: string, m: Obj) string {
 	d + "\tpub {fname} :: fn({ps}){ret_sig(rt, g.ropt)} {{\n" + ptrcall_body(args, rt, g.ropt, c) + "\t}}\n"
 }
 
+## Get the non-virtual method named `name`.
+member :: fn(ms: []Obj, name: string) Obj {
+	loop m in ms {
+		if text(m, "name") != name do continue
+		if flag(m, "is_virtual") do continue
+		return m
+	}
+	[]
+}
+
+## `properties` accessors over the class's own getter and setter.
+accessors :: fn(c: Obj, used: []string) s: string {
+	ms := arr(c, "methods")
+	names := used
+	loop p in arr(c, "properties") {
+		raw := text(p, "name")
+		pname := safe(raw, [])
+		gname := text(p, "getter")
+		gm := member(ms, gname)
+		if !has(gm, "name") do continue
+		gs := sig(gm) or do continue
+
+		nidx := if has(p, "index") do 1 else do 0
+		if gs.args.len != nidx do continue
+		idx := ""
+		if nidx == 1 {
+			iv := num(p, "index")
+			idx = default(gs.args[0].typ, "{iv}")
+			if idx == "" do continue
+		}
+
+		d := doc(p, "\t## ")
+		if !(pname in names) {
+			names << pname
+			accs += 1
+			g := safe(gname, [ "copy", "drop" ])
+			s += d + "\tpub {pname} :: fn(self){ret_sig(gs.rt, gs.ropt)} {{ self.{g}({idx}) }}\n"
+		}
+
+		sname := text(p, "setter")
+		if sname == "" do continue
+		sfn := "set_{raw}"
+		if sfn in names do continue
+		sm := member(ms, sname)
+		if !has(sm, "name") do continue
+		ss := sig(sm) or do continue
+		if ss.args.len != nidx + 1 do continue
+
+		names << sfn
+		accs += 1
+		one: []Arg
+		one << ss.args[ss.args.len - 1]
+		lead := if idx != "" do "{idx}, "
+		st := safe(sname, [ "copy", "drop" ])
+		ps := params(one, "self")
+		s += d + "\tpub {sfn} :: fn({ps}){ret_sig(ss.rt, ss.ropt)} {{ self.{st}({lead}{one[0].name}) }}\n"
+	}
+	s
+}
+
 ## Generate method body.
 ## `cast` from a bare `Object`, `new` when instantiable, then every non-virtual method.
 body :: fn(c: Obj) s: string {
@@ -514,9 +575,16 @@ body :: fn(c: Obj) s: string {
 		lines.join("\n") + "\n"
 	}
 
+	used: []string = [ "cast", "new", "from_ptr" ]
+	loop m in arr(c, "methods") {
+		used << safe(text(m, "name"), [ "copy", "drop" ])
+	}
+
 	loop sg in arr(c, "signals") {
 		raw := text(sg, "name")
 		fname := safe(snake(raw), [ "cast", "new", "from_ptr" ])
+		used << fname
+		s += doc(sg, "\t## ")
 		s += "\tpub {fname} :: fn(self) Signal {{ Signal.of(self.object, \"{raw}\") }}\n"
 	}
 
@@ -526,7 +594,7 @@ body :: fn(c: Obj) s: string {
 		}
 	}
 
-	s
+	s + accessors(c, used)
 }
 
 ## Generate From fills.
@@ -605,7 +673,7 @@ classes :: fn(api: Obj) string {
 		emit("{out}/classes/{snake(name)}.oi", head + s + body(c) + "}}\n{tail}")
 		n += 1
 	}
-	"{n} classes, {slot} methods, {skipped} skipped"
+	"{n} classes, {slot} methods, {accs} accessors, {skipped} skipped"
 }
 
 ## Slot counts.
