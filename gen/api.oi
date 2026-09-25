@@ -208,7 +208,8 @@ builtins :: fn(api: Obj) string {
 		}
 
 		body += conv(name, vtype(name), sizes[name], false, false)
-		emit("{out}/builtins/{snake(name)}.oi", "{head}## {name}\n{body}")
+		d := doc(b, "## ")
+		emit("{out}/builtins/{snake(name)}.oi", "{head}## {name}\n{d}{body}")
 		n += 1
 	}
 	"{n} builtins, {slot - nm} methods"

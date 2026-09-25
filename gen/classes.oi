@@ -547,7 +547,7 @@ classes :: fn(api: Obj) string {
 		loop k in arr(c, "constants") {
 			kname := text(k, "name")
 			kval := lit(k, "value")
-			s += "\tpub {kname} :: {kval}\n"
+			s += doc(k, "\t## ") + "\tpub {kname} :: {kval}\n"
 		}
 		tail := conv(name, "object", 8, true, refcounted[name])
 		emit("{out}/classes/{snake(name)}.oi", head + s + body(c) + "}}\n{tail}")
