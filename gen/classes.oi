@@ -5,22 +5,22 @@ module main
 slot := 0
 skipped := 0
 accs := 0
-sizes: [string]int
-class_set: [string]bool
-refcounted: [string]bool
+sizes: [string]int = []
+class_set: [string]bool = []
+refcounted: [string]bool = []
 
 ## Builtins with a Drop hook.
-hooked: [string]bool
+hooked: [string]bool = []
 
 ## Member metas per math builtin, comma-joined, to `fill` a default.
-member_metas: [string]string
+member_metas: [string]string = []
 
 ## Params of these types take a plain `string`, built into the engine type inside the wrapper.
 strargs: []string = [ "String" "StringName" "NodePath" ]
 
 ## Enum to first variant, and `<enum>:<value>` to variant, for defaults.
-enum_first: [string]string
-enum_values: [string]string
+enum_first: [string]string = []
+enum_values: [string]string = []
 narrow: []string = [ "int8" "int16" "int32" "uint8" "uint16" ]
 
 ## Arg names that would shadow a local of the wrapper.
