@@ -82,3 +82,27 @@ RefGetObject :: @c fn(ref: ptr) ptr
 
 ## GDExtensionInterfaceObjectDestroy
 ObjectDestroy :: @c fn(object: ptr)
+
+## GDExtensionInterfaceCallableCustomCreate2
+CallableCustomCreate2 :: @c fn(out: ptr, info: ptr)
+
+## GDExtensionCallableCustomCall
+CallableCustomCall :: @c fn(userdata: ptr, args: ptr, argc: i64, ret: ptr, err: ptr)
+
+## GDExtensionCallableCustomFree
+CallableCustomFree :: @c fn(userdata: ptr)
+
+## GDExtensionCallableCustomInfo2
+@c CallableCustomInfo2 :: struct {
+	callable_userdata: ptr,
+	token: ptr,
+	object_id: u64,
+	call_func: CallableCustomCall,
+	is_valid_func: ptr,
+	free_func: CallableCustomFree,
+	hash_func: ptr,
+	equal_func: ptr,
+	less_than_func: ptr,
+	to_string_func: ptr,
+	get_argument_count_func: ptr,
+}

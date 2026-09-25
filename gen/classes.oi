@@ -462,6 +462,12 @@ body :: fn(c: Obj) s: string {
 		lines.join("\n") + "\n"
 	}
 
+	loop sg in arr(c, "signals") {
+		raw := text(sg, "name")
+		fname := safe(snake(raw), [ "cast", "new", "from_ptr" ])
+		s += "\tpub {fname} :: fn(self) Signal {{ Signal.of(self.object, \"{raw}\") }}\n"
+	}
+
 	loop m in arr(c, "methods") {
 		if !flag(m, "is_virtual") {
 			s += method(name, m)

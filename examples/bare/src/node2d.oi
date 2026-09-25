@@ -22,7 +22,13 @@ OiNode2D :< {
 		no := godot.Node3D.cast(o) == none
 		static := godot.PortableCompressedTexture2D.is_keeping_all_compressed_buffers()
 		print("oi: is_a {same} cast {yes} {no} static {static}")
+		entered := self.child_entered_tree()
+		_ := entered.connect(godot.Callable.of(fn(args: []Variant) {
+			who := godot.Node.(args[0])
+			print("oi: entered {who.get_name().str()}")
+		}))
 		kid := godot.Node.new()
+		kid.set_name(StringName.("Kid"))
 		self.add_child(kid)
 		print("oi: children {self.get_child_count()}")
 		pt := Vector2.{ 3.0, 4.0 }
@@ -78,7 +84,8 @@ OiNode2D :< {
 		n := StringName.("hit")
 		v := godot.gd.int(damage)
 		print("oi: has_signal {o.has_signal(n)}")
-		_ := o.emit_signal(n, [v])
+		sg := godot.Signal.of(self.object, "hit")
+		sg.emit([v])
 		v.drop()
 		n.destroy()
 	}

@@ -41,6 +41,7 @@ STRING_NAME_SIZE :: 8
 	builtin_method: ptr,
 	utility: ptr,
 	call: ptr,
+	callable_custom: ptr,
 }
 procs := Procs.{}
 
@@ -53,6 +54,7 @@ lookups :: fn() Procs {
 			gd.proc("variant_get_ptr_builtin_method"),
 			gd.proc("variant_get_ptr_utility_function"),
 			gd.proc("variant_call"),
+			gd.proc("callable_custom_create2"),
 		}
 	}
 	procs
@@ -128,6 +130,77 @@ pub equal :: fn(type: Type, left: ptr, right: ptr) bool {
 	unsafe free(left)
 	unsafe free(right)
 	hit != 0
+}
+
+## An oi fn behind a custom `Callable`.
+pub Fn :: fn(args: []Variant)
+
+## The boxed fns, indexed by the slot handed to Godot as `callable_userdata`.
+Registry :: struct { fns: []?Fn }
+registry := Registry.{}
+
+box :: fn(f: Fn) int {
+	fns := registry.fns
+	loop i in 0..fns.len {
+		spare := match fns[i] {
+			.none => true,
+			_ => false
+		}
+		if spare {
+			fns[i] = f
+			registry.fns = fns
+			return i
+		}
+	}
+	fns << f
+	registry.fns = fns
+	fns.len - 1
+}
+
+@c callable_call :: fn(userdata: ptr, args: ptr, argc: i64, ret: ptr, err: ptr) {
+	unsafe err.write(CallError.{ 0, 0, 0 })
+	fns := registry.fns
+	f := fns[int.(userdata.0)] or do return
+	all: []Variant = []
+	loop i in 0..int.(argc) {
+		all << arg(args, i)
+	}
+	f(all)
+}
+
+@c callable_free :: fn(userdata: ptr) {
+	fns := registry.fns
+	fns[int.(userdata.0)] = none
+	registry.fns = fns
+}
+
+Callable :< {
+	## A `Callable` over an oi fn, boxed until Godot frees the callable.
+	pub of :: fn(f: Fn) Callable {
+		info := unsafe malloc(CallableCustomInfo2.size)
+		unsafe info.write(CallableCustomInfo2.{
+			callable_userdata = ptr(usize.(box(f))),
+			token = gd.library,
+			call_func = callable_call,
+			free_func = callable_free,
+		})
+		at := unsafe malloc(Callable.size)
+		unsafe CallableCustomCreate2(lookups().callable_custom)(at, info)
+		unsafe free(info)
+		Callable.from_bytes(at)
+	}
+}
+
+Signal :< {
+	## `Signal(object, name)`.
+	pub of :: fn(object: ptr, name: cstr) Signal {
+		sn := gd.string_name(name)
+		o := unsafe malloc(8)
+		unsafe o.write(object)
+		s := Signal.from_bytes(construct(.signal, Signal.size, 2, [ o, sn.bytes() ]))
+		sn.destroy()
+		s
+	}
 }
 
 String :< {
