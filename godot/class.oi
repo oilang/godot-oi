@@ -14,6 +14,9 @@ CreateInstance :: @c fn(class: ptr, notify: u8) ptr
 ## GDExtensionClassFreeInstance
 FreeInstance :: @c fn(class: ptr, inst: ptr)
 
+## GDExtensionClassRecreateInstance
+RecreateInstance :: @c fn(class: ptr, object: ptr) ptr
+
 ## GDExtensionClassGetVirtualCallData2
 GetVirtualCallData :: @c fn(class: ptr, name: ptr, hash: u32) ptr
 
@@ -46,7 +49,7 @@ MethodPtrCall :: @c fn(userdata: ptr, inst: ptr, args: ptr, ret: ptr)
 	unreference: ptr,
 	create_instance: CreateInstance,
 	free_instance: FreeInstance,
-	recreate_instance: ptr,
+	recreate_instance: RecreateInstance,
 	get_virtual: ptr,
 	get_virtual_call_data: GetVirtualCallData,
 	call_virtual_with_data: CallVirtualWithData,
@@ -251,7 +254,7 @@ Godot :< {
 		info := unsafe malloc(Info.size)
 		unsafe info.write(Info.{
 			is_exposed = 1,
-			create_instance = create_instance, free_instance = free_instance,
+			create_instance = create_instance, free_instance = free_instance, recreate_instance = recreate_instance,
 			get_virtual_call_data = get_virtual_call_data, call_virtual_with_data = call_virtual_with_data,
 			class_userdata = class,
 		})
@@ -376,6 +379,17 @@ Godot :< {
 	}
 }
 
+## Fill each property's default into a fresh payload.
+fill_defaults :: fn(inst: ptr, c: Class) {
+	loop i in 0..c.nmethods {
+		at := bound(c.methods, i)
+		b := unsafe at.read[Bound]()
+		if !b.default.is_null() {
+			unsafe OnMethod(b.call)(inst, at, ptr(0))
+		}
+	}
+}
+
 @c create_instance :: fn(class: ptr, notify: u8) ptr {
 	c := unsafe class.read[Class]()
 	object := gd.construct_object(c.parent.at)
@@ -387,18 +401,23 @@ Godot :< {
 	if notify != 0 {
 		Object.from_ptr(object).notification(0)
 	}
-	loop i in 0..c.nmethods {
-		at := bound(c.methods, i)
-		b := unsafe at.read[Bound]()
-		if !b.default.is_null() {
-			unsafe OnMethod(b.call)(inst, at, ptr(0))
-		}
-	}
+	fill_defaults(inst, c)
 	object
 }
 
 @c free_instance :: fn(class: ptr, inst: ptr) {
 	unsafe free(inst)
+}
+
+## Rebuild an instance's payload on the same engine object, for a hot-reloaded class.
+## Godot restores stored property values afterward through the registered setters.
+@c recreate_instance :: fn(class: ptr, object: ptr) ptr {
+	c := unsafe class.read[Class]()
+	inst := unsafe calloc(1, Instance.size + c.state)
+	unsafe inst.write(Instance.{ class, object })
+	c.init(inst)
+	fill_defaults(inst, c)
+	inst
 }
 
 ## Hand back the matching `Bound` entry, which Godot passes to `call_virtual_with_data`.
