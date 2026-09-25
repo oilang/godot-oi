@@ -1,0 +1,28 @@
+module godot
+
+pub func :: ()
+pub export :: struct { range: string = "" }
+
+pub kind :: fn(t: Ast) string {
+	if t == "f64" do return "float"
+	if t == "bool" do return "bool"
+	if t == "i64" || t == "int" || t == "u64" do return "int"
+	""
+}
+
+pub width :: fn(f: Ast) int {
+	if f.name.str() == f.typ.str() do return 8
+	t := f.typ.str()
+	if t == "f64" || t == "i64" || t == "int" || t == "u64" || t == "usize" || t == "ptr" do return 8
+	if t == "f32" || t == "i32" || t == "u32" do return 4
+	if t == "i16" || t == "u16" do return 2
+	if t == "bool" || t == "u8" || t == "i8" do return 1
+	0
+}
+
+pub noted :: fn(item: Ast, name: string) bool {
+	loop a in item.notes {
+		if a.name.str() == "godot." + name do return true
+	}
+	false
+}

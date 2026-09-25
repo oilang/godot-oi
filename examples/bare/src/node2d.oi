@@ -1,0 +1,49 @@
+@godot.class!
+OiNode2D :: struct { Node2D }
+
+@godot.class!
+OiNode2D :< {
+	ready :: fn(mut self) {
+		print("oi: ready 2d")
+		gd := godot.gd
+		o := godot.Object.from_ptr(self.object)
+		v := Vector2.{ 1.0, 2.0 }
+		self.set_position(v)
+		p := self.get_position()
+		print("oi: position {p.x} {p.y}")
+		print("oi: physics ticks {godot.Engine.singleton().get_physics_ticks_per_second()}")
+		same := o.is_a("Node2D")
+		yes := Node2D.cast(o) != none
+		no := godot.Node3D.cast(o) == none
+		static := godot.PortableCompressedTexture2D.is_keeping_all_compressed_buffers()
+		print("oi: is_a {same} cast {yes} {no} static {static}")
+		kid := godot.Node.new()
+		self.add_child(kid)
+		print("oi: children {self.get_child_count()}")
+		pt := Vector2.{ 3.0, 4.0 }
+		vv := Variant.(pt)
+		w := Vector2.(vv)
+		vo := Variant.(Node2D.from_ptr(o.object))
+		back := Node2D.(vo)
+		print("oi: from {vv.type()} {w.x} {vo.type()} {back.get_child_count()}")
+		vv.drop()
+		vo.drop()
+		ov := Variant.(o)
+		mn := StringName.("add")
+		c := godot.Callable.create(ov, mn)
+		mn.destroy()
+		ov.drop()
+		one := gd.int(1)
+		two := gd.int(2)
+		nine := gd.int(9)
+		r := c.call([one, two])
+		b := c.bind([nine])
+		print("oi: callable {r.int()} {b.get_bound_arguments_count()}")
+		loop v in [one, two, nine, r] {
+			v.drop()
+		}
+	}
+
+	@godot.func
+	add :: fn(self, a: i64, b: i64) i64 { a + b }
+}

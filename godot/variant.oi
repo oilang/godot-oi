@@ -53,12 +53,13 @@ Godot :< {
 		v
 	}
 
-	from_type :: fn(self, t: Type, v: Variant, value: ptr) {
+	## Build Variant from raw typed storage, and write Variant back out as that type.
+	pub from_type :: fn(self, t: Type, v: Variant, value: ptr) {
 		ctor := unsafe FromType(self.variant_from_type(i32.(t)))
 		ctor(v.at, value)
 	}
 
-	to_type :: fn(self, t: Type, v: Variant, out: ptr) {
+	pub to_type :: fn(self, t: Type, v: Variant, out: ptr) {
 		ctor := unsafe ToType(self.variant_to_type(i32.(t)))
 		ctor(out, v.at)
 	}

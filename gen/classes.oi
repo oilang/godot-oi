@@ -534,7 +534,8 @@ classes :: fn(api: Obj) string {
 			parent := parents[name]
 			link := chain(parent, parents)
 			d := doc(c, "## ")
-			s += "## {name}\n{d}pub {name} :: struct {{ {parent} }}\n\n{name} :< {{\n\tpub from_ptr :: fn(p: ptr) {name} {{ .{{ {link} }} }}\n"
+			s += "## {name}\n{d}@c pub {name} :: struct {{ {parent} }}\n\n"
+			s += "{name} :< {{\n\tpub from_ptr :: fn(p: ptr) {name} {{ .{{ {link} }} }}\n"
 		}
 
 		loop k in arr(c, "constants") {

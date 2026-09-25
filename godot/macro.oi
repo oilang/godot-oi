@@ -1,0 +1,185 @@
+module godot
+
+pub class! :: fn(input: Ast) Ast {
+	n := input.name
+	name := n.str()
+	items := input.items
+	defs: []Ast
+
+	if items.len > 0 && items[0].typ == items[0].name.str() {
+		parent := items[0].typ.str()
+		init := ident(name + "_init")
+		reg := ident(name + "_register")
+		props: []Ast
+		off := 0
+
+		loop f in items {
+			w := width(f)
+			if w == 0 {
+				print("godot: {name}.{f.name.str()} has no C size, fields after it cannot be exported")
+				break
+			}
+
+			at := (off + w - 1) / w * w
+			off = at + w
+			if !noted(f, "export") do continue
+
+			fname := f.name.str()
+			k := kind(f.typ)
+			if k == "" {
+				print("godot: {name}.{fname} is not a float, int, or bool, not exported")
+				continue
+			}
+
+			g := ident(name + "_get_" + fname)
+			s := ident(name + "_set_" + fname)
+			t := match k {
+				"float" => `.float`,
+				"int" => `.int`,
+				_ => `.bool`
+			}
+
+			range := ""
+			loop a in f.notes {
+				range = match a {
+					`godot.export.{ range = %r }` => r.str(),
+					_ => range
+				}
+			}
+			hint := if range == "" do `.nil` else do `.range`
+			defs << `@c %g :: fn(inst: ptr, args: ptr, ret: ptr) {
+				godot.gd.from_type(%t, godot.ret(ret), ptr(godot.payload(inst).0 + %at))
+			}`
+			defs << `@c %s :: fn(inst: ptr, args: ptr, ret: ptr) {
+				godot.gd.to_type(%t, godot.arg(args, 0), ptr(godot.payload(inst).0 + %at))
+			}`
+			props << `godot.property(%fname, %t, %g, %s, true, %hint, %range)`
+		}
+
+		`%{..defs}
+		@c %input
+		%n :< {
+			pub from_payload :: fn(inst: ptr) %n {
+				unsafe godot.payload(inst).read[Self]()
+			}
+		}
+		@c %init :: fn(inst: ptr) {
+			p := godot.payload(inst)
+			unsafe p.write(%n.{})
+			unsafe p.write(godot.object(inst))
+		}
+		%reg :: fn(virtuals: []godot.Method, methods: []godot.Method) {
+			godot.gd.register(%name, %parent, %n.size, virtuals, methods, [%{..props}], %init)
+		}`
+	} else {
+		cls := ident(name + "_class")
+		reg := ident(name + "_register")
+		rd := ident(name + ".from_payload")
+		x := ident("x")
+		virtuals: []Ast
+		methods: []Ast
+
+		loop it in items {
+			fname := it.name.str()
+			virtual := fname == "ready" || fname == "process" || fname == "physics_process"
+			if !virtual && !noted(it, "func") do continue
+
+			t := ident(name + "_" + fname)
+			slots: []Ast
+
+			body := if virtual {
+				if fname != "ready" do slots << `godot.slot("delta", .float)`
+				vname := "_" + fname
+				virtuals << `godot.method(%vname, %t, [%{..slots}], none)`
+				match fname {
+					"ready" => `%x.ready()`,
+					"process" => `%x.process(godot.arg(args, 0).float())`,
+					_ => `%x.physics_process(godot.arg(args, 0).float())`
+				}
+			} else {
+				d := ident(name + "." + fname)
+				argv: []Ast
+				loop j in 1..it.items.len {
+					a := it.items[j]
+					aname := a.name.str()
+					i := j - 1
+					k := kind(a.typ)
+					ty := match k {
+						"float" => `.float`,
+						"int" => `.int`,
+						_ => `.bool`
+					}
+					argv << match k {
+						"float" => `godot.arg(args, %i).float()`,
+						"int" => `godot.arg(args, %i).int()`,
+						_ => `godot.arg(args, %i).bool()`
+					}
+					slots << `godot.slot(%aname, %ty)`
+				}
+
+				call := match argv.len {
+					0 => `%d(%x)`,
+					1 => `%d(%x, %{argv[0]})`,
+					2 => `%d(%x, %{argv[0]}, %{argv[1]})`,
+					3 => `%d(%x, %{argv[0]}, %{argv[1]}, %{argv[2]})`,
+					_ => {
+						print("godot: {name}.{fname} takes more than 3 args, not registered")
+						continue
+					}
+				}
+
+				k := kind(it.typ)
+				rt := match k {
+					"float" => `.float`,
+					"int" => `.int`,
+					"bool" => `.bool`,
+					_ => `none`
+				}
+
+				methods << `godot.method(%fname, %t, [%{..slots}], %rt)`
+				match k {
+					"float" => `godot.ret(ret).set_float(%call)`,
+					"int" => `godot.ret(ret).set_int(%call)`,
+					"bool" => `godot.ret(ret).set_bool(%call)`,
+					_ => call
+				}
+			}
+
+			defs << `@c %t :: fn(inst: ptr, args: ptr, ret: ptr) {
+				%x := %rd(inst)
+				%body
+				unsafe godot.payload(inst).write(%x)
+			}`
+		}
+
+		`%{..defs}
+		%input
+		%cls :: fn() {
+			%reg([%{..virtuals}], [%{..methods}])
+		}`
+	}
+}
+
+pub init! :: fn(classes: Ast) Ast {
+	calls: []Ast
+	loop c in classes.items {
+		calls << `%{ident(c.str() + "_class")}()`
+	}
+
+	`@export.{"godot_oi_init"}
+	godot_oi_init :: fn(get_proc: godot.GetProc, library: ptr, out: ptr) bool {
+		godot.setup(get_proc, library, out, godot_oi_initialize, godot_oi_deinitialize)
+	}
+
+	@c godot_oi_initialize :: fn(userdata: ptr, level: i32) {
+		if godot.level(level) == .scene {
+			%{..calls}
+		}
+	}
+
+	@c godot_oi_deinitialize :: fn(userdata: ptr, level: i32) {
+		if godot.level(level) == .scene {
+			godot.gd.unregister_all()
+		}
+	}`
+}

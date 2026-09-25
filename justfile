@@ -15,7 +15,7 @@ api mode="":
 build name:
 	@test -e {{home}}/lib/godot || just install
 	@test -d godot/api || just api
-	{{oi}} build examples/{{name}}/src/init.oi --lib -o examples/{{name}}/lib/liboi.so
+	{{oi}} build examples/{{name}}/src --lib -o examples/{{name}}/lib/liboi.so
 
 # run an example headless
 run name: (build name)

@@ -3,12 +3,10 @@ module godot
 ## Register classes.
 ## TODO: most of these types will get replaced once I generate types like I did in gdext-v
 
-pub OnReady :: @c fn(inst: ptr)
-pub OnProcess :: @c fn(inst: ptr, delta: f64)
 pub OnMethod :: @c fn(inst: ptr, args: ptr, ret: ptr)
 
-## Unpacks Godot's raw virtual call and forwards it to the game's `target`.
-Trampoline :: @c fn(inst: ptr, target: ptr, args: ptr, ret: ptr)
+## Fills a new instance's payload, before any property default is set.
+pub OnInit :: @c fn(inst: ptr)
 
 ## GDExtensionClassCreateInstance3
 CreateInstance :: @c fn(class: ptr, notify: u8) ptr
@@ -101,13 +99,10 @@ TOO_MANY :: 3
 ## GDEXTENSION_CALL_ERROR_TOO_FEW_ARGUMENTS
 TOO_FEW :: 4
 
-## A virtual the class overrides. Build with `ready` or `process`.
-@c pub Virtual :: struct { name: cstr, call: Trampoline, target: ptr }
-
 ## A method arg. `.nil` is an untyped `Variant`.
 pub Slot :: struct { name: cstr, type: Type }
 
-## A method scripts can call. `ret` is `none` for no return. The callback sees every slot as a `Variant`.
+## A method scripts can call, or a virtual the engine calls.
 pub Method :: struct {
 	name: cstr,
 	call: OnMethod,
@@ -129,12 +124,6 @@ pub Property :: struct {
 	default: ?Variant,
 }
 
-pub ready :: fn(cb: OnReady) Virtual {
-	Virtual.{ "_ready", call_ready, ptr(cb) }
-}
-pub process :: fn(cb: OnProcess) Virtual {
-	Virtual.{ "_process", call_process, ptr(cb) }
-}
 pub slot :: fn(name: cstr, t: Type) Slot {
 	Slot.{ name, t }
 }
@@ -157,12 +146,11 @@ pub arg :: fn(args: ptr, n: int) Variant {
 ## A method's `ret` slot as a `Variant`.
 pub ret :: fn(at: ptr) Variant { Variant.{ at } }
 
-## A `Virtual` or `Method` once registered.
+## A `Method` once registered.
 @c Bound :: struct {
 	default: ptr,
 	name: StringName,
 	call: ptr,
-	target: ptr,
 	argc: i32,
 	types: ptr,
 	ret: i32
@@ -177,6 +165,7 @@ pub ret :: fn(at: ptr) Variant { Variant.{ at } }
 	nvirtuals: int,
 	methods: ptr,
 	nmethods: int,
+	init: OnInit,
 	next: ptr,
 }
 
@@ -191,13 +180,9 @@ pub object :: fn(inst: ptr) ptr {
 	unsafe inst.read[Instance]().object
 }
 
-## The game's state behind `inst`.
-pub state[T] :: fn(inst: ptr) T {
-	unsafe ptr(inst.0 + Instance.size).read[T]()
-}
-
-pub set_state[T] :: fn(inst: ptr, s: T) {
-	unsafe ptr(inst.0 + Instance.size).write(s)
+## The game's struct behind `inst`.
+pub payload :: fn(inst: ptr) ptr {
+	ptr(inst.0 + Instance.size)
 }
 
 ## The nth entry of a `Bound` table.
@@ -216,7 +201,8 @@ type_at :: fn(table: ptr, n: int) Type {
 
 Godot :< {
 	pub register :: fn(
-		self, name: cstr, parent: cstr, state: usize, virtuals: []Virtual, own: []Method, props: []Property,
+		self, name: cstr, parent: cstr, state: usize, virtuals: []Method, own: []Method, props: []Property,
+		init: OnInit,
 	) {
 		methods: []Method
 		methods << own
@@ -226,41 +212,15 @@ Godot :< {
 			methods << method(("get_" + n).cstr(), p.get, [], p.type)
 			methods << method(("set_" + n).cstr(), p.set, [slot(p.name, p.type)], none)
 		}
-		vt := unsafe malloc(Bound.size * usize.(virtuals.len))
-		loop i in 0..virtuals.len {
-			v := virtuals[i]
-			unsafe bound(vt, i).write(Bound.{
-				ptr(0),
-				self.string_name(v.name),
-				ptr(v.call),
-				v.target
-			})
-		}
-		mt := unsafe malloc(Bound.size * usize.(methods.len))
-		loop i in 0..methods.len {
-			m := methods[i]
-			types := unsafe malloc(usize.(4 * m.args.len))
-			loop j in 0..m.args.len {
-				unsafe ptr(types.0 + usize.(4 * j)).write(i32.(m.args[j].type))
-			}
-			b := Bound.{
-				ptr(0),
-				self.string_name(m.name),
-				ptr(m.call),
-				ptr(0),
-				i32.(m.args.len),
-				types,
-				i32.(m.ret or .nil)
-			}
-			unsafe bound(mt, i).write(b)
-		}
+		vt := self.table(virtuals)
+		mt := self.table(methods)
 		loop i in 0..props.len {
 			unsafe bound(mt, own.len + 2 * i + 1).write((props[i].default or Variant.{ ptr(0) }).at)
 		}
 		class := unsafe malloc(Class.size)
 		unsafe class.write(Class.{
 			self.string_name(name), self.string_name(parent), state,
-			vt, virtuals.len, mt, methods.len, self.classes.read[ptr](),
+			vt, virtuals.len, mt, methods.len, init, self.classes.read[ptr](),
 		})
 		unsafe self.classes.write(class)
 		c := unsafe class.read[Class]()
@@ -328,6 +288,22 @@ Godot :< {
 		unsafe self.classes.write(ptr(0))
 	}
 
+	## A `Bound` per method.
+	table :: fn(self, methods: []Method) ptr {
+		t := unsafe malloc(Bound.size * usize.(methods.len))
+		loop i in 0..methods.len {
+			m := methods[i]
+			types := unsafe malloc(usize.(4 * m.args.len))
+			loop j in 0..m.args.len {
+				unsafe ptr(types.0 + usize.(4 * j)).write(i32.(m.args[j].type))
+			}
+			unsafe bound(t, i).write(Bound.{
+				ptr(0), self.string_name(m.name), ptr(m.call), i32.(m.args.len), types, i32.(m.ret or .nil)
+			})
+		}
+		t
+	}
+
 	slot_info :: fn(self, s: Slot, hint: Hint = .nil, hint_string: string = "") PropertyInfo {
 		hs := unsafe malloc(usize.(STRING_SIZE))
 		self.new_string(hs, hint_string.ptr, i64.(hint_string.len))
@@ -368,6 +344,8 @@ Godot :< {
 	inst := unsafe calloc(1, Instance.size + c.state)
 	unsafe inst.write(Instance.{ class, object })
 	gd.set_instance(object, c.name.at, inst)
+	init := c.init
+	init(inst)
 	if notify != 0 {
 		Object.from_ptr(object).notification(0)
 	}
@@ -397,20 +375,7 @@ Godot :< {
 }
 
 @c call_virtual_with_data :: fn(inst: ptr, name: ptr, data: ptr, args: ptr, ret: ptr) {
-	b := unsafe data.read[Bound]()
-	call := unsafe Trampoline(b.call)
-	call(inst, b.target, args, ret)
-}
-
-@c call_ready :: fn(inst: ptr, target: ptr, args: ptr, ret: ptr) {
-	on_ready := unsafe OnReady(target)
-	on_ready(inst)
-}
-
-@c call_process :: fn(inst: ptr, target: ptr, args: ptr, ret: ptr) {
-	delta := unsafe args.read[ptr]().read[f64]()
-	on_process := unsafe OnProcess(target)
-	on_process(inst, delta)
+	ptrcall_method(data, inst, args, ret)
 }
 
 ## The `Variant` call path.

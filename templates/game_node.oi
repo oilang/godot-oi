@@ -1,0 +1,21 @@
+use godot
+use godot.{ Node }
+
+@godot.class!
+GameNode :: struct {
+	Node,
+	frames: u64,
+	speed: f64 = 1.0 @godot.export.{ range = "0,10,0.5" },
+}
+
+@godot.class!
+GameNode :< {
+	ready :: fn(mut self) {}
+
+	process :: fn(mut self, delta: f64) {
+		self.frames += 1
+	}
+
+	@godot.func
+	hello :: fn(self) {}
+}

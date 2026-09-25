@@ -3,32 +3,4 @@
 
 use godot
 
-## Per-instance state.
-@c State :: struct { frames: u64 }
-
-@export.{"godot_oi_init"}
-init :: fn(get_proc: godot.GetProc, library: ptr, out: ptr) bool {
-	godot.setup(get_proc, library, out, initialize, deinitialize)
-}
-
-@c initialize :: fn(userdata: ptr, level: i32) {
-	if godot.level(level) == .scene {
-		gd := godot.of(userdata)
-		gd.register("GameNode", "Node", State.size, [godot.ready(ready), godot.process(process)], [godot.method("hello", hello, [], none)], [])
-	}
-}
-
-@c deinitialize :: fn(userdata: ptr, level: i32) {
-	if godot.level(level) == .scene {
-		godot.of(userdata).unregister_all()
-	}
-}
-
-@c ready :: fn(inst: ptr) {}
-
-@c process :: fn(inst: ptr, delta: f64) {
-	s := godot.state[State](inst)
-	godot.set_state(inst, State.{ s.frames + 1 })
-}
-
-@c hello :: fn(inst: ptr, args: ptr, ret: ptr) {}
+godot.init!([ GameNode ])

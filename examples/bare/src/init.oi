@@ -1,155 +1,80 @@
 use godot
-use godot.{ String, NodePath, StringName, Vector2, Vector2i, Color, Array, Variant, Node2D }
+use godot.{ String, NodePath, StringName, Vector2, Vector2i, Color, Array, Variant, Node, Node2D }
 
-## Per-instance state.
-@c State :: struct { frames: u64, speed: f64 }
+godot.init!([OiNode, OiNode2D])
 
-@export.{"godot_oi_init"}
-init :: fn(get_proc: godot.GetProc, library: ptr, out: ptr) bool {
-	godot.setup(get_proc, library, out, initialize, deinitialize)
+@godot.class!
+OiNode :: struct {
+	Node,
+	frames: u64,
+	speed: f64 = 1.0 @godot.export.{ range = "0,10,0.5" },
 }
 
-@c initialize :: fn(userdata: ptr, level: i32) {
-	if godot.level(level) == .scene {
-		gd := godot.of(userdata)
+@godot.class!
+OiNode :< {
+	ready :: fn(mut self) {
+		gd := godot.gd
 		v := gd.version()
 		status := unsafe v.status.str()
 		print("oi: hello from Godot {v.major}.{v.minor}.{v.patch} {status}")
-		speed := gd.variant()
-		speed.set_float(1.0)
-		gd.register(
-			"OiNode",
-			"Node",
-			State.size,
-			[godot.ready(ready), godot.process(process)],
-			[godot.method("hello", hello, [], none), godot.method("add", add, [godot.slot("a", .int), godot.slot("b", .int)], .int)],
-			[godot.property("speed", .float, get_speed, set_speed, true, .range, "0,10,0.5", speed)],
-		)
-		add2d := [ godot.method("add", add, [ godot.slot("a", .int), godot.slot("b", .int) ], .int) ]
-		gd.register("OiNode2D", "Node2D", 0, [ godot.ready(ready2d) ], add2d, [])
-	}
-}
-
-@c deinitialize :: fn(userdata: ptr, level: i32) {
-	if godot.level(level) == .scene {
-		godot.of(userdata).unregister_all()
-		print("oi: bye")
-	}
-}
-
-@c ready :: fn(inst: ptr) {
-	print("oi: ready")
-	gd := godot.gd
-	v := gd.variant()
-	v.set_int(42)
-	i := v.int()
-	v.set_float(2.5)
-	f := v.float()
-	v.set_bool(true)
-	b := v.bool()
-	v.set_string("hi")
-	s := v.string()
-	t := v.type()
-	v.drop()
-	print("oi: variant {i} {f} {b} {s} {t}")
-	name := gd.call(godot.object(inst), gd.bind(0, "Object", "get_class", 201670096), [])
-	class := name.string()
-	name.drop()
-	print("oi: class {class}")
-	hi := String.("hi there")
-	same := hi == String.("hi there")
-	path := NodePath.("Player/Sprite")
-	sn := StringName.("ready")
-	print("oi: string {hi} {same} {path} {sn}")
-	z := Vector2.ZERO
-	w := Color.WHITE
-	print("oi: const {z.x} {z.y} {w.r} {w.g} {w.b} {w.a}")
-	print("oi: enum alias {godot.InlineAlignment.top() == godot.InlineAlignment.to_top()}")
-	p := Vector2.{ 1.0, 2.0 }
-	q := Vector2.{ 3.0, 4.0 }
-	sum := p + q
-	neg := -(p - q)
-	scaled := sum * Vector2.{ 2.0, 2.0 } / Vector2.{ 4.0, 4.0 }
-	sumi := Vector2i.{ 1, 2 } + Vector2i.{ 3, 4 }
-	tint := Color.{ 1.0, 0.5, 0.25, 1.0 } - Color.{ 0.5, 0.25, 0.0, 0.5 }
-	print("oi: math {sum.x} {sum.y} {neg.y} {scaled.x} {sumi.x} {sumi.y} {tint.r} {tint.g}")
-	up := hi.to_upper()
-	v2 := Vector2.{ 3.0, 4.0 }
-	list := Array.new()
-	seven := gd.int(7)
-	list.push_back(seven)
-	seven.drop()
-	print("oi: builtin {hi.length()} {up} {v2.length()} {list.size()}")
-	godot.printl("oi: utility print")
-	godot.warn("oi: warn")
-	print("oi: utility {godot.deg_to_rad(180.0)} {godot.type_string(2)}")
-}
-
-@c ready2d :: fn(inst: ptr) {
-	print("oi: ready 2d")
-	gd := godot.gd
-	o := godot.Object.from_ptr(godot.object(inst))
-	n := Node2D.from_ptr(o.object)
-	v := Vector2.{ 1.0, 2.0 }
-	n.set_position(v)
-	p := n.get_position()
-	print("oi: position {p.x} {p.y}")
-	print("oi: physics ticks {godot.Engine.singleton().get_physics_ticks_per_second()}")
-	same := o.is_a("Node2D")
-	yes := Node2D.cast(o) != none
-	no := godot.Node3D.cast(o) == none
-	static := godot.PortableCompressedTexture2D.is_keeping_all_compressed_buffers()
-	print("oi: is_a {same} cast {yes} {no} static {static}")
-	kid := godot.Node.new()
-	n.add_child(kid)
-	print("oi: children {n.get_child_count()}")
-	pt := Vector2.{ 3.0, 4.0 }
-	vv := Variant.(pt)
-	w := Vector2.(vv)
-	vo := Variant.(n)
-	back := Node2D.(vo)
-	print("oi: from {vv.type()} {w.x} {vo.type()} {back.get_child_count()}")
-	vv.drop()
-	vo.drop()
-	ov := Variant.(o)
-	mn := StringName.("add")
-	c := godot.Callable.create(ov, mn)
-	mn.destroy()
-	ov.drop()
-	one := gd.int(1)
-	two := gd.int(2)
-	nine := gd.int(9)
-	r := c.call([one, two])
-	b := c.bind([nine])
-	print("oi: callable {r.int()} {b.get_bound_arguments_count()}")
-	loop v in [one, two, nine, r] {
+		print("oi: ready")
+		v := gd.variant()
+		v.set_int(42)
+		i := v.int()
+		v.set_float(2.5)
+		f := v.float()
+		v.set_bool(true)
+		b := v.bool()
+		v.set_string("hi")
+		s := v.string()
+		t := v.type()
 		v.drop()
+		print("oi: variant {i} {f} {b} {s} {t}")
+		name := gd.call(self.object, gd.bind(0, "Object", "get_class", 201670096), [])
+		class := name.string()
+		name.drop()
+		print("oi: class {class}")
+		hi := String.("hi there")
+		same := hi == String.("hi there")
+		path := NodePath.("Player/Sprite")
+		sn := StringName.("ready")
+		print("oi: string {hi} {same} {path} {sn}")
+		z := Vector2.ZERO
+		w := Color.WHITE
+		print("oi: const {z.x} {z.y} {w.r} {w.g} {w.b} {w.a}")
+		print("oi: enum alias {godot.InlineAlignment.top() == godot.InlineAlignment.to_top()}")
+		p := Vector2.{ 1.0, 2.0 }
+		q := Vector2.{ 3.0, 4.0 }
+		sum := p + q
+		neg := -(p - q)
+		scaled := sum * Vector2.{ 2.0, 2.0 } / Vector2.{ 4.0, 4.0 }
+		sumi := Vector2i.{ 1, 2 } + Vector2i.{ 3, 4 }
+		tint := Color.{ 1.0, 0.5, 0.25, 1.0 } - Color.{ 0.5, 0.25, 0.0, 0.5 }
+		print("oi: math {sum.x} {sum.y} {neg.y} {scaled.x} {sumi.x} {sumi.y} {tint.r} {tint.g}")
+		up := hi.to_upper()
+		v2 := Vector2.{ 3.0, 4.0 }
+		list := Array.new()
+		seven := gd.int(7)
+		list.push_back(seven)
+		seven.drop()
+		print("oi: builtin {hi.length()} {up} {v2.length()} {list.size()}")
+		godot.printl("oi: utility print")
+		godot.warn("oi: warn")
+		print("oi: utility {godot.deg_to_rad(180.0)} {godot.type_string(2)}")
 	}
-}
 
-@c process :: fn(inst: ptr, delta: f64) {
-	s := godot.state[State](inst)
-	godot.set_state(inst, State.{ s.frames + 1, s.speed })
-	if s.frames == 0 {
-		print("oi: process {delta}")
+	process :: fn(mut self, delta: f64) {
+		if self.frames == 0 {
+			print("oi: process {delta}")
+		}
+		self.frames += 1
 	}
-}
 
-@c hello :: fn(inst: ptr, args: ptr, ret: ptr) {
-	print("oi: hello")
-}
+	@godot.func
+	hello :: fn(self) {
+		print("oi: hello")
+	}
 
-@c add :: fn(inst: ptr, args: ptr, ret: ptr) {
-	godot.ret(ret).set_int(godot.arg(args, 0).int() + godot.arg(args, 1).int())
-}
-
-@c get_speed :: fn(inst: ptr, args: ptr, ret: ptr) {
-	godot.ret(ret).set_float(godot.state[State](inst).speed)
-}
-
-@c set_speed :: fn(inst: ptr, args: ptr, ret: ptr) {
-	godot.set_state(inst, State.{
-		godot.state[State](inst).frames,
-		godot.arg(args, 0).float()
-	})
+	@godot.func
+	add :: fn(self, a: i64, b: i64) i64 { a + b }
 }
