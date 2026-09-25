@@ -183,6 +183,7 @@ pub ret :: fn(at: ptr) Variant { Variant.{ at } }
 	methods: ptr,
 	nmethods: int,
 	init: OnInit,
+	onready: OnInit,
 	next: ptr,
 }
 
@@ -228,7 +229,7 @@ type_at :: fn(table: ptr, n: int) Type {
 Godot :< {
 	pub register :: fn(
 		self, name: cstr, parent: cstr, state: usize, virtuals: []Method, own: []Method, props: []Property,
-		signals: []Sig, init: OnInit,
+		signals: []Sig, init: OnInit, onready: OnInit,
 	) {
 		methods: []Method
 		methods << own
@@ -246,7 +247,7 @@ Godot :< {
 		class := unsafe malloc(Class.size)
 		unsafe class.write(Class.{
 			self.string_name(name), self.string_name(parent), state,
-			vt, virtuals.len, mt, methods.len, init, self.classes.read[ptr](),
+			vt, virtuals.len, mt, methods.len, init, onready, self.classes.read[ptr](),
 		})
 		unsafe self.classes.write(class)
 		c := unsafe class.read[Class]()
@@ -416,6 +417,7 @@ fill_defaults :: fn(inst: ptr, c: Class) {
 	unsafe inst.write(Instance.{ class, object })
 	c.init(inst)
 	fill_defaults(inst, c)
+	c.onready(inst)
 	inst
 }
 

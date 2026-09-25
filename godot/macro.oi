@@ -79,11 +79,11 @@ pub class! :: fn(input: Ast) Ast {
 			unsafe p.write(%n.{})
 			unsafe p.write(godot.object(inst))
 		}
-		%on :: fn(inst: ptr) {
+		@c %on :: fn(inst: ptr) {
 			%{..ons}
 		}
 		%reg :: fn(virtuals: []godot.Method, methods: []godot.Method, signals: []godot.Sig) {
-			godot.gd.register(%name, %parent, %n.size, virtuals, methods, [%{..props}], signals, %init)
+			godot.gd.register(%name, %parent, %n.size, virtuals, methods, [%{..props}], signals, %init, %on)
 		}`
 	} else {
 		cls := ident(name + "_class")
