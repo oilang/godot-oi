@@ -1,5 +1,9 @@
 module godot
 
+use fs
+use os
+use json.{ Arr, Obj, parse }
+
 pub func :: ()
 pub signal :: ()
 pub export :: struct { range: string = "" }
@@ -30,4 +34,110 @@ pub noted :: fn(item: Ast, name: string) bool {
 		if a.name.str() == "godot." + name do return true
 	}
 	false
+}
+
+last_class := ""
+last_parent := ""
+
+## Remember a struct's parent.
+pub note_parent :: fn(name: string, parent: string) {
+	last_class = name
+	last_parent = parent
+}
+
+pub parent_of :: fn(name: string) string {
+	if last_class == name { last_parent } else { "" }
+}
+
+## `godot/api/index.json`
+## TODO: move to comp
+index :: fn() Obj {
+	home := os.env("OI_HOME") or {
+		(os.env("HOME") or "") + "/.oi"
+	}
+	path := "{home}/lib/godot/api/index.json"
+	src := fs.read(path) or {
+		panic!("godot: cannot read {path}, run `just api`")
+	}
+	parsed :: parse(src) or {
+		panic!("godot: {path}: {$.message()}")
+	}
+	match parsed {
+		v @ Obj => v,
+		_ => []
+	}
+}
+
+## Every virtual class and its ancestors declare, nearest first.
+inherited :: fn(class: string) out: []Obj {
+	root := index()
+	c := class
+	loop c != "" && c in root.keys {
+		o: Obj = match root[c] {
+			v @ Obj => v,
+			_ => []
+		}
+		vs: Arr = match o["virtuals"] {
+			v @ Arr => v,
+			_ => []
+		}
+		loop it in vs {
+			out << match it {
+				v @ Obj => v,
+				_ => []
+			}
+		}
+		c = match o["parent"] {
+			v @ string => v,
+			_ => ""
+		}
+	}
+	return
+}
+
+named :: fn(v: Obj) string {
+	match v["name"] {
+		s @ string => s,
+		_ => ""
+	}
+}
+
+## The signature hash of virtual name on class or an ancestor.
+pub virtual_hash :: fn(class: string, name: string) int {
+	loop v in inherited(class) {
+		if named(v) == name {
+			return match v["hash"] {
+				h @ float => int.(h),
+				_ => 0
+			}
+		}
+	}
+	return -1
+}
+
+## Fail the build: `fname` names no virtual on `parent`'s chain.
+pub reject :: fn(class: string, fname: string, parent: string) {
+	if parent == "" {
+		panic!("godot: {class} fill has no `@godot.class!` struct before it, cannot check its virtuals")
+	}
+	panic!("godot: {class}.{fname} is not a virtual of {parent} or its ancestors")
+}
+
+## @godot.class! has no shape for `fname` yet.
+pub unsupported :: fn(class: string, fname: string) {
+	panic!("godot: {class}.{fname} is a virtual class! cannot marshal yet, only ready/process/physics_process")
+}
+
+## Fail the build when an ancestor of `class` marks a virtual required that `have` does not list.
+pub require_all :: fn(class: string, parent: string, have: []string) {
+	loop v in inherited(parent) {
+		n := named(v)
+		req := match v["required"] {
+			b @ bool => b,
+			_ => false
+		}
+		if req && !(n in have) {
+			panic!("godot: {class} must implement {n}, {parent} requires it")
+		}
+	}
 }

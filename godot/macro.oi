@@ -8,6 +8,7 @@ pub class! :: fn(input: Ast) Ast {
 
 	if items.len > 0 && items[0].typ == items[0].name.str() {
 		parent := items[0].typ.str()
+		note_parent(name, parent)
 		init := ident(name + "_init")
 		reg := ident(name + "_register")
 		on := ident(name + "_onready")
@@ -90,9 +91,11 @@ pub class! :: fn(input: Ast) Ast {
 		rd := ident(name + ".from_payload")
 		on := ident(name + "_onready")
 		x := ident("x")
+		up := parent_of(name)
 		virtuals: []Ast
 		methods: []Ast
 		signals: []Ast
+		done: []string
 		has_ready := false
 		loop it in items {
 			fname := it.name.str()
@@ -111,21 +114,24 @@ pub class! :: fn(input: Ast) Ast {
 				signals << `godot.sig(%fname, [%{..sslots}])`
 				continue
 			}
-			virtual := fname == "ready" || fname == "process" || fname == "physics_process"
-			if !virtual && !noted(it, "func") do continue
+			virtual := !noted(it, "func")
 
 			t := ident(name + "_" + fname)
 			slots: []Ast
 			pre: []Ast
 			body := if virtual {
+				vname := "_" + fname
+				h := virtual_hash(up, vname)
+				if h < 0 do reject(name, fname, up)
+				if fname != "ready" && fname != "process" && fname != "physics_process" do unsupported(name, fname)
 				if fname == "ready" {
 					has_ready = true
 					pre << `%on(inst)`
 				} else {
 					slots << `godot.slot("delta", .float)`
 				}
-				vname := "_" + fname
-				virtuals << `godot.method(%vname, %t, [%{..slots}], none)`
+				done << vname
+				virtuals << `godot.virtual(%vname, %t, [%{..slots}], none, %h)`
 				match fname {
 					"ready" => `%x.ready()`,
 					"process" => `%x.process(godot.arg(args, 0).float())`,
@@ -187,13 +193,16 @@ pub class! :: fn(input: Ast) Ast {
 				unsafe godot.payload(inst).write(%x)
 			}`
 		}
-		if !has_ready {
+		rh := virtual_hash(up, "_ready")
+		if !has_ready && rh >= 0 {
 			tr := ident(name + "_ready")
-			virtuals << `godot.method("_ready", %tr, [], none)`
+			done << "_ready"
+			virtuals << `godot.virtual("_ready", %tr, [], none, %rh)`
 			defs << `@c %tr :: fn(inst: ptr, args: ptr, ret: ptr) {
 				%on(inst)
 			}`
 		}
+		require_all(name, up, done)
 
 		`%{..defs}
 		%input

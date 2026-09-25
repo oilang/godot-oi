@@ -107,7 +107,8 @@ pub Method :: struct {
 	name: cstr,
 	call: OnMethod,
 	args: []Slot,
-	ret: ?Type
+	ret: ?Type,
+	hash: u32
 }
 
 ## PropertyHint, the few we use until generated.
@@ -134,7 +135,13 @@ pub sig :: fn(name: cstr, args: []Slot) Sig {
 	Sig.{ name, args }
 }
 pub method :: fn(name: cstr, cb: OnMethod, args: []Slot, ret: ?Type) Method {
-	Method.{ name, cb, args, ret }
+	Method.{ name, cb, args, ret, 0 }
+}
+
+## A virtual the engine calls.
+## `hash` is the signature hash from `extension_api.json`.
+pub virtual :: fn(name: cstr, cb: OnMethod, args: []Slot, ret: ?Type, hash: int) Method {
+	Method.{ name, cb, args, ret, u32.(hash) }
 }
 
 pub property :: fn(
@@ -159,7 +166,8 @@ pub ret :: fn(at: ptr) Variant { Variant.{ at } }
 	call: ptr,
 	argc: i32,
 	types: ptr,
-	ret: i32
+	ret: i32,
+	hash: u32
 }
 
 ## Per-class state, handed to Godot as `class_userdata`. Classes chain through `next`.
@@ -328,7 +336,7 @@ Godot :< {
 				unsafe ptr(types.0 + usize.(4 * j)).write(i32.(m.args[j].type))
 			}
 			unsafe bound(t, i).write(Bound.{
-				ptr(0), self.string_name(m.name), ptr(m.call), i32.(m.args.len), types, i32.(m.ret or .nil)
+				ptr(0), self.string_name(m.name), ptr(m.call), i32.(m.args.len), types, i32.(m.ret or .nil), m.hash
 			})
 		}
 		t
@@ -399,7 +407,7 @@ Godot :< {
 	loop i in 0..c.nvirtuals {
 		at := bound(c.virtuals, i)
 		b := unsafe at.read[Bound]()
-		if b.name.same(name) do return at
+		if b.hash == hash && b.name.same(name) do return at
 	}
 	ptr(0)
 }
