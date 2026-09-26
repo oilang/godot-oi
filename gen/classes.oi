@@ -5,26 +5,31 @@ module main
 slot := 0
 skipped := 0
 accs := 0
-sizes: [string]int = []
-class_set: [string]bool = []
-refcounted: [string]bool = []
+sizes: [string]int
+class_set: [string]bool
+refcounted: [string]bool
+
+## Classes by name and their inheritors.
+all_classes: []Obj
+class_at: [string]int
+parents: [string]string
 
 ## Builtins with a Drop hook.
-hooked: [string]bool = []
+hooked: [string]bool
 
 ## Member metas per math builtin, comma-joined, to `fill` a default.
-member_metas: [string]string = []
+member_metas: [string]string
 
 ## Params of these types take a plain `string`, built into the engine type inside the wrapper.
-strargs: []string = [ "String" "StringName" "NodePath" ]
+strargs := [ "String" "StringName" "NodePath" ]
 
 ## Enum to first variant, and `<enum>:<value>` to variant, for defaults.
-enum_first: [string]string = []
-enum_values: [string]string = []
-narrow: []string = [ "int8" "int16" "int32" "uint8" "uint16" ]
+enum_first: [string]string
+enum_values: [string]string
+narrow := [ "int8" "int16" "int32" "uint8" "uint16" ]
 
 ## Arg names that would shadow a local of the wrapper.
-taken: []string = [ "bool" "string" "int" "float" "ptr" "i64" "i32" "f64" "f32" "u8" "usize" "gd" "blk" "mb" "rv" "at" "all" ]
+taken := [ "bool" "string" "int" "float" "ptr" "i64" "i32" "f64" "f32" "u8" "usize" "gd" "blk" "mb" "rv" "at" "all" ]
 
 enum_name :: fn(raw: string) string {
 	rename(raw.split(".").join(""))
@@ -34,9 +39,13 @@ prepare :: fn(api: Obj) {
 	loop s in arr(config(api, "builtin_class_sizes"), "sizes") {
 		sizes[text(s, "name")] = num(s, "size")
 	}
-	loop c in arr(api, "classes") {
-		class_set[text(c, "name")] = true
-		refcounted[text(c, "name")] = flag(c, "is_refcounted")
+	all_classes = arr(api, "classes")
+	loop i in 0..all_classes.len {
+		name := text(all_classes[i], "name")
+		class_set[name] = true
+		refcounted[name] = flag(all_classes[i], "is_refcounted")
+		class_at[name] = i
+		parents[name] = text(all_classes[i], "inherits")
 	}
 	loop b in arr(api, "builtin_classes") {
 		hooked[text(b, "name")] = flag(b, "has_destructor")
@@ -476,25 +485,30 @@ method :: fn(cname: string, m: Obj) string {
 	d + "\tpub {fname} :: fn({ps}){ret_sig(rt, g.ropt)} {{\n" + ptrcall_body(args, rt, g.ropt, c) + "\t}}\n"
 }
 
-## Get the non-virtual method named `name`.
-member :: fn(ms: []Obj, name: string) Obj {
-	loop m in ms {
-		if text(m, "name") != name do continue
-		if flag(m, "is_virtual") do continue
-		return m
+## Get the non-virtual method named `name`, from `cname` or an ancestor.
+member :: fn(cname: string, name: string) Obj {
+	n := cname
+	loop n != "" {
+		if !(n in class_at.keys) do break
+		loop m in arr(all_classes[class_at[n]], "methods") {
+			if text(m, "name") != name do continue
+			if flag(m, "is_virtual") do continue
+			return m
+		}
+		n = parents[n]
 	}
 	[]
 }
 
-## `properties` accessors over the class's own getter and setter.
+## `properties` accessors over the getter and setter, wherever they are declared.
 accessors :: fn(c: Obj, used: []string) s: string {
-	ms := arr(c, "methods")
+	cname := text(c, "name")
 	names := used
 	loop p in arr(c, "properties") {
 		raw := text(p, "name")
 		pname := safe(raw, [])
 		gname := text(p, "getter")
-		gm := member(ms, gname)
+		gm := member(cname, gname)
 		if !has(gm, "name") do continue
 		gs := sig(gm) or do continue
 
@@ -519,7 +533,7 @@ accessors :: fn(c: Obj, used: []string) s: string {
 		if sname == "" do continue
 		sfn := "set_{raw}"
 		if sfn in names do continue
-		sm := member(ms, sname)
+		sm := member(cname, sname)
 		if !has(sm, "name") do continue
 		ss := sig(sm) or do continue
 		if ss.args.len != nidx + 1 do continue
@@ -644,10 +658,6 @@ chain :: fn(name: string, parents: [string]string) string {
 
 classes :: fn(api: Obj) string {
 	items := arr(api, "classes")
-	parents: [string]string
-	loop c in items {
-		parents[text(c, "name")] = text(c, "inherits")
-	}
 	n := 0
 	loop c in items {
 		name := text(c, "name")
