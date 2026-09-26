@@ -6,6 +6,10 @@ use json.{ Arr, Obj, parse }
 
 pub func :: ()
 pub signal :: ()
+
+## Marks a fn in a fill as a private helper: neither a virtual nor a method.
+pub hidden :: ()
+
 pub export :: struct { range: string = "" }
 
 ## Marks a field as a scene-relative node path, resolved by `get_node`.

@@ -19,6 +19,9 @@ GameNode :< {
 	@godot.func
 	hello :: fn(self) {}
 
+	@godot.hidden
+	helper :: fn(self) {}
+
 	@godot.signal
 	hit :: fn(self, damage: i64) {}
 }

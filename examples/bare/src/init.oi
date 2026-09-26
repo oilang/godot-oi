@@ -65,7 +65,11 @@ OiNode :< {
 		o.add_user_signal("boom")
 		boom := o.has_signal("boom")
 		print("oi: default {boom}")
+		print("oi: hidden {self.tag()}")
 	}
+
+	@godot.hidden
+	tag :: fn(self) string { "helper" }
 
 	process :: fn(mut self, delta: f64) {
 		if self.frames == 0 {

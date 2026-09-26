@@ -12,6 +12,7 @@ func _ready() -> void:
 		if p.name == "speed": print("gd: hint ", p.hint, " ", p.hint_string)
 	$OiNode.speed = 1.5
 	print("gd: speed ", $OiNode.speed)
+	print("gd: has_method tag ", ClassDB.class_has_method("OiNode", "tag"))
 	print("gd: has_signal ", ClassDB.class_has_signal("OiNode2D", "hit"))
 	$OiNode2D.hit.connect(func(damage): print("gd: hit ", damage))
 	$OiNode2D.fire(7)

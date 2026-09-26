@@ -98,6 +98,7 @@ pub class! :: fn(input: Ast) Ast {
 		done: []string
 		has_ready := false
 		loop it in items {
+			if noted(it, "hidden") do continue
 			fname := it.name.str()
 			if noted(it, "signal") {
 				sslots: []Ast
