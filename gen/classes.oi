@@ -168,7 +168,7 @@ default :: fn(typ: Typ, d: string) string {
 		"object" => if d == "null" do "none",
 		"variant" => if d == "null" do "none",
 		"builtin" => match true {
-			hooked[typ.name] => "",
+			hooked[typ.name] => "{typ.sig}.new()",
 			typ.name in member_metas.keys => {
 				fill(typ.name, d, member_metas[typ.name].split(",")) or ""
 			},

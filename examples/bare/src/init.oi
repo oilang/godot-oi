@@ -61,6 +61,10 @@ OiNode :< {
 		godot.printl("oi: utility print")
 		godot.warn("oi: warn")
 		print("oi: utility {godot.deg_to_rad(180.0)} {godot.type_string(2)}")
+		o := godot.Object.from_ptr(self.object)
+		o.add_user_signal("boom")
+		boom := o.has_signal("boom")
+		print("oi: default {boom}")
 	}
 
 	process :: fn(mut self, delta: f64) {
