@@ -71,6 +71,8 @@ OiNode2D :< {
 		vraw.drop()
 		rc2_after := rc2.get_reference_count()
 		print("oi: refcount object {rc2_before} {rc2_boxed} {rc2_after}")
+		ex := godot.Expression.new()
+		print("oi: refcount new {ex.get_reference_count()}")
 	}
 
 	@godot.func

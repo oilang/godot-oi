@@ -57,3 +57,61 @@ Color : Add, Sub, Neg, Mul, Div < {
 	mul :: fn(self, other: Self) Self { .{ self.r * other.r, self.g * other.g, self.b * other.b, self.a * other.a } }
 	div :: fn(self, other: Self) Self { .{ self.r / other.r, self.g / other.g, self.b / other.b, self.a / other.a } }
 }
+
+## Scalar scaling, the vector on the left.
+
+Vector2 : Mul[f32] < {
+	mul :: fn(self, other: f32) Self { .{ self.x * other, self.y * other } }
+}
+
+Vector2 : Div[f32] < {
+	div :: fn(self, other: f32) Self { .{ self.x / other, self.y / other } }
+}
+
+Vector2i : Mul[i32] < {
+	mul :: fn(self, other: i32) Self { .{ self.x * other, self.y * other } }
+}
+
+Vector2i : Div[i32] < {
+	div :: fn(self, other: i32) Self { .{ self.x / other, self.y / other } }
+}
+
+Vector3 : Mul[f32] < {
+	mul :: fn(self, other: f32) Self { .{ self.x * other, self.y * other, self.z * other } }
+}
+
+Vector3 : Div[f32] < {
+	div :: fn(self, other: f32) Self { .{ self.x / other, self.y / other, self.z / other } }
+}
+
+Vector3i : Mul[i32] < {
+	mul :: fn(self, other: i32) Self { .{ self.x * other, self.y * other, self.z * other } }
+}
+
+Vector3i : Div[i32] < {
+	div :: fn(self, other: i32) Self { .{ self.x / other, self.y / other, self.z / other } }
+}
+
+Vector4 : Mul[f32] < {
+	mul :: fn(self, other: f32) Self { .{ self.x * other, self.y * other, self.z * other, self.w * other } }
+}
+
+Vector4 : Div[f32] < {
+	div :: fn(self, other: f32) Self { .{ self.x / other, self.y / other, self.z / other, self.w / other } }
+}
+
+Vector4i : Mul[i32] < {
+	mul :: fn(self, other: i32) Self { .{ self.x * other, self.y * other, self.z * other, self.w * other } }
+}
+
+Vector4i : Div[i32] < {
+	div :: fn(self, other: i32) Self { .{ self.x / other, self.y / other, self.z / other, self.w / other } }
+}
+
+Color : Mul[f32] < {
+	mul :: fn(self, other: f32) Self { .{ self.r * other, self.g * other, self.b * other, self.a * other } }
+}
+
+Color : Div[f32] < {
+	div :: fn(self, other: f32) Self { .{ self.r / other, self.g / other, self.b / other, self.a / other } }
+}

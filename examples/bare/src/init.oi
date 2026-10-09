@@ -48,9 +48,12 @@ OiNode :< {
 		sum := p + q
 		neg := -(p - q)
 		scaled := sum * Vector2.{ 2.0, 2.0 } / Vector2.{ 4.0, 4.0 }
+		two: f32 = 2.0
+		dbl := p * two
+		half := q / two
 		sumi := Vector2i.{ 1, 2 } + Vector2i.{ 3, 4 }
 		tint := Color.{ 1.0, 0.5, 0.25, 1.0 } - Color.{ 0.5, 0.25, 0.0, 0.5 }
-		print("oi: math {sum.x} {sum.y} {neg.y} {scaled.x} {sumi.x} {sumi.y} {tint.r} {tint.g}")
+		print("oi: math {sum.x} {sum.y} {neg.y} {scaled.x} {sumi.x} {sumi.y} {tint.r} {tint.g} {dbl.y} {half.x}")
 		up := hi.to_upper()
 		v2 := Vector2.{ 3.0, 4.0 }
 		list := Array.new()

@@ -310,7 +310,7 @@ put :: fn(a: Arg, i: int, store: string) string {
 
 object_return :: fn(rt: Typ, opt: bool, p: string) string {
 	if !opt do return "rv := {rt.sig}.from_ptr({p})"
-	"p_ := {p}\n\t\trv: ?{rt.sig} = if p_.is_null() {{ none }} else {{ {rt.sig}.from_ptr(p_) }}"
+	"p_ := {p}\n\t\tr_ := {rt.sig}.from_ptr(p_)\n\t\trv := if p_.is_null() {{ ?{rt.sig}.(none) }} else {{ ?{rt.sig}.(r_) }}"
 }
 
 ## Read the return out of the ptrcall storage.
@@ -564,7 +564,8 @@ body :: fn(c: Obj) s: string {
 		if refcounted[name] {
 			lines << "\t\tr_ := {name}.from_ptr(o.object)"
 			lines << "\t\t_ := r_.init_ref()"
-			lines << "\t\tr_"
+			lines << "\t\trv := ?{name}.(r_)"
+			lines << "\t\trv"
 		} else {
 			lines << "\t\t{name}.from_ptr(o.object)"
 		}
@@ -651,13 +652,6 @@ conv :: fn(name: string, vt: string, size: int, obj: bool, refc: bool) string {
 	lines.join("\n") + "\n"
 }
 
-## The embed chain down to `Object.{ p }`.
-chain :: fn(name: string, parents: [string]string) string {
-	if name == "Object" do return "Object.{{ p }}"
-	inner := chain(parents[name], parents)
-	"{name}.{{ {inner} }}"
-}
-
 classes :: fn(api: Obj) string {
 	items := arr(api, "classes")
 	n := 0
@@ -670,10 +664,9 @@ classes :: fn(api: Obj) string {
 			s += "## The rest of `{name}`, the struct is hand-written in `godot/`.\n{name} :< {{\n"
 		} else {
 			parent := parents[name]
-			link := chain(parent, parents)
 			d := doc(c, "## ")
 			s += "## {name}\n{d}@c pub {name} :: struct {{ {parent} }}\n\n"
-			s += "{name} :< {{\n\tpub from_ptr :: fn(p: ptr) {name} {{ .{{ {link} }} }}\n"
+			s += "{name} :< {{\n\tpub from_ptr :: fn(p: ptr) {name} {{\n\t\tx: {name} = .{{}}\n\t\tx.object = p\n\t\tx\n\t}}\n"
 		}
 
 		loop k in arr(c, "constants") {
