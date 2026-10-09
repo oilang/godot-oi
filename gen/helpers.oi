@@ -183,9 +183,13 @@ doc :: fn(o: Obj, lead: string) string {
 }
 
 keywords: []string = [
-	"break", "comp", "continue", "else", "enum", "fn", "foreign", "if", "in", "is", "loop", "match",
-	"module", "move", "mut", "none", "or", "pub", "return", "struct", "trait", "unsafe", "use",
+	"and", "break", "comp", "continue", "defer", "do", "else", "enum", "fn", "foreign", "if", "in", "is", "loop",
+	"match", "module", "move", "mut", "none", "or", "pub", "return", "struct", "trait", "unsafe", "use", "via",
+	"with",
 ]
+
+## Method names the core `Drop`, `Copy`, `Display`, and `Debug` traits own.
+hooks: []string = [ "copy", "drop", "fmt", "str", "debug", "repr" ]
 
 ## `name` as an identifier, `clash` naming what else is taken where it lands.
 safe :: fn(name: string, clash: []string) string {

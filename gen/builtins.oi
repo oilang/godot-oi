@@ -177,7 +177,8 @@ builtin_method :: fn(bname: string, m: Obj) string {
 		return ""
 	}
 	name := text(m, "name")
-	fname := safe(name, [ "new", "bytes", "from_bytes", "set_bytes", "copy", "drop", "eq", "str" ])
+	own := [ "new", "bytes", "from_bytes", "set_bytes", "copy", "drop", "eq", "fmt", "str", "debug", "repr" ]
+	fname := safe(name, own)
 	d := doc(m, "\t## ")
 
 	if flag(m, "is_vararg") {

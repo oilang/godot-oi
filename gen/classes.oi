@@ -472,7 +472,7 @@ method :: fn(cname: string, m: Obj) string {
 	static := flag(m, "is_static")
 	hash := lit(m, "hash")
 	this := if static { "ptr(0)" } else { "self.object" }
-	fname := safe(name, [ "copy", "drop" ])
+	fname := safe(name, hooks)
 	ps := params(args, if static { "" } else { "self" })
 	n := slot
 	slot += 1
@@ -527,7 +527,7 @@ accessors :: fn(c: Obj, used: []string) s: string {
 		if !(pname in names) {
 			names << pname
 			accs += 1
-			g := safe(gname, [ "copy", "drop" ])
+			g := safe(gname, hooks)
 			s += d + "\tpub {pname} :: fn(self){ret_sig(gs.rt, gs.ropt)} {{ self.{g}({idx}) }}\n"
 		}
 
@@ -545,7 +545,7 @@ accessors :: fn(c: Obj, used: []string) s: string {
 		one: []Arg
 		one << ss.args[ss.args.len - 1]
 		lead := if idx != "" do "{idx}, "
-		st := safe(sname, [ "copy", "drop" ])
+		st := safe(sname, hooks)
 		ps := params(one, "self")
 		s += d + "\tpub {sfn} :: fn({ps}){ret_sig(ss.rt, ss.ropt)} {{ self.{st}({lead}{one[0].name}) }}\n"
 	}
@@ -593,7 +593,7 @@ body :: fn(c: Obj) s: string {
 
 	used: []string = [ "cast", "new", "from_ptr" ]
 	loop m in arr(c, "methods") {
-		used << safe(text(m, "name"), [ "copy", "drop" ])
+		used << safe(text(m, "name"), hooks)
 	}
 
 	loop sg in arr(c, "signals") {
