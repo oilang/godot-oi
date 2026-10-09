@@ -53,9 +53,13 @@ pub parent_of :: fn(name: string) string {
 	if last_class == name { last_parent } else { "" }
 }
 
-## `godot/api_index.json`
+cached: []Obj = []
+
+## `godot/api_index.json`, parsed once
 ## TODO: move to comp
 index :: fn() Obj {
+	if cached.len > 0 do return cached[0]
+
 	home := os.env("OI_HOME") or {
 		(os.env("HOME") or "") + "/.oi"
 	}
@@ -66,10 +70,13 @@ index :: fn() Obj {
 	parsed :: parse(src) or {
 		panic!("godot: {path}: {$.message()}")
 	}
-	match parsed {
+	root: Obj = match parsed {
 		v @ Obj => v,
 		_ => []
 	}
+
+	cached << root
+	root
 }
 
 ## Every virtual class and its ancestors declare, nearest first.
