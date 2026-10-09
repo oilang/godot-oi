@@ -118,8 +118,10 @@ pub class! :: fn(input: Ast) Ast {
 			virtual := !noted(it, "func")
 
 			t := ident(name + "_" + fname)
+			m := ident(fname)
 			slots: []Ast
 			pre: []Ast
+			argv: []Ast
 			body := if virtual {
 				vname := "_" + fname
 				h := virtual_hash(up, vname)
@@ -130,17 +132,12 @@ pub class! :: fn(input: Ast) Ast {
 					pre << `%on(inst)`
 				} else {
 					slots << `godot.slot("delta", .float)`
+					argv << `godot.arg(args, 0).float()`
 				}
 				done << vname
 				virtuals << `godot.virtual(%vname, %t, [%{..slots}], none, %h)`
-				match fname {
-					"ready" => `%x.ready()`,
-					"process" => `%x.process(godot.arg(args, 0).float())`,
-					_ => `%x.physics_process(godot.arg(args, 0).float())`
-				}
+				`%x.%m(%{..argv})`
 			} else {
-				d := ident(name + "." + fname)
-				argv: []Ast
 				loop j in 1..it.items.len {
 					a := it.items[j]
 					aname := a.name.str()
@@ -151,25 +148,12 @@ pub class! :: fn(input: Ast) Ast {
 						"int" => `.int`,
 						_ => `.bool`
 					}
-					argv << match k {
-						"float" => `godot.arg(args, %i).float()`,
-						"int" => `godot.arg(args, %i).int()`,
-						_ => `godot.arg(args, %i).bool()`
-					}
+					g := ident(if k == "" do "bool" else do k)
+					argv << `godot.arg(args, %i).%g()`
 					slots << `godot.slot(%aname, %ty)`
 				}
 
-				call := match argv.len {
-					0 => `%d(%x)`,
-					1 => `%d(%x, %{argv[0]})`,
-					2 => `%d(%x, %{argv[0]}, %{argv[1]})`,
-					3 => `%d(%x, %{argv[0]}, %{argv[1]}, %{argv[2]})`,
-					_ => {
-						print("godot: {name}.{fname} takes more than 3 args, not registered")
-						continue
-					}
-				}
-
+				call := `%x.%m(%{..argv})`
 				k := kind(it.typ)
 				rt := match k {
 					"float" => `.float`,
@@ -179,12 +163,8 @@ pub class! :: fn(input: Ast) Ast {
 				}
 
 				methods << `godot.method(%fname, %t, [%{..slots}], %rt)`
-				match k {
-					"float" => `godot.ret(ret).set_float(%call)`,
-					"int" => `godot.ret(ret).set_int(%call)`,
-					"bool" => `godot.ret(ret).set_bool(%call)`,
-					_ => call
-				}
+				set := ident("set_" + k)
+				if k == "" do call else do `godot.ret(ret).%set(%call)`
 			}
 
 			defs << `@c %t :: fn(inst: ptr, args: ptr, ret: ptr) {
