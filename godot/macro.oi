@@ -12,19 +12,16 @@ pub class! :: fn(input: Ast) Ast {
 		init := ident(name + "_init")
 		reg := ident(name + "_register")
 		on := ident(name + "_onready")
+		x := ident("x")
+		v := ident("v")
 		props: []Ast
 		ons: []Ast
-		off := 0
 
 		loop f in items {
-			w := width(f)
-			if w == 0 {
-				print("godot: {name}.{f.name.str()} has no C size, fields after it cannot be exported")
-				break
-			}
-
-			at := (off + w - 1) / w * w
-			off = at + w
+			fd := f.name
+			fname := fd.str()
+			put := parse("x.{fname} = v")
+			ty := f.typ
 			path := ""
 			loop a in f.notes {
 				path = match a {
@@ -32,18 +29,24 @@ pub class! :: fn(input: Ast) Ast {
 					_ => path
 				}
 			}
-			if path != "" do ons << `godot.bind_node(inst, %at, %path)`
+			if path != "" {
+				ons << `{
+					%v := %ty.from_ptr(godot.node_at(inst, %path))
+					%put
+				}`
+			}
 			if !noted(f, "export") do continue
 
-			fname := f.name.str()
-			k := kind(f.typ)
+			k := kind(ty)
 			if k == "" {
 				print("godot: {name}.{fname} is not a float, int, or bool, not exported")
 				continue
 			}
 
-			g := ident(name + "_get_" + fname)
-			s := ident(name + "_set_" + fname)
+			g := ident("{name}_get_{fname}")
+			s := ident("{name}_set_{fname}")
+			m := ident(k)
+			sm := ident("set_{k}")
 			t := match k {
 				"float" => `.float`,
 				"int" => `.int`,
@@ -57,12 +60,17 @@ pub class! :: fn(input: Ast) Ast {
 					_ => range
 				}
 			}
+
 			hint := if range == "" do `.nil` else do `.range`
 			defs << `@c %g :: fn(inst: ptr, args: ptr, ret: ptr) {
-				godot.gd.from_type(%t, godot.ret(ret), ptr(godot.payload(inst).0 + %at))
+				%x := %n.from_payload(inst)
+				godot.ret(ret).%sm(%x.%fd)
 			}`
 			defs << `@c %s :: fn(inst: ptr, args: ptr, ret: ptr) {
-				godot.gd.to_type(%t, godot.arg(args, 0), ptr(godot.payload(inst).0 + %at))
+				%x := %n.from_payload(inst)
+				%v := godot.arg(args, 0).%m()
+				%put
+				unsafe godot.payload(inst).write(%x)
 			}`
 			props << `godot.property(%fname, %t, %g, %s, true, %hint, %range)`
 		}
@@ -80,7 +88,9 @@ pub class! :: fn(input: Ast) Ast {
 			unsafe p.write(godot.object(inst))
 		}
 		@c %on :: fn(inst: ptr) {
+			%x := %n.from_payload(inst)
 			%{..ons}
+			unsafe godot.payload(inst).write(%x)
 		}
 		%reg :: fn(virtuals: []godot.Method, methods: []godot.Method, signals: []godot.Sig) {
 			godot.gd.register(%name, %parent, %n.size, virtuals, methods, [%{..props}], signals, %init, %on)

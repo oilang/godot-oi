@@ -5,6 +5,7 @@ use godot.{ Node2D, Vector2, Variant }
 OiNode2D :: struct {
 	Node2D,
 	sprite: godot.Sprite2D @godot.onready.{ "../Sprite" },
+	hp: i64 = 3 @godot.export,
 }
 
 @godot.class!
