@@ -1,3 +1,6 @@
+use godot
+use godot.{ Node2D, Vector2, Variant }
+
 @godot.class!
 OiNode2D :: struct {
 	Node2D,

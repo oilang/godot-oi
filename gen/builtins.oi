@@ -1,5 +1,7 @@
 module main
 
+use json.{ Obj }
+
 ## Generate Godot builtins.
 
 Member :: struct {

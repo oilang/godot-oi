@@ -14,7 +14,7 @@ api mode="":
 # build an example's extension into its lib/
 build name:
 	@test -e {{home}}/lib/godot || just install
-	@test -d godot/api || just api
+	@test -f godot/api_index.json || just api
 	{{oi}} build examples/{{name}}/src --lib -o examples/{{name}}/lib/liboi.so
 
 # run an example headless

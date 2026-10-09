@@ -53,13 +53,13 @@ pub parent_of :: fn(name: string) string {
 	if last_class == name { last_parent } else { "" }
 }
 
-## `godot/api/index.json`
+## `godot/api_index.json`
 ## TODO: move to comp
 index :: fn() Obj {
 	home := os.env("OI_HOME") or {
 		(os.env("HOME") or "") + "/.oi"
 	}
-	path := "{home}/lib/godot/api/index.json"
+	path := "{home}/lib/godot/api_index.json"
 	src := fs.read(path) or {
 		panic!("godot: cannot read {path}, run `just api`")
 	}

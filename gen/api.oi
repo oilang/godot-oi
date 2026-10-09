@@ -1,5 +1,7 @@
 module main
 
+use json.{ Obj }
+
 ## Generate Godot types.
 ## Enums, constants, structs, builtins, etc.
 
@@ -89,7 +91,7 @@ enums :: fn(api: Obj) s: string {
 		s += enum_block(raw, enum_name(raw), "", arr(e, "values"), flag(e, "is_bitfield"))
 	}
 	emit(
-		"{out}/enums.oi",
+		"{out}/api_enums.oi",
 		head + s + owner_enums(arr(api, "builtin_classes")) + owner_enums(arr(api, "classes"))
 	)
 	"{n_enums} enums"
@@ -102,7 +104,7 @@ constants :: fn(api: Obj) s: string {
 		n := lit(c, "value")
 		s += "## @GlobalScope.{cname}\n" + doc(c, "## ") + "pub {cname} :: {n}\n"
 	}
-	emit("{out}/constants.oi", head + s)
+	emit("{out}/api_constants.oi", head + s)
 	"{items.len} constants"
 }
 
@@ -157,7 +159,7 @@ structs :: fn(api: Obj) s: string {
 		s += block
 		n += 1
 	}
-	emit("{out}/structs.oi", head + s)
+	emit("{out}/api_structs.oi", head + s)
 	"{n} structs"
 }
 
@@ -209,7 +211,7 @@ builtins :: fn(api: Obj) string {
 
 		body += conv(name, vtype(name), sizes[name], false, false)
 		d := doc(b, "## ")
-		emit("{out}/builtins/{snake(name)}.oi", "{head}## {name}\n{d}{body}")
+		emit("{out}/api_builtin_{snake(name)}.oi", "{head}## {name}\n{d}{body}")
 		n += 1
 	}
 	"{n} builtins, {slot - nm} methods"
@@ -246,5 +248,5 @@ index :: fn(api: Obj) {
 		body := ",\"virtuals\":[" + virtuals.join(",") + "],\"enums\":[" + names.join(",") + "]}}"
 		entries << q(text(c, "name")) + ":{{\"parent\":" + q(text(c, "inherits")) + body
 	}
-	emit("{out}/index.json", "{{" + entries.join(",") + "}}\n")
+	emit("{out}/api_index.json", "{{" + entries.join(",") + "}}\n")
 }

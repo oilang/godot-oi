@@ -4,7 +4,7 @@
 # godot
 .godot/
 extension_api.json
-api/
+api_*
 
 # gen
 *.so

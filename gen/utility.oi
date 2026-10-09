@@ -1,5 +1,7 @@
 module main
 
+use json.{ Obj }
+
 ## Generate the `@GlobalScope` utility functions.
 
 ## A vararg utility fn.
@@ -60,6 +62,6 @@ utility :: fn(api: Obj) string {
 		lines << d + "pub {fname} :: fn({ps}){ret_sig(g.rt, g.ropt)} {{" + body + "}}\n"
 	}
 
-	emit("{out}/utility.oi", head + lines.join("\n"))
+	emit("{out}/api_utility.oi", head + lines.join("\n"))
 	"{n} utility fns"
 }

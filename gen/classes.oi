@@ -1,5 +1,7 @@
 module main
 
+use json.{ Obj }
+
 ## Generate Godot classes.
 
 slot := 0
@@ -680,7 +682,7 @@ classes :: fn(api: Obj) string {
 			s += doc(k, "\t## ") + "\tpub {kname} :: {kval}\n"
 		}
 		tail := conv(name, "object", 8, true, refcounted[name])
-		emit("{out}/classes/{snake(name)}.oi", head + s + body(c) + "}}\n{tail}")
+		emit("{out}/api_class_{snake(name)}.oi", head + s + body(c) + "}}\n{tail}")
 		n += 1
 	}
 	"{n} classes, {slot} methods, {accs} accessors, {skipped} skipped"
@@ -691,7 +693,7 @@ binds :: fn(api: Obj) string {
 	note := "## Slots in `Godot.binds`, one per generated call, and in `Godot.singletons`."
 	nsing := arr(api, "singletons").len
 
-	emit("{out}/binds.oi", "{head}{note}\npub BINDS :: {slot}\npub SINGLETONS :: {nsing}\n")
+	emit("{out}/api_binds.oi", "{head}{note}\npub BINDS :: {slot}\npub SINGLETONS :: {nsing}\n")
 	"{slot} binds"
 }
 
@@ -716,6 +718,6 @@ singletons :: fn(api: Obj) string {
 		lines << ""
 	}
 
-	emit("{out}/singletons.oi", head + lines.join("\n") + "\n")
+	emit("{out}/api_singletons.oi", head + lines.join("\n") + "\n")
 	"{list.len} singletons"
 }
