@@ -3,4 +3,4 @@
 
 use godot
 
-godot.init!([ GameNode ])
+godot.init!()

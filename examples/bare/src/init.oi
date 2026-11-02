@@ -1,7 +1,7 @@
 use godot
 use godot.{ String, NodePath, StringName, Vector2, Vector2i, Color, Array, Variant, Node, Node2D }
 
-godot.init!([OiNode, OiNode2D])
+godot.init!()
 
 @godot.class!
 OiNode :: struct {

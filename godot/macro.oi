@@ -6,9 +6,8 @@ pub class! :: fn(input: Ast) Ast {
 	items := input.items
 	defs: []Ast
 
-	if items.len > 0 && items[0].typ == items[0].name.str() {
-		parent := items[0].typ.str()
-		note_parent(name, parent)
+	parent := parent_of(items)
+	if parent != "" {
 		init := ident(name + "_init")
 		reg := ident(name + "_register")
 		on := ident(name + "_onready")
@@ -76,7 +75,7 @@ pub class! :: fn(input: Ast) Ast {
 		}
 
 		`%{..defs}
-		@c %input
+		@c @class %input
 		%n :< {
 			pub from_payload :: fn(inst: ptr) %n {
 				unsafe godot.payload(inst).read[Self]()
@@ -101,7 +100,7 @@ pub class! :: fn(input: Ast) Ast {
 		rd := ident(name + ".from_payload")
 		on := ident(name + "_onready")
 		x := ident("x")
-		up := parent_of(name)
+		up := parent_of(def(n).items)
 		virtuals: []Ast
 		methods: []Ast
 		signals: []Ast
@@ -203,10 +202,10 @@ pub class! :: fn(input: Ast) Ast {
 	}
 }
 
-pub init! :: fn(classes: Ast) Ast {
+pub init! :: fn() Ast {
 	calls: []Ast
-	loop c in classes.items {
-		calls << `%{ident(c.str() + "_class")}()`
+	loop c in defs(class) {
+		calls << `%{ident(c.name.str() + "_class")}()`
 	}
 
 	`@export.{"godot_oi_init"}

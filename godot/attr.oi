@@ -4,6 +4,8 @@ use fs
 use os
 use json.{ Arr, Obj, parse }
 
+## Marks a struct `class!` registered, for `init!` to find.
+pub class :: ()
 pub func :: ()
 pub signal :: ()
 
@@ -29,17 +31,10 @@ pub noted :: fn(item: Ast, name: string) bool {
 	false
 }
 
-last_class := ""
-last_parent := ""
-
-## Remember a struct's parent.
-pub note_parent :: fn(name: string, parent: string) {
-	last_class = name
-	last_parent = parent
-}
-
-pub parent_of :: fn(name: string) string {
-	if last_class == name { last_parent } else { "" }
+## The parent class a struct's first field embeds.
+pub parent_of :: fn(fields: []Ast) string {
+	if fields.len() > 0 && fields[0].typ == fields[0].name.str() do return fields[0].typ.str()
+	""
 }
 
 cached: []Obj = []
