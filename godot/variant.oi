@@ -29,38 +29,38 @@ Godot :< {
 	}
 
 	## Fresh `Variant`s holding a value.
-	pub bool :: fn(self, b: bool) Variant {
+	pub bool :: fn(self; b: bool) Variant {
 		v := self.variant()
 		v.set_bool(b)
 		v
 	}
 
-	pub int :: fn(self, n: i64) Variant {
+	pub int :: fn(self; n: i64) Variant {
 		v := self.variant()
 		v.set_int(n)
 		v
 	}
 
-	pub float :: fn(self, f: f64) Variant {
+	pub float :: fn(self; f: f64) Variant {
 		v := self.variant()
 		v.set_float(f)
 		v
 	}
 
-	pub string :: fn(self, s: string) Variant {
+	pub string :: fn(self; s: string) Variant {
 		v := self.variant()
 		v.set_string(s)
 		v
 	}
 
 	## Build Variant from raw typed storage, and write Variant back out as that type.
-	pub from_type :: fn(self, t: Type, v: Variant, value: ptr) {
-		ctor := unsafe FromType(self.variant_from_type(i32.(t)))
+	pub from_type :: fn(self; t: Type, v: Variant, value: ptr) {
+		ctor := unsafe FromType.(self.variant_from_type(i32.(t)))
 		ctor(v.at, value)
 	}
 
-	pub to_type :: fn(self, t: Type, v: Variant, out: ptr) {
-		ctor := unsafe ToType(self.variant_to_type(i32.(t)))
+	pub to_type :: fn(self; t: Type, v: Variant, out: ptr) {
+		ctor := unsafe ToType.(self.variant_to_type(i32.(t)))
 		ctor(out, v.at)
 	}
 }
@@ -97,7 +97,7 @@ Variant :< {
 	pub string :: fn(self) string {
 		str := unsafe malloc(usize.(STRING_SIZE))
 		gd.to_type(.string, self, str)
-		n := gd.string_utf8(str, ptr(0), 0)
+		n := gd.string_utf8(str, ptr.(0), 0)
 		buf := unsafe malloc(usize.(n))
 		gd.string_utf8(str, buf, n)
 		s := unsafe buf.string(int.(n))
@@ -108,30 +108,30 @@ Variant :< {
 	}
 
 	## Setters overwrite in place.
-	pub set_bool :: fn(self, b: bool) {
+	pub set_bool :: fn(self; b: bool) {
 		buf := unsafe malloc(1)
 		unsafe buf.write(u8.(if b { 1 } else { 0 }))
 		gd.from_type(.bool, self, buf)
 		unsafe free(buf)
 	}
 
-	pub set_int :: fn(self, n: i64) {
+	pub set_int :: fn(self; n: i64) {
 		buf := unsafe malloc(8)
 		unsafe buf.write(n)
 		gd.from_type(.int, self, buf)
 		unsafe free(buf)
 	}
 
-	pub set_float :: fn(self, f: f64) {
+	pub set_float :: fn(self; f: f64) {
 		buf := unsafe malloc(8)
 		unsafe buf.write(f)
 		gd.from_type(.float, self, buf)
 		unsafe free(buf)
 	}
 
-	pub set_string :: fn(self, s: string) {
+	pub set_string :: fn(self; s: string) {
 		str := unsafe malloc(usize.(STRING_SIZE))
-		gd.new_string(str, s.ptr, i64.(s.len))
+		gd.new_string(str, s.ptr, i64.(s.len()))
 		gd.from_type(.string, self, str)
 		gd.drop_string(str)
 		unsafe free(str)

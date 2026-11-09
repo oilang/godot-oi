@@ -12,7 +12,7 @@ GameNode :: struct {
 GameNode :< {
 	ready :: fn(mut self) {}
 
-	process :: fn(mut self, delta: f64) {
+	process :: fn(mut self; delta: f64) {
 		self.frames += 1
 	}
 
@@ -23,5 +23,5 @@ GameNode :< {
 	helper :: fn(self) {}
 
 	@godot.signal
-	hit :: fn(self, damage: i64) {}
+	hit :: fn(self; damage: i64) {}
 }

@@ -4,7 +4,7 @@ module godot
 
 pub printl :: fn(s: string) {
 	v := gd.string(s)
-	(print)([ v ])
+	print([ v ])
 	v.drop()
 }
 

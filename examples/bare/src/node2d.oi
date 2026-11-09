@@ -77,13 +77,13 @@ OiNode2D :< {
 	}
 
 	@godot.func
-	add :: fn(self, a: i64, b: i64) i64 { a + b }
+	add :: fn(self; a: i64, b: i64) i64 { a + b }
 
 	@godot.signal
-	hit :: fn(self, damage: i64) {}
+	hit :: fn(self; damage: i64) {}
 
 	@godot.func
-	fire :: fn(self, damage: i64) {
+	fire :: fn(self; damage: i64) {
 		o := godot.Object.from_ptr(self.object)
 		v := godot.gd.int(damage)
 		known := o.has_signal("hit")

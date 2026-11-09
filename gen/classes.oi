@@ -42,7 +42,7 @@ prepare :: fn(api: Obj) {
 		sizes[text(s, "name")] = num(s, "size")
 	}
 	all_classes = arr(api, "classes")
-	loop i in 0..all_classes.len {
+	loop i in ..all_classes.len() {
 		name := text(all_classes[i], "name")
 		class_set[name] = true
 		refcounted[name] = flag(all_classes[i], "is_refcounted")
@@ -100,7 +100,7 @@ resolve :: fn(t: string, meta: string) ?Typ {
 
 	match true {
 		t.starts_with("enum::") => {
-			name := enum_name(t[6..t.len])
+			name := enum_name(t[6..t.len()])
 			if !(name in enum_first.keys) do return none
 			return Typ.{ "enum", name, 8, name }
 		},
@@ -142,8 +142,8 @@ zeroish :: fn(d: string) bool {
 ## An api `String` / `StringName` / `NodePath` default as an Oi string literal.
 str_default :: fn(d: string) string {
 	lit := match true {
-		d.starts_with("&\"") => { d[1..d.len] },
-		d.starts_with("NodePath(\"") => { d[9..d.len - 1] },
+		d.starts_with("&\"") => { d[1..d.len()] },
+		d.starts_with("NodePath(\"") => { d[9..d.len() - 1] },
 		d.starts_with("\"") => { d },
 		_ => { "" }
 	}
@@ -196,10 +196,10 @@ value :: fn(a: Arg, i: int) string {
 		"float" => if a.typ.sig == "f32" do "f64.({n})" else do n,
 		"enum" => "i64.({n})",
 		"object" => if a.opt {
-			"match {n} {{ .some.(o_) => o_.object, .none => ptr(0) }}"
+			"match {n} {{ .some.(o_) => o_.object, .none => ptr.(0) }}"
 		} else do "{n}.object",
 		"refobj" => if a.opt {
-			"match {n} {{ .some.(o_) => o_.object, .none => ptr(0) }}"
+			"match {n} {{ .some.(o_) => o_.object, .none => ptr.(0) }}"
 		} else do "{n}.object",
 		_ => n,
 	}
@@ -227,14 +227,14 @@ args_of :: fn(raw: []Obj) ?[]Arg {
 		defs << default(typ, text(a, "default_value"))
 	}
 
-	first := defs.len
-	loop i in 0..defs.len {
-		if defs[defs.len - 1 - i] == "" do break
-		first = defs.len - 1 - i
+	first := defs.len()
+	loop i in ..defs.len() {
+		if defs[defs.len() - 1 - i] == "" do break
+		first = defs.len() - 1 - i
 	}
 
 	args: []Arg
-	loop i in 0..raw.len {
+	loop i in ..raw.len() {
 		def := if i >= first do defs[i]
 		byref := typs[i].kind in [ "object", "refobj" ]
 		opt := if byref {
@@ -268,14 +268,16 @@ sig :: fn(m: Obj) ?Sig {
 	Sig.{ args, rt, ropt }
 }
 
-params :: fn(args: []Arg, recv: string) string {
+params :: fn(args: []Arg, recv: string, tail := "") string {
 	list: []string
-	if recv != "" { list << recv }
 	loop a in args {
 		t := if a.opt do "?{a.typ.sig}" else do a.typ.sig
 		list << if a.def == "" { "{a.name}: {t}" } else { "{a.name}: {t} = {a.def}" }
 	}
-	list.join(", ")
+	if tail != "" { list << tail }
+	ps := list.join(", ")
+	# NOTE: `;` is for param grouping
+	if recv == "" || ps == "" { recv + ps } else { "{recv}; {ps}" }
 }
 
 ## A string param as the engine type it stands for.
@@ -289,7 +291,7 @@ strarg :: fn(a: Arg, i: int) string {
 ## Write arg `i` into its storage.
 put :: fn(a: Arg, i: int, store: string) string {
 	n :: a.name
-	cell :: "unsafe ptr(blk.0 + {8 * i}).write("
+	cell :: "unsafe ptr.(blk.0 + {8 * i}).write("
 	pre := if a.typ.sig == "string" do strarg(a, i)
 
 	if a.typ.kind in ["variant", "string_name"] && !a.opt {
@@ -315,7 +317,7 @@ object_return :: fn(rt: Typ, opt: bool, p: string) string {
 
 ## Read the return out of the ptrcall storage.
 get :: fn(rt: Typ, ropt: bool, roff: int) string {
-	read :: "unsafe ptr(blk.0 + {roff}).read"
+	read :: "unsafe ptr.(blk.0 + {roff}).read"
 	match rt.kind {
 		"int" => if rt.sig == "i32" {
 			"rv := i32.({read}[i64]())"
@@ -327,26 +329,26 @@ get :: fn(rt: Typ, ropt: bool, roff: int) string {
 		} else {
 			"rv := {read}[f64]()"
 		},
-		"bool" => "rv := {read}[bool]()",
+		"bool" => "rv := {read}[u8]() != 0",
 		"bitfield" => "rv := {read}[i64]()",
 		"ptr" => "rv := {read}[ptr]()",
 		"enum" => "rv := {rt.sig}.from({read}[i64]()) or .{enum_first[rt.name]}",
 		"builtin" => "rv := {read}[{rt.sig}]()",
 		"string_name" => "rv := StringName.{{ at }}",
 		"object" => object_return(rt, ropt, "{read}[ptr]()"),
-		"refobj" => object_return(rt, ropt, "gd.ref_get_object(ptr(blk.0 + {roff}))"),
+		"refobj" => object_return(rt, ropt, "gd.ref_get_object(ptr.(blk.0 + {roff}))"),
 		_ => "",
 	}
 }
 
 ## Fixed args boxed into `Variant`s, then `Godot.call` with the trailing `varargs`.
 vararg :: fn(bind: string, this: string, args: []Arg, rt: Typ) s: string {
-	if args.len > 0 {
-		s += "\t\tblk := unsafe calloc(1, usize.({8 * args.len}))\n"
+	if args.len() > 0 {
+		s += "\t\tblk := unsafe calloc(1, usize.({8 * args.len()}))\n"
 	}
 	s += "\t\tall: []Variant\n"
 	drops := ""
-	loop i in 0..args.len {
+	loop i in ..args.len() {
 		a := args[i]
 		if a.typ.sig == "string" {
 			s += strarg(a, i)
@@ -356,7 +358,7 @@ vararg :: fn(bind: string, this: string, args: []Arg, rt: Typ) s: string {
 			s += "\t\tgd.from_type(.string_name, va_{i}, {value(a, i)}.at)\n"
 			drops += "\t\tsa_{i}.destroy()\n"
 		} else {
-			store := "ptr(blk.0 + {8 * i})"
+			store := "ptr.(blk.0 + {8 * i})"
 			vt := vtype(a.typ.name)
 			s += "\t\tunsafe {store}.write({value(a, i)})\n\t\tgd.from_type(.{vt}, va_{i}, {store})\n"
 		}
@@ -364,7 +366,7 @@ vararg :: fn(bind: string, this: string, args: []Arg, rt: Typ) s: string {
 		drops += "\t\tva_{i}.drop()\n"
 	}
 	s += "\t\tall << varargs\n\t\t{bind}\n\t\trv := gd.call({this}, mb, all)\n" + drops
-	if args.len > 0 {
+	if args.len() > 0 {
 		s += "\t\tunsafe free(blk)\n"
 	}
 	if rt.kind != "enum" {
@@ -383,8 +385,8 @@ Call :: struct {
 
 invoke :: fn(c: Call, argp: string, rptr: string, argc: int) string {
 	match c.kind {
-		"builtin" => "unsafe BuiltinMethod(mb)({c.this}, {argp}, {rptr}, {argc})",
-		"utility" => "unsafe UtilityFunction(mb)({rptr}, {argp}, {argc})",
+		"builtin" => "unsafe BuiltinMethod.(mb)({c.this}, {argp}, {rptr}, {argc})",
+		"utility" => "unsafe UtilityFunction.(mb)({rptr}, {argp}, {argc})",
 		_ => "gd.method_bind_ptrcall(mb, {c.this}, {argp}, {rptr})",
 	}
 }
@@ -399,7 +401,7 @@ ret_sig :: fn(rt: Typ, ropt: bool) string {
 
 ## Storage is a pointer cell per arg, then 8-aligned storage per arg, then the return.
 ptrcall_body :: fn(args: []Arg, rt: Typ, ropt: bool, c: Call) s: string {
-	cursor := 8 * args.len
+	cursor := 8 * args.len()
 	offs: []int
 	loop a in args {
 		offs << cursor
@@ -416,15 +418,15 @@ ptrcall_body :: fn(args: []Arg, rt: Typ, ropt: bool, c: Call) s: string {
 	if cursor > 0 {
 		s += "\t\tblk := unsafe calloc(1, usize.({cursor}))\n"
 	}
-	loop i in 0..args.len {
-		s += put(args[i], i, "ptr(blk.0 + {offs[i]})")
+	loop i in ..args.len() {
+		s += put(args[i], i, "ptr.(blk.0 + {offs[i]})")
 	}
 
 	rptr := match true {
 		rt.kind == "variant" => { "rv.at" },
 		rt.kind == "string_name" => { "at" },
-		rt.kind == "void" => { "ptr(0)" },
-		_ => { "ptr(blk.0 + {roff})" }
+		rt.kind == "void" => { "ptr.(0)" },
+		_ => { "ptr.(blk.0 + {roff})" }
 	}
 
 	if rt.kind == "variant" {
@@ -433,15 +435,15 @@ ptrcall_body :: fn(args: []Arg, rt: Typ, ropt: bool, c: Call) s: string {
 	if rt.kind == "string_name" {
 		s += "\t\tat := unsafe calloc(1, StringName.size)\n"
 	}
-	argp := if args.len > 0 do "blk" else do "ptr(0)"
-	s += "\t\t{c.bind}\n\t\t{invoke(c, argp, rptr, args.len)}\n"
+	argp := if args.len() > 0 do "blk" else do "ptr.(0)"
+	s += "\t\t{c.bind}\n\t\t{invoke(c, argp, rptr, args.len())}\n"
 	got := get(rt, ropt, roff)
 	if got != "" {
 		s += "\t\t{got}\n"
 	}
 	s += c.after
 
-	loop i in 0..args.len {
+	loop i in ..args.len() {
 		a := args[i]
 		if a.typ.kind == "variant" && a.opt {
 			s += "\t\tif {a.name} == none {{ va_{i}.drop() }}\n"
@@ -471,9 +473,9 @@ method :: fn(cname: string, m: Obj) string {
 	name := text(m, "name")
 	static := flag(m, "is_static")
 	hash := lit(m, "hash")
-	this := if static { "ptr(0)" } else { "self.object" }
+	this := if static { "ptr.(0)" } else { "self.object" }
 	fname := safe(name, hooks)
-	ps := params(args, if static { "" } else { "self" })
+	ps := params(args, if static { "" } else { "self" }, if flag(m, "is_vararg") do "varargs: []Variant" else do "")
 	n := slot
 	slot += 1
 	bind := "mb := gd.bind({n}, \"{cname}\", \"{name}\", {hash})"
@@ -481,7 +483,7 @@ method :: fn(cname: string, m: Obj) string {
 
 	if flag(m, "is_vararg") {
 		rs := if rt.kind == "enum" { rt.sig } else { "Variant" }
-		return d + "\tpub {fname} :: fn({ps}, varargs: []Variant) {rs} {{\n" + vararg(bind, this, args, rt) + "\t}}\n"
+		return d + "\tpub {fname} :: fn({ps}) {rs} {{\n" + vararg(bind, this, args, rt) + "\t}}\n"
 	}
 	c := Call.{ "class", this, bind, "" }
 	d + "\tpub {fname} :: fn({ps}){ret_sig(rt, g.ropt)} {{\n" + ptrcall_body(args, rt, g.ropt, c) + "\t}}\n"
@@ -515,7 +517,7 @@ accessors :: fn(c: Obj, used: []string) s: string {
 		gs := sig(gm) or do continue
 
 		nidx := if has(p, "index") do 1 else do 0
-		if gs.args.len != nidx do continue
+		if gs.args.len() != nidx do continue
 		idx := ""
 		if nidx == 1 {
 			iv := num(p, "index")
@@ -538,12 +540,12 @@ accessors :: fn(c: Obj, used: []string) s: string {
 		sm := member(cname, sname)
 		if !has(sm, "name") do continue
 		ss := sig(sm) or do continue
-		if ss.args.len != nidx + 1 do continue
+		if ss.args.len() != nidx + 1 do continue
 
 		names << sfn
 		accs += 1
 		one: []Arg
-		one << ss.args[ss.args.len - 1]
+		one << ss.args[ss.args.len() - 1]
 		lead := if idx != "" do "{idx}, "
 		st := safe(sname, hooks)
 		ps := params(one, "self")
@@ -588,7 +590,7 @@ body :: fn(c: Obj) s: string {
 		lines << "\t}}"
 	}
 
-	s += if lines.len == 0 do "" else {
+	s += if lines.len() == 0 do "" else {
 		lines.join("\n") + "\n"
 	}
 
@@ -684,7 +686,7 @@ classes :: fn(api: Obj) string {
 ## Slot counts.
 binds :: fn(api: Obj) string {
 	note := "## Slots in `Godot.binds`, one per generated call, and in `Godot.singletons`."
-	nsing := arr(api, "singletons").len
+	nsing := arr(api, "singletons").len()
 
 	emit("{out}/api_binds.oi", "{head}{note}\npub BINDS :: {slot}\npub SINGLETONS :: {nsing}\n")
 	"{slot} binds"
@@ -693,12 +695,12 @@ binds :: fn(api: Obj) string {
 singletons :: fn(api: Obj) string {
 	lines: []string = [ "## Engine singletons, fetched through `global_get_singleton` on first use.", "" ]
 	list := arr(api, "singletons")
-	loop i in 0..list.len {
+	loop i in ..list.len() {
 		name := text(list[i], "name")
 		typ := text(list[i], "type")
 		lines << "{typ} :< {{"
 		lines << "\tpub singleton :: fn() {typ} {{"
-		lines << "\t\tcell := ptr(gd.singletons.0 + ptr.size * {i})"
+		lines << "\t\tcell := ptr.(gd.singletons.0 + ptr.size * {i})"
 		lines << "\t\tp_ := unsafe cell.read[ptr]()"
 		lines << "\t\tif p_.is_null() {{"
 		lines << "\t\t\tname := gd.string_name(\"{name}\")"
@@ -712,5 +714,5 @@ singletons :: fn(api: Obj) string {
 	}
 
 	emit("{out}/api_singletons.oi", head + lines.join("\n") + "\n")
-	"{list.len} singletons"
+	"{list.len()} singletons"
 }

@@ -9,7 +9,7 @@ n_enums := 0
 
 ## The prefix every value of a Godot enum shares.
 prefix :: fn(names: []string) string {
-	if names.len < 2 do return ""
+	if names.len() < 2 do return ""
 	pre := ""
 	loop word in names[0].split("_") {
 		cand := pre + word + "_"
@@ -44,7 +44,7 @@ enum_block :: fn(label: string, name: string, owner: string, values: []Obj, bitf
 			s += doc(v, "## ") + "pub {owner}{vname} :: {n}\n"
 			continue
 		}
-		vn := variant(vname[pre.len..vname.len])
+		vn := variant(vname[pre.len()..vname.len()])
 		key := "{name}:{n}"
 		if n in seen {
 			aliases << "\tpub {vn} :: fn() {name} {{ {name}.{enum_values[key]} }}\n"
@@ -61,7 +61,7 @@ enum_block :: fn(label: string, name: string, owner: string, values: []Obj, bitf
 
 	n_enums += 1
 	body := if bitfield { "{s}\n" } else { "{s}}}\n\n" }
-	if aliases.len > 0 {
+	if aliases.len() > 0 {
 		body + "{name} :< {{\n" + aliases.join("") + "}}\n\n"
 	} else do body
 }
@@ -105,7 +105,7 @@ constants :: fn(api: Obj) s: string {
 		s += "## @GlobalScope.{cname}\n" + doc(c, "## ") + "pub {cname} :: {n}\n"
 	}
 	emit("{out}/api_constants.oi", head + s)
-	"{items.len} constants"
+	"{items.len()} constants"
 }
 
 ## Get the C type for a native struct format.
@@ -133,10 +133,10 @@ struct_block :: fn(s: Obj) string {
 	loop field in text(s, "format").split(";") {
 		parts := field.split(" = ")[0].split(" ")
 		typ := ctype(parts[0])
-		fname := parts[parts.len - 1]
+		fname := parts[parts.len() - 1]
 		if fname.starts_with("*") {
 			typ = "ptr"
-			fname = fname[1..fname.len]
+			fname = fname[1..fname.len()]
 		}
 		if fname.contains("[") {
 			if !(typ in [ "i32", "i64", "u8", "u16", "u32", "u64", "f32", "f64", "bool", "ptr" ]) do return ""
@@ -187,7 +187,7 @@ builtins :: fn(api: Obj) string {
 	opaques: []string = []
 	loop b in items {
 		name := text(b, "name")
-		if layout(offsets, name).len == 0 && !(name in scalars) {
+		if layout(offsets, name).len() == 0 && !(name in scalars) {
 			opaques << name
 		}
 	}
@@ -203,7 +203,7 @@ builtins :: fn(api: Obj) string {
 		}
 
 		fields := layout(offsets, name)
-		body := if fields.len > 0 {
+		body := if fields.len() > 0 {
 			math(name, sizes[name], fields, arr(b, "constants"), ms)
 		} else {
 			opaque(name, sizes[name], flag(b, "has_destructor"), arr(b, "constructors"), opaques, ms)

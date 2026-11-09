@@ -61,30 +61,30 @@ lookups :: fn() Procs {
 }
 
 Godot :< {
-	pub variant_call :: fn(self, base: Variant, method: StringName, args: []Variant) Variant {
-		packed := unsafe malloc(ptr.size * usize.(args.len))
-		loop i in 0..args.len {
-			unsafe ptr(packed.0 + ptr.size * usize.(i)).write(args[i].at)
+	pub variant_call :: fn(self; base: Variant, method: StringName, args: []Variant) Variant {
+		packed := unsafe malloc(ptr.size * usize.(args.len()))
+		loop i in ..args.len() {
+			unsafe ptr.(packed.0 + ptr.size * usize.(i)).write(args[i].at)
 		}
 		out := self.variant()
 		err := unsafe malloc(CallError.size)
-		unsafe VariantCall(lookups().call)(base.at, method.at, packed, i64.(args.len), out.at, err)
+		unsafe VariantCall.(lookups().call)(base.at, method.at, packed, i64.(args.len()), out.at, err)
 		unsafe free(err)
 		unsafe free(packed)
 		out
 	}
 
 	## `PtrBuiltInMethod` / `PtrUtilityFunction`.
-	pub ptr_bind :: fn(self, slot: int, type: Type, name: cstr, hash: i64) ptr {
-		cell := ptr(self.binds.0 + ptr.size * usize.(slot))
+	pub ptr_bind :: fn(self; slot: int, type: Type, name: cstr, hash: i64) ptr {
+		cell := ptr.(self.binds.0 + ptr.size * usize.(slot))
 		fp := unsafe cell.read[ptr]()
 		if !fp.is_null() do return fp
 
 		sn := self.string_name(name)
 		fp = if type == .nil {
-			unsafe GetUtilityFunction(lookups().utility)(sn.at, hash)
+			unsafe GetUtilityFunction.(lookups().utility)(sn.at, hash)
 		} else {
-			unsafe GetBuiltinMethod(lookups().builtin_method)(i32.(type), sn.at, hash)
+			unsafe GetBuiltinMethod.(lookups().builtin_method)(i32.(type), sn.at, hash)
 		}
 		sn.destroy()
 		unsafe cell.write(fp)
@@ -96,10 +96,10 @@ Godot :< {
 ## Constructor `index` of `type` over `args` into fresh storage taken on by the caller.
 ## Frees `args`.
 pub construct :: fn(type: Type, size: usize, index: int, args: []ptr) ptr {
-	get := unsafe GetConstructor(lookups().constructor)
-	ctor := unsafe Constructor(get(i32.(type), i32.(index)))
-	packed := unsafe malloc(ptr.size * usize.(args.len))
-	loop i in 0..args.len {
+	get := unsafe GetConstructor.(lookups().constructor)
+	ctor := unsafe Constructor.(get(i32.(type), i32.(index)))
+	packed := unsafe malloc(ptr.size * usize.(args.len()))
+	loop i in ..args.len() {
 		unsafe packed.offset(i * int.(ptr.size)).write(args[i])
 	}
 	base := unsafe malloc(size)
@@ -113,16 +113,16 @@ pub construct :: fn(type: Type, size: usize, index: int, args: []ptr) ptr {
 
 ## Run the destructor of `type` on `b` and free it.
 pub destroy :: fn(type: Type, b: ptr) {
-	get := unsafe GetDestructor(lookups().destructor)
-	dtor := unsafe Destructor(get(i32.(type)))
+	get := unsafe GetDestructor.(lookups().destructor)
+	dtor := unsafe Destructor.(get(i32.(type)))
 	dtor(b)
 	unsafe free(b)
 }
 
 ## Equality check through the engine's Equal operator.
 pub equal :: fn(type: Type, left: ptr, right: ptr) bool {
-	get :: unsafe GetEvaluator(lookups().evaluator)
-	eval :: unsafe Evaluator(get(i32.(EQUAL), i32.(type), i32.(type)))
+	get :: unsafe GetEvaluator.(lookups().evaluator)
+	eval :: unsafe Evaluator.(get(i32.(EQUAL), i32.(type), i32.(type)))
 	out := unsafe malloc(1)
 	eval(left, right, out)
 	hit := unsafe out.read[u8]()
@@ -141,7 +141,7 @@ registry := Registry.{}
 
 box :: fn(f: Fn) int {
 	fns := registry.fns
-	loop i in 0..fns.len {
+	loop i in ..fns.len() {
 		spare := match fns[i] {
 			.none => true,
 			_ => false
@@ -154,21 +154,21 @@ box :: fn(f: Fn) int {
 	}
 	fns << f
 	registry.fns = fns
-	fns.len - 1
+	fns.len() - 1
 }
 
-@c callable_call :: fn(userdata: ptr, args: ptr, argc: i64, ret: ptr, err: ptr) {
+callable_call :: fn(userdata: ptr, args: ptr, argc: i64, ret: ptr, err: ptr) {
 	unsafe err.write(CallError.{ 0, 0, 0 })
 	fns := registry.fns
 	f := fns[int.(userdata.0)] or do return
 	all: []Variant = []
-	loop i in 0..int.(argc) {
+	loop i in ..int.(argc) {
 		all << arg(args, i)
 	}
 	f(all)
 }
 
-@c callable_free :: fn(userdata: ptr) {
+callable_free :: fn(userdata: ptr) {
 	fns := registry.fns
 	fns[int.(userdata.0)] = none
 	registry.fns = fns
@@ -179,13 +179,13 @@ Callable :< {
 	pub of :: fn(f: Fn) Callable {
 		info := unsafe malloc(CallableCustomInfo2.size)
 		unsafe info.write(CallableCustomInfo2.{
-			callable_userdata = ptr(usize.(box(f))),
+			callable_userdata = ptr.(usize.(box(f))),
 			token = gd.library,
 			call_func = callable_call,
 			free_func = callable_free,
 		})
 		at := unsafe malloc(Callable.size)
-		unsafe CallableCustomCreate2(lookups().callable_custom)(at, info)
+		unsafe CallableCustomCreate2.(lookups().callable_custom)(at, info)
 		unsafe free(info)
 		Callable.from_bytes(at)
 	}
@@ -206,7 +206,7 @@ Signal :< {
 String :< {
 	pub str :: fn(self) string {
 		b := self.bytes()
-		n := gd.string_utf8(b, ptr(0), 0)
+		n := gd.string_utf8(b, ptr.(0), 0)
 		buf := unsafe malloc(usize.(n))
 		_ := gd.string_utf8(b, buf, n)
 		s := unsafe buf.string(int.(n))
@@ -219,7 +219,7 @@ String :< {
 String : From[string] < {
 	from :: fn(v: string) String {
 		b := unsafe malloc(String.size)
-		gd.new_string(b, v.ptr, i64.(v.len))
+		gd.new_string(b, v.ptr, i64.(v.len()))
 		String.from_bytes(b)
 	}
 }

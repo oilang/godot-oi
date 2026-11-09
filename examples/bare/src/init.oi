@@ -74,7 +74,7 @@ OiNode :< {
 	@godot.hidden
 	tag :: fn(self) string { "helper" }
 
-	process :: fn(mut self, delta: f64) {
+	process :: fn(mut self; delta: f64) {
 		if self.frames == 0 {
 			print("oi: process {delta}")
 		}
@@ -87,8 +87,8 @@ OiNode :< {
 	}
 
 	@godot.func
-	add :: fn(self, a: i64, b: i64) i64 { a + b }
+	add :: fn(self; a: i64, b: i64) i64 { a + b }
 
 	@godot.func
-	add4 :: fn(self, a: i64, b: i64, c: i64, d: i64) i64 { a + b + c + d }
+	add4 :: fn(self; a: i64, b: i64, c: i64, d: i64) i64 { a + b + c + d }
 }

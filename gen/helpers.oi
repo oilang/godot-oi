@@ -10,39 +10,39 @@ has :: fn(o: Obj, k: string) bool {
 	k in o.keys
 }
 text :: fn(o: Obj, k: string) string {
-	match at(o, k) {
-		v @ string => v,
+	match v := at(o, k) {
+		is string => v,
 		_ => ""
 	}
 }
 flag :: fn(o: Obj, k: string) bool {
-	match at(o, k) {
-		v @ bool => v,
+	match v := at(o, k) {
+		is bool => v,
 		_ => false
 	}
 }
 num :: fn(o: Obj, k: string) int {
-	match at(o, k) {
-		v @ float => int.(v),
+	match v := at(o, k) {
+		is float => int.(v),
 		_ => 0
 	}
 }
 node :: fn(o: Obj, k: string) Obj {
-	match at(o, k) {
-		v @ Obj => v,
+	match v := at(o, k) {
+		is Obj => v,
 		_ => []
 	}
 }
 
 arr :: fn(o: Obj, k: string) []Obj {
 	out: []Obj = []
-	raw: Arr = match at(o, k) {
-		v @ Arr => v,
+	raw: Arr = match v := at(o, k) {
+		is Arr => v,
 		_ => []
 	}
 	loop item in raw {
-		out << match item {
-			v @ Obj => v,
+		out << match v := item {
+			is Obj => v,
 			_ => []
 		}
 	}
@@ -53,14 +53,14 @@ INT_MIN :: "-9223372036854775807 - 1"
 INT_MAX :: "9223372036854775807"
 
 lit :: fn(o: Obj, k: string) string {
-	s := match at(o, k) {
-		v @ float => v.str(),
+	s := match v := at(o, k) {
+		is float => v.str(),
 		_ => "0.0"
 	}
 	if s.contains("e") {
 		return if s.starts_with("-") { INT_MIN } else { INT_MAX }
 	}
-	s[..s.len - 2]
+	s[..s.len() - 2]
 }
 
 ## The `float_64` row of a per-build table.
@@ -79,8 +79,8 @@ load :: fn(path: string) Obj {
 		panic!("gen: {path}: {$.message()}")
 		:null
 	}
-	match parsed {
-		v @ Obj => v,
+	match v := parsed {
+		is Obj => v,
 		_ => []
 	}
 }
@@ -92,11 +92,11 @@ digit :: fn(c: u8) bool { c >= 48 && c <= 57 }
 ## `AStar2D` to `a_star_2d`.
 snake :: fn(name: string) string {
 	out := ""
-	loop i in 0..name.len {
+	loop i in ..name.len() {
 		c := name[i]
 		if i > 0 {
 			p := name[i - 1]
-			nl := if i + 1 < name.len {
+			nl := if i + 1 < name.len() {
 				low(name[i + 1])
 			} else {
 				false
@@ -117,8 +117,8 @@ snake :: fn(name: string) string {
 vtype :: fn(name: string) string {
 	s := snake(name)
 	out := ""
-	loop i in 0..s.len {
-		if s[i] == 95 && i + 1 < s.len && digit(s[i + 1]) do continue
+	loop i in ..s.len() {
+		if s[i] == 95 && i + 1 < s.len() && digit(s[i + 1]) do continue
 		out += s[i..i + 1]
 	}
 	out
@@ -128,17 +128,17 @@ vtype :: fn(name: string) string {
 plain :: fn(s: string) string {
 	out := ""
 	i := 0
-	loop i < s.len {
+	loop i < s.len() {
 		if s[i] != 91 {
 			out += s[i..i + 1]
 			i += 1
 			continue
 		}
 		j := i + 1
-		loop j < s.len && s[j] != 93 {
+		loop j < s.len() && s[j] != 93 {
 			j += 1
 		}
-		if j == s.len do break
+		if j == s.len() do break
 
 		tag := s[i + 1..j]
 		i = j + 1
@@ -146,12 +146,12 @@ plain :: fn(s: string) string {
 			out += "`"
 			continue
 		}
-		if tag.len == 0 do continue
+		if tag.len() == 0 do continue
 
 		# `[method foo]`, `[Node]` and `[@GlobalScope.x]` name something, `[b]` and `[url=..]` are markup
 		words := tag.split(" ")
-		if words.len > 1 || caps(tag[0]) || tag[0] == 64 {
-			last := words[words.len - 1]
+		if words.len() > 1 || caps(tag[0]) || tag[0] == 64 {
+			last := words[words.len() - 1]
 			out += "`{last}`"
 		}
 	}
@@ -183,9 +183,9 @@ doc :: fn(o: Obj, lead: string) string {
 }
 
 keywords: []string = [
-	"and", "break", "comp", "continue", "defer", "do", "else", "enum", "fn", "foreign", "if", "in", "is", "loop",
-	"match", "module", "move", "mut", "none", "or", "pub", "return", "struct", "trait", "unsafe", "use", "via",
-	"with",
+	"and", "break", "cancel", "comp", "continue", "defer", "discard", "do", "else", "enum", "fallthrough", "fn",
+	"foreign", "if", "in", "is", "loop", "match", "module", "move", "mut", "none", "or", "pub", "return", "struct",
+	"trait", "unsafe", "use", "via", "with",
 ]
 
 ## Method names the core `Drop`, `Copy`, `Display`, and `Debug` traits own.

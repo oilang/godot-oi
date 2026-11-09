@@ -8,7 +8,7 @@ use json.{ Obj }
 ## The ptr fn reads every cell as a `Variant`.
 utility_vararg :: fn(fname: string, bind: string, rt: Typ) s: string {
 	rptr := match rt.kind {
-		"void" => "ptr(0)",
+		"void" => "ptr.(0)",
 		"variant" => "rv.at",
 		_ => "out",
 	}
@@ -19,8 +19,8 @@ utility_vararg :: fn(fname: string, bind: string, rt: Typ) s: string {
 	}
 
 	s += "pub {fname} :: fn(varargs: []Variant){ret_sig(rt, false)} {{\n"
-	s += "\tblk := unsafe malloc(ptr.size * usize.(varargs.len))\n"
-	s += "\tloop i in 0..varargs.len {{ unsafe ptr(blk.0 + ptr.size * usize.(i)).write(varargs[i].at) }}\n"
+	s += "\tblk := unsafe malloc(ptr.size * usize.(varargs.len()))\n"
+	s += "\tloop i in ..varargs.len() {{ unsafe ptr.(blk.0 + ptr.size * usize.(i)).write(varargs[i].at) }}\n"
 	if rt.kind == "variant" {
 		s += "\trv := gd.variant()\n"
 	}
@@ -28,7 +28,7 @@ utility_vararg :: fn(fname: string, bind: string, rt: Typ) s: string {
 		s += "\tout := unsafe calloc(1, usize.({rt.size}))\n"
 	}
 	s += "\t{bind}\n"
-	s += "\tunsafe UtilityFunction(mb)({rptr}, blk, i32.(varargs.len))\n"
+	s += "\tunsafe UtilityFunction.(mb)({rptr}, blk, i32.(varargs.len()))\n"
 	s += "\tunsafe free(blk)\n"
 
 	s + tail + "}}\n"

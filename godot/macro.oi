@@ -38,7 +38,7 @@ pub class! :: fn(input: Ast) Ast {
 
 			k := kind(ty)
 			if k == "" {
-				print("godot: {name}.{fname} is not a float, int, or bool, not exported")
+				core.print("godot: {name}.{fname} is not a float, int, or bool, not exported")
 				continue
 			}
 
@@ -61,11 +61,11 @@ pub class! :: fn(input: Ast) Ast {
 			}
 
 			hint := if range == "" do `.nil` else do `.range`
-			defs << `@c %g :: fn(inst: ptr, args: ptr, ret: ptr) {
+			defs << `%g :: fn(inst: ptr, args: ptr, ret: ptr) {
 				%x := %n.from_payload(inst)
 				godot.ret(ret).%sm(%x.%fd)
 			}`
-			defs << `@c %s :: fn(inst: ptr, args: ptr, ret: ptr) {
+			defs << `%s :: fn(inst: ptr, args: ptr, ret: ptr) {
 				%x := %n.from_payload(inst)
 				%v := godot.arg(args, 0).%m()
 				%put
@@ -81,12 +81,12 @@ pub class! :: fn(input: Ast) Ast {
 				unsafe godot.payload(inst).read[Self]()
 			}
 		}
-		@c %init :: fn(inst: ptr) {
+		%init :: fn(inst: ptr) {
 			p := godot.payload(inst)
 			unsafe p.write(%n.{})
 			unsafe p.write(godot.object(inst))
 		}
-		@c %on :: fn(inst: ptr) {
+		%on :: fn(inst: ptr) {
 			%x := %n.from_payload(inst)
 			%{..ons}
 			unsafe godot.payload(inst).write(%x)
@@ -111,7 +111,7 @@ pub class! :: fn(input: Ast) Ast {
 			fname := it.name.str()
 			if noted(it, "signal") {
 				sslots: []Ast
-				loop j in 1..it.items.len {
+				loop j in 1..it.items.len() {
 					a := it.items[j]
 					aname := a.name.str()
 					ty := match kind(a.typ) {
@@ -147,7 +147,7 @@ pub class! :: fn(input: Ast) Ast {
 				virtuals << `godot.virtual(%vname, %t, [%{..slots}], none, %h)`
 				`%x.%m(%{..argv})`
 			} else {
-				loop j in 1..it.items.len {
+				loop j in 1..it.items.len() {
 					a := it.items[j]
 					aname := a.name.str()
 					i := j - 1
@@ -176,7 +176,7 @@ pub class! :: fn(input: Ast) Ast {
 				if k == "" do call else do `godot.ret(ret).%set(%call)`
 			}
 
-			defs << `@c %t :: fn(inst: ptr, args: ptr, ret: ptr) {
+			defs << `%t :: fn(inst: ptr, args: ptr, ret: ptr) {
 				%{..pre}
 				%x := %rd(inst)
 				%body
@@ -188,7 +188,7 @@ pub class! :: fn(input: Ast) Ast {
 			tr := ident(name + "_ready")
 			done << "_ready"
 			virtuals << `godot.virtual("_ready", %tr, [], none, %rh)`
-			defs << `@c %tr :: fn(inst: ptr, args: ptr, ret: ptr) {
+			defs << `%tr :: fn(inst: ptr, args: ptr, ret: ptr) {
 				%on(inst)
 			}`
 		}
@@ -213,13 +213,13 @@ pub init! :: fn() Ast {
 		godot.setup(get_proc, library, out, godot_oi_initialize, godot_oi_deinitialize)
 	}
 
-	@c godot_oi_initialize :: fn(userdata: ptr, level: i32) {
+	godot_oi_initialize :: fn(userdata: ptr, level: i32) {
 		if godot.level(level) == .scene {
 			%{..calls}
 		}
 	}
 
-	@c godot_oi_deinitialize :: fn(userdata: ptr, level: i32) {
+	godot_oi_deinitialize :: fn(userdata: ptr, level: i32) {
 		if godot.level(level) == .scene {
 			godot.gd.unregister_all()
 		}

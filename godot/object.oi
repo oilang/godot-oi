@@ -9,13 +9,13 @@ module godot
 Object :< {
 	pub from_ptr :: fn(p: ptr) Object { .{ p } }
 
-	pub is_a :: fn(self, class: string) bool { self.is_class(class) }
+	pub is_a :: fn(self; class: string) bool { self.is_class(class) }
 }
 
 Godot :< {
 	## `MethodBind`.
-	pub bind :: fn(self, slot: int, class: cstr, method: cstr, hash: i64) ptr {
-		cell := ptr(self.binds.0 + ptr.size * usize.(slot))
+	pub bind :: fn(self; slot: int, class: cstr, method: cstr, hash: i64) ptr {
+		cell := ptr.(self.binds.0 + ptr.size * usize.(slot))
 		bind := unsafe cell.read[ptr]()
 		if !bind.is_null() do return bind
 
@@ -31,14 +31,14 @@ Godot :< {
 	}
 
 	## Call `bind` on the engine `object`.
-	pub call :: fn(self, object: ptr, bind: ptr, args: []Variant) Variant {
-		packed := unsafe malloc(ptr.size * usize.(args.len))
-		loop i in 0..args.len {
-			unsafe ptr(packed.0 + ptr.size * usize.(i)).write(args[i].at)
+	pub call :: fn(self; object: ptr, bind: ptr, args: []Variant) Variant {
+		packed := unsafe malloc(ptr.size * usize.(args.len()))
+		loop i in ..args.len() {
+			unsafe ptr.(packed.0 + ptr.size * usize.(i)).write(args[i].at)
 		}
 		out := self.variant()
 		err := unsafe malloc(CallError.size)
-		self.method_bind_call(bind, object, packed, i64.(args.len), out.at, err)
+		self.method_bind_call(bind, object, packed, i64.(args.len()), out.at, err)
 		unsafe free(err)
 		unsafe free(packed)
 		out

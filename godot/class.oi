@@ -156,7 +156,7 @@ pub property :: fn(
 
 ## The nth `Variant` of a method's `args`.
 pub arg :: fn(args: ptr, n: int) Variant {
-	Variant.{ unsafe ptr(args.0 + ptr.size * usize.(n)).read[ptr]() }
+	Variant.{ unsafe ptr.(args.0 + ptr.size * usize.(n)).read[ptr]() }
 }
 
 ## A method's `ret` slot as a `Variant`.
@@ -200,7 +200,7 @@ pub object :: fn(inst: ptr) ptr {
 
 ## The game's struct behind `inst`.
 pub payload :: fn(inst: ptr) ptr {
-	ptr(inst.0 + Instance.size)
+	ptr.(inst.0 + Instance.size)
 }
 
 ## Resolve `path` against the object, for `@godot.onready` fields.
@@ -208,33 +208,33 @@ pub payload :: fn(inst: ptr) ptr {
 pub node_at :: fn(inst: ptr, path: string) ptr {
 	n := Node.from_ptr(object(inst)).get_node(path) or {
 		err("godot: onready path {path} did not resolve, left nil")
-		return ptr(0)
+		return ptr.(0)
 	}
 	n.object
 }
 
 ## The nth entry of a `Bound` table.
 bound :: fn(table: ptr, n: int) ptr {
-	ptr(table.0 + Bound.size * usize.(n))
+	ptr.(table.0 + Bound.size * usize.(n))
 }
 
 ## The nth entry of a `PropertyInfo` table.
 prop :: fn(table: ptr, n: int) ptr {
-	ptr(table.0 + PropertyInfo.size * usize.(n))
+	ptr.(table.0 + PropertyInfo.size * usize.(n))
 }
 
 type_at :: fn(table: ptr, n: int) Type {
-	Type.from(unsafe ptr(table.0 + usize.(4 * n)).read[i32]()) or .nil
+	Type.from(unsafe ptr.(table.0 + usize.(4 * n)).read[i32]()) or .nil
 }
 
 Godot :< {
 	pub register :: fn(
-		self, name: cstr, parent: cstr, state: usize, virtuals: []Method, own: []Method, props: []Property,
+		self; name: cstr, parent: cstr, state: usize, virtuals: []Method, own: []Method, props: []Property,
 		signals: []Sig, init: OnInit, onready: OnInit,
 	) {
 		methods: []Method
 		methods << own
-		loop i in 0..props.len {
+		loop i in ..props.len() {
 			p := props[i]
 			n := unsafe p.name.str()
 			methods << method(("get_" + n).cstr(), p.get, [], p.type)
@@ -242,13 +242,13 @@ Godot :< {
 		}
 		vt := self.table(virtuals)
 		mt := self.table(methods)
-		loop i in 0..props.len {
-			unsafe bound(mt, own.len + 2 * i + 1).write((props[i].default or Variant.{ ptr(0) }).at)
+		loop i in ..props.len() {
+			unsafe bound(mt, own.len() + 2 * i + 1).write((props[i].default or Variant.{ ptr.(0) }).at)
 		}
 		class := unsafe malloc(Class.size)
 		unsafe class.write(Class.{
 			self.string_name(name), self.string_name(parent), state,
-			vt, virtuals.len, mt, methods.len, init, onready, self.classes.read[ptr](),
+			vt, virtuals.len(), mt, methods.len(), init, onready, self.classes.read[ptr](),
 		})
 		unsafe self.classes.write(class)
 		c := unsafe class.read[Class]()
@@ -262,22 +262,22 @@ Godot :< {
 		self.register_class(self.library, c.name.at, c.parent.at, info)
 		unsafe free(info)
 		minfo := unsafe malloc(MethodInfo.size)
-		loop i in 0..methods.len {
+		loop i in ..methods.len() {
 			m := methods[i]
 			b := bound(mt, i)
-			args := unsafe malloc(PropertyInfo.size * usize.(m.args.len))
-			meta := unsafe calloc(usize.(m.args.len), 4)
-			loop j in 0..m.args.len {
+			args := unsafe malloc(PropertyInfo.size * usize.(m.args.len()))
+			meta := unsafe calloc(usize.(m.args.len()), 4)
+			loop j in ..m.args.len() {
 				unsafe prop(args, j).write(self.slot_info(m.args[j]))
 			}
 			ret := unsafe malloc(PropertyInfo.size)
 			unsafe ret.write(self.slot_info(Slot.{ "", m.ret or .nil }))
 			unsafe minfo.write(MethodInfo.{
 				b.read[Bound]().name.at, b, call_method, ptrcall_method, u32.(METHOD_DEFAULT),
-				u8.(if m.ret == none { 0 } else { 1 }), ret, 0, u32.(m.args.len), args, meta,
+				u8.(if m.ret == none { 0 } else { 1 }), ret, 0, u32.(m.args.len()), args, meta,
 			})
 			self.register_method(self.library, c.name.at, minfo)
-			loop j in 0..m.args.len {
+			loop j in ..m.args.len() {
 				self.drop_slot(unsafe prop(args, j).read[PropertyInfo]())
 			}
 			self.drop_slot(unsafe ret.read[PropertyInfo]())
@@ -287,27 +287,27 @@ Godot :< {
 		}
 		unsafe free(minfo)
 		pinfo := unsafe malloc(PropertyInfo.size)
-		loop i in 0..props.len {
+		loop i in ..props.len() {
 			p := props[i]
 			info := self.slot_info(Slot.{ p.name, p.type }, p.hint, p.hint_string)
 			info.usage = u32.(if p.exported { USAGE_DEFAULT } else { 0 })
 			unsafe pinfo.write(info)
-			get := unsafe bound(mt, own.len + 2 * i).read[Bound]().name.at
-			set := unsafe bound(mt, own.len + 2 * i + 1).read[Bound]().name.at
+			get := unsafe bound(mt, own.len() + 2 * i).read[Bound]().name.at
+			set := unsafe bound(mt, own.len() + 2 * i + 1).read[Bound]().name.at
 			self.register_property(self.library, c.name.at, pinfo, set, get)
 			self.drop_slot(info)
 		}
 		unsafe free(pinfo)
-		loop i in 0..signals.len {
+		loop i in ..signals.len() {
 			sg := signals[i]
-			args := unsafe malloc(PropertyInfo.size * usize.(sg.args.len))
-			loop j in 0..sg.args.len {
+			args := unsafe malloc(PropertyInfo.size * usize.(sg.args.len()))
+			loop j in ..sg.args.len() {
 				unsafe prop(args, j).write(self.slot_info(sg.args[j]))
 			}
 			sn := self.string_name(sg.name)
-			self.register_signal(self.library, c.name.at, sn.at, args, i64.(sg.args.len))
+			self.register_signal(self.library, c.name.at, sn.at, args, i64.(sg.args.len()))
 			sn.destroy()
-			loop j in 0..sg.args.len {
+			loop j in ..sg.args.len() {
 				self.drop_slot(unsafe prop(args, j).read[PropertyInfo]())
 			}
 			unsafe free(args)
@@ -327,28 +327,28 @@ Godot :< {
 			unsafe free(class)
 			class = c.next
 		}
-		unsafe self.classes.write(ptr(0))
+		unsafe self.classes.write(ptr.(0))
 	}
 
 	## A `Bound` per method.
-	table :: fn(self, methods: []Method) ptr {
-		t := unsafe malloc(Bound.size * usize.(methods.len))
-		loop i in 0..methods.len {
+	table :: fn(self; methods: []Method) ptr {
+		t := unsafe malloc(Bound.size * usize.(methods.len()))
+		loop i in ..methods.len() {
 			m := methods[i]
-			types := unsafe malloc(usize.(4 * m.args.len))
-			loop j in 0..m.args.len {
-				unsafe ptr(types.0 + usize.(4 * j)).write(i32.(m.args[j].type))
+			types := unsafe malloc(usize.(4 * m.args.len()))
+			loop j in ..m.args.len() {
+				unsafe ptr.(types.0 + usize.(4 * j)).write(i32.(m.args[j].type))
 			}
 			unsafe bound(t, i).write(Bound.{
-				ptr(0), self.string_name(m.name), ptr(m.call), i32.(m.args.len), types, i32.(m.ret or .nil), m.hash
+				ptr.(0), self.string_name(m.name), ptr.(m.call), i32.(m.args.len()), types, i32.(m.ret or .nil), m.hash
 			})
 		}
 		t
 	}
 
-	slot_info :: fn(self, s: Slot, hint: Hint = .nil, hint_string: string = "") PropertyInfo {
+	slot_info :: fn(self; s: Slot, hint: Hint = .nil, hint_string: string = "") PropertyInfo {
 		hs := unsafe malloc(usize.(STRING_SIZE))
-		self.new_string(hs, hint_string.ptr, i64.(hint_string.len))
+		self.new_string(hs, hint_string.ptr, i64.(hint_string.len()))
 		usage := if s.type == .nil { USAGE_VARIANT } else { USAGE_DEFAULT }
 		PropertyInfo.{
 			i32.(s.type),
@@ -360,15 +360,15 @@ Godot :< {
 		}
 	}
 
-	drop_slot :: fn(self, p: PropertyInfo) {
+	drop_slot :: fn(self; p: PropertyInfo) {
 		StringName.{ p.name }.destroy()
 		StringName.{ p.class_name }.destroy()
 		self.drop_string(p.hint_string)
 		unsafe free(p.hint_string)
 	}
 
-	unbind :: fn(self, table: ptr, n: int) {
-		loop i in 0..n {
+	unbind :: fn(self; table: ptr, n: int) {
+		loop i in ..n {
 			b := unsafe bound(table, i).read[Bound]()
 			b.name.destroy()
 			unsafe free(b.types)
@@ -382,16 +382,16 @@ Godot :< {
 
 ## Fill each property's default into a fresh payload.
 fill_defaults :: fn(inst: ptr, c: Class) {
-	loop i in 0..c.nmethods {
+	loop i in ..c.nmethods {
 		at := bound(c.methods, i)
 		b := unsafe at.read[Bound]()
 		if !b.default.is_null() {
-			unsafe OnMethod(b.call)(inst, at, ptr(0))
+			unsafe OnMethod.(b.call)(inst, at, ptr.(0))
 		}
 	}
 }
 
-@c create_instance :: fn(class: ptr, notify: u8) ptr {
+create_instance :: fn(class: ptr, notify: u8) ptr {
 	c := unsafe class.read[Class]()
 	object := gd.construct_object(c.parent.at)
 	inst := unsafe calloc(1, Instance.size + c.state)
@@ -406,13 +406,13 @@ fill_defaults :: fn(inst: ptr, c: Class) {
 	object
 }
 
-@c free_instance :: fn(class: ptr, inst: ptr) {
+free_instance :: fn(class: ptr, inst: ptr) {
 	unsafe free(inst)
 }
 
 ## Rebuild an instance's payload on the same engine object, for a hot-reloaded class.
 ## Godot restores stored property values afterward through the registered setters.
-@c recreate_instance :: fn(class: ptr, object: ptr) ptr {
+recreate_instance :: fn(class: ptr, object: ptr) ptr {
 	c := unsafe class.read[Class]()
 	inst := unsafe calloc(1, Instance.size + c.state)
 	unsafe inst.write(Instance.{ class, object })
@@ -423,22 +423,22 @@ fill_defaults :: fn(inst: ptr, c: Class) {
 }
 
 ## Hand back the matching `Bound` entry, which Godot passes to `call_virtual_with_data`.
-@c get_virtual_call_data :: fn(class: ptr, name: ptr, hash: u32) ptr {
+get_virtual_call_data :: fn(class: ptr, name: ptr, hash: u32) ptr {
 	c := unsafe class.read[Class]()
-	loop i in 0..c.nvirtuals {
+	loop i in ..c.nvirtuals {
 		at := bound(c.virtuals, i)
 		b := unsafe at.read[Bound]()
 		if b.hash == hash && b.name.same(name) do return at
 	}
-	ptr(0)
+	ptr.(0)
 }
 
-@c call_virtual_with_data :: fn(inst: ptr, name: ptr, data: ptr, args: ptr, ret: ptr) {
+call_virtual_with_data :: fn(inst: ptr, name: ptr, data: ptr, args: ptr, ret: ptr) {
 	ptrcall_method(data, inst, args, ret)
 }
 
 ## The `Variant` call path.
-@c call_method :: fn(userdata: ptr, inst: ptr, args: ptr, argc: i64, ret: ptr, err: ptr) {
+call_method :: fn(userdata: ptr, inst: ptr, args: ptr, argc: i64, ret: ptr, err: ptr) {
 	b := unsafe userdata.read[Bound]()
 	if argc != i64.(b.argc) {
 		unsafe err.write(CallError.{
@@ -448,7 +448,7 @@ fill_defaults :: fn(inst: ptr, c: Class) {
 		})
 		return
 	}
-	loop i in 0..int.(b.argc) {
+	loop i in ..int.(b.argc) {
 		t := type_at(b.types, i)
 		if t != .nil && gd.variant_can_convert(i32.(arg(args, i).type()), i32.(t)) == 0 {
 			unsafe err.write(CallError.{
@@ -459,32 +459,32 @@ fill_defaults :: fn(inst: ptr, c: Class) {
 			return
 		}
 	}
-	on_method := unsafe OnMethod(b.call)
+	on_method := unsafe OnMethod.(b.call)
 	on_method(inst, args, ret)
 }
 
 ## The typed call path.
-@c ptrcall_method :: fn(userdata: ptr, inst: ptr, args: ptr, ret: ptr) {
+ptrcall_method :: fn(userdata: ptr, inst: ptr, args: ptr, ret: ptr) {
 	b := unsafe userdata.read[Bound]()
 	n := int.(b.argc)
 	boxed := unsafe malloc(ptr.size * usize.(n))
-	loop i in 0..n {
+	loop i in ..n {
 		t := type_at(b.types, i)
 		v := if t == .nil { arg(args, i) } else { gd.variant() }
 		if t != .nil {
 			gd.from_type(t, v, arg(args, i).at)
 		}
-		unsafe ptr(boxed.0 + ptr.size * usize.(i)).write(v.at)
+		unsafe ptr.(boxed.0 + ptr.size * usize.(i)).write(v.at)
 	}
 	rt := Type.from(b.ret) or .nil
 	out := if rt == .nil { Variant.{ ret } } else { gd.variant() }
-	on_method := unsafe OnMethod(b.call)
+	on_method := unsafe OnMethod.(b.call)
 	on_method(inst, boxed, out.at)
 	if rt != .nil {
 		gd.to_type(rt, out, ret)
 		out.drop()
 	}
-	loop i in 0..n {
+	loop i in ..n {
 		if type_at(b.types, i) != .nil {
 			arg(boxed, i).drop()
 		}

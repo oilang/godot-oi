@@ -42,7 +42,7 @@ cached: []Obj = []
 ## `godot/api_index.json`, parsed once
 ## TODO: move to comp
 index :: fn() Obj {
-	if cached.len > 0 do return cached[0]
+	if cached.len() > 0 do return cached[0]
 
 	home := os.env("OI_HOME") or {
 		(os.env("HOME") or "") + "/.oi"
@@ -54,8 +54,8 @@ index :: fn() Obj {
 	parsed :: parse(src) or {
 		panic!("godot: {path}: {$.message()}")
 	}
-	root: Obj = match parsed {
-		v @ Obj => v,
+	root: Obj = match v := parsed {
+		is Obj => v,
 		_ => []
 	}
 
@@ -68,22 +68,22 @@ inherited :: fn(class: string) out: []Obj {
 	root := index()
 	c := class
 	loop c != "" && c in root.keys {
-		o: Obj = match root[c] {
-			v @ Obj => v,
+		o: Obj = match v := root[c] {
+			is Obj => v,
 			_ => []
 		}
-		vs: Arr = match o["virtuals"] {
-			v @ Arr => v,
+		vs: Arr = match v := o["virtuals"] {
+			is Arr => v,
 			_ => []
 		}
 		loop it in vs {
-			out << match it {
-				v @ Obj => v,
+			out << match v := it {
+				is Obj => v,
 				_ => []
 			}
 		}
-		c = match o["parent"] {
-			v @ string => v,
+		c = match v := o["parent"] {
+			is string => v,
 			_ => ""
 		}
 	}
@@ -91,8 +91,8 @@ inherited :: fn(class: string) out: []Obj {
 }
 
 named :: fn(v: Obj) string {
-	match v["name"] {
-		s @ string => s,
+	match s := v["name"] {
+		is string => s,
 		_ => ""
 	}
 }
@@ -101,8 +101,8 @@ named :: fn(v: Obj) string {
 pub virtual_hash :: fn(class: string, name: string) int {
 	loop v in inherited(class) {
 		if named(v) == name {
-			return match v["hash"] {
-				h @ float => int.(h),
+			return match h := v["hash"] {
+				is float => int.(h),
 				_ => 0
 			}
 		}
@@ -127,8 +127,8 @@ pub unsupported :: fn(class: string, fname: string) {
 pub require_all :: fn(class: string, parent: string, have: []string) {
 	loop v in inherited(parent) {
 		n := named(v)
-		req := match v["required"] {
-			b @ bool => b,
+		req := match b := v["required"] {
+			is bool => b,
 			_ => false
 		}
 		if req && !(n in have) {

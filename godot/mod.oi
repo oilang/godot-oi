@@ -50,33 +50,33 @@ pub gd := Godot.{}
 
 ## Fill in `GDExtensionInitialization` from the entrypoint.
 pub setup :: fn(get_proc: GetProc, library: ptr, out: ptr, initialize: Callback, deinitialize: Callback) bool {
-	get_version :: unsafe GetVersion(get_proc("get_godot_version2"))
-	new_string_name :: unsafe NewStringName(get_proc("string_name_new_with_latin1_chars"))
-	get_destructor :: unsafe GetDestructor(get_proc("variant_get_ptr_destructor"))
-	drop_string_name :: unsafe Destructor(get_destructor(i32.(Type.string_name)))
-	new_string :: unsafe NewString(get_proc("string_new_with_utf8_chars_and_len"))
-	string_utf8 :: unsafe StringUtf8(get_proc("string_to_utf8_chars"))
-	drop_string :: unsafe Destructor(get_destructor(i32.(Type.string)))
-	variant_from_type :: unsafe GetFromType(get_proc("get_variant_from_type_constructor"))
-	variant_to_type :: unsafe GetToType(get_proc("get_variant_to_type_constructor"))
-	variant_type :: unsafe VariantGetType(get_proc("variant_get_type"))
-	variant_destroy :: unsafe VariantDestroy(get_proc("variant_destroy"))
-	variant_can_convert :: unsafe CanConvert(get_proc("variant_can_convert_strict"))
-	register_class :: unsafe RegisterClass(get_proc("classdb_register_extension_class6"))
-	unregister_class :: unsafe UnregisterClass(get_proc("classdb_unregister_extension_class"))
-	register_method :: unsafe RegisterMethod(get_proc("classdb_register_extension_class_method"))
-	register_property :: unsafe RegisterProperty(get_proc("classdb_register_extension_class_property"))
-	register_signal :: unsafe RegisterSignal(get_proc("classdb_register_extension_class_signal"))
-	construct_object :: unsafe ConstructObject(get_proc("classdb_construct_object3"))
-	set_instance :: unsafe SetInstance(get_proc("object_set_instance"))
-	get_method_bind :: unsafe GetMethodBind(get_proc("classdb_get_method_bind"))
-	method_bind_call :: unsafe MethodBindCall(get_proc("object_method_bind_call"))
+	get_version :: unsafe GetVersion.(get_proc("get_godot_version2"))
+	new_string_name :: unsafe NewStringName.(get_proc("string_name_new_with_latin1_chars"))
+	get_destructor :: unsafe GetDestructor.(get_proc("variant_get_ptr_destructor"))
+	drop_string_name :: unsafe Destructor.(get_destructor(i32.(Type.string_name)))
+	new_string :: unsafe NewString.(get_proc("string_new_with_utf8_chars_and_len"))
+	string_utf8 :: unsafe StringUtf8.(get_proc("string_to_utf8_chars"))
+	drop_string :: unsafe Destructor.(get_destructor(i32.(Type.string)))
+	variant_from_type :: unsafe GetFromType.(get_proc("get_variant_from_type_constructor"))
+	variant_to_type :: unsafe GetToType.(get_proc("get_variant_to_type_constructor"))
+	variant_type :: unsafe VariantGetType.(get_proc("variant_get_type"))
+	variant_destroy :: unsafe VariantDestroy.(get_proc("variant_destroy"))
+	variant_can_convert :: unsafe CanConvert.(get_proc("variant_can_convert_strict"))
+	register_class :: unsafe RegisterClass.(get_proc("classdb_register_extension_class6"))
+	unregister_class :: unsafe UnregisterClass.(get_proc("classdb_unregister_extension_class"))
+	register_method :: unsafe RegisterMethod.(get_proc("classdb_register_extension_class_method"))
+	register_property :: unsafe RegisterProperty.(get_proc("classdb_register_extension_class_property"))
+	register_signal :: unsafe RegisterSignal.(get_proc("classdb_register_extension_class_signal"))
+	construct_object :: unsafe ConstructObject.(get_proc("classdb_construct_object3"))
+	set_instance :: unsafe SetInstance.(get_proc("object_set_instance"))
+	get_method_bind :: unsafe GetMethodBind.(get_proc("classdb_get_method_bind"))
+	method_bind_call :: unsafe MethodBindCall.(get_proc("object_method_bind_call"))
 	classes :: unsafe malloc(ptr.size)
 	binds :: unsafe calloc(usize.(BINDS), ptr.size)
-	method_bind_ptrcall :: unsafe MethodBindPtrcall(get_proc("object_method_bind_ptrcall"))
-	get_singleton :: unsafe GetSingleton(get_proc("global_get_singleton"))
-	ref_get_object :: unsafe RefGetObject(get_proc("ref_get_object"))
-	object_destroy :: unsafe ObjectDestroy(get_proc("object_destroy"))
+	method_bind_ptrcall :: unsafe MethodBindPtrcall.(get_proc("object_method_bind_ptrcall"))
+	get_singleton :: unsafe GetSingleton.(get_proc("global_get_singleton"))
+	ref_get_object :: unsafe RefGetObject.(get_proc("ref_get_object"))
+	object_destroy :: unsafe ObjectDestroy.(get_proc("object_destroy"))
 	singletons :: unsafe calloc(usize.(SINGLETONS), ptr.size)
 	godot :: unsafe malloc(Godot.size)
 
@@ -90,7 +90,7 @@ pub setup :: fn(get_proc: GetProc, library: ptr, out: ptr, initialize: Callback,
 		object_destroy, singletons,
 	}
 	unsafe godot.write(gd)
-	unsafe classes.write(ptr(0))
+	unsafe classes.write(ptr.(0))
 	unsafe out.write(Init.{ i32.(Level.scene), godot, initialize, deinitialize })
 
 	true
@@ -107,7 +107,7 @@ pub level :: fn(n: i32) Level {
 
 Godot :< {
 	## Fetch an interface fn by name.
-	pub proc :: fn(self, name: cstr) ptr {
+	pub proc :: fn(self; name: cstr) ptr {
 		self.get_proc(name)
 	}
 }

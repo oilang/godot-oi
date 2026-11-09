@@ -4,7 +4,7 @@ module godot
 @c pub StringName :: struct { at: ptr }
 
 Godot :< {
-	pub string_name :: fn(self, s: cstr) StringName {
+	pub string_name :: fn(self; s: cstr) StringName {
 		at := unsafe malloc(StringName.size)
 		self.new_string_name(at, s, 0)
 		StringName.{ at }
@@ -18,7 +18,7 @@ StringName :< {
 	}
 
 	## Compare against the `GDExtensionConstStringNamePtr` passed by Godot.
-	pub same :: fn(self, other: ptr) bool {
+	pub same :: fn(self; other: ptr) bool {
 		unsafe self.at.read[usize]() == other.read[usize]()
 	}
 }

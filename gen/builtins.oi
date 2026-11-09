@@ -24,7 +24,7 @@ movers :: fn(name: string, size: int, ms: []Member) lines: []string {
 	lines << "\t}}"
 	lines << ""
 	lines << "\t## Take `b` back in place, for a method that mutates its base. Frees `b`."
-	lines << "\tpub set_bytes :: fn(mut self, b: ptr) {{"
+	lines << "\tpub set_bytes :: fn(mut self; b: ptr) {{"
 
 	loop m in ms {
 		lines << "\t\tself.{m.name} = unsafe b.offset({m.off}).read[{m.typ}]()"
@@ -79,7 +79,7 @@ opaque :: fn(
 	t := vtype(name)
 	ms: []Member = []
 	decls: []string = []
-	loop i in 0..(size + 7) / 8 {
+	loop i in ..(size + 7) / 8 {
 		ms << Member.{ "w{i}", "u64", 8 * i }
 		decls << "w{i}: u64"
 	}
@@ -91,7 +91,7 @@ opaque :: fn(
 
 	loop c in ctors {
 		args := arr(c, "arguments")
-		if args.len != 1 { continue }
+		if args.len() != 1 { continue }
 
 		at := text(args[0], "type")
 		if at == name || !(at in opaques) { continue }
@@ -115,7 +115,7 @@ opaque :: fn(
 		body += "}}\n"
 	}
 
-	body += "\n{name} : Eq < {{\n\teq :: fn(self, other: {name}) bool {{ equal(.{t}, self.bytes(), other.bytes()) }}\n}}\n"
+	body += "\n{name} : Eq < {{\n\teq :: fn(self; other: {name}) bool {{ equal(.{t}, self.bytes(), other.bytes()) }}\n}}\n"
 
 	body
 }
@@ -132,13 +132,13 @@ variant_call :: fn(bname: string, name: string, fname: string, g: Sig) string {
 
 	all := "varargs"
 	drops: []string = []
-	if g.args.len > 0 {
+	if g.args.len() > 0 {
 		all = "all"
-		lines << "\t\tblk := unsafe calloc(1, usize.({8 * g.args.len}))"
+		lines << "\t\tblk := unsafe calloc(1, usize.({8 * g.args.len()}))"
 		lines << "\t\tall: []Variant = []"
-		loop i in 0..g.args.len {
+		loop i in ..g.args.len() {
 			a := g.args[i]
-			store := "ptr(blk.0 + {8 * i})"
+			store := "ptr.(blk.0 + {8 * i})"
 			lines << "\t\tva_{i} := gd.variant()"
 			lines << "\t\tunsafe {store}.write({value(a, i)})"
 			lines << "\t\tgd.from_type(.{vtype(a.typ.name)}, va_{i}, {store})"
@@ -166,8 +166,8 @@ variant_call :: fn(bname: string, name: string, fname: string, g: Sig) string {
 		},
 	}
 
-	ps := params(g.args, "self")
-	"\tpub {fname} :: fn({ps}, varargs: []Variant){ret_sig(g.rt, g.ropt)} {{\n" + lines.join("\n") + "\n\t}}\n"
+	ps := params(g.args, "self", "varargs: []Variant")
+	"\tpub {fname} :: fn({ps}){ret_sig(g.rt, g.ropt)} {{\n" + lines.join("\n") + "\n\t}}\n"
 }
 
 ## A builtin method over `variant_get_ptr_builtin_method`.
@@ -210,7 +210,7 @@ builtin_method :: fn(bname: string, m: Obj) string {
 		_ => { "\t\tself.set_bytes(base)\n" }
 	}
 
-	c := Call.{ "builtin", if static { "ptr(0)" } else { "base" }, bind, after }
+	c := Call.{ "builtin", if static { "ptr.(0)" } else { "base" }, bind, after }
 	ps := params(g.args, recv)
 
 	d + "\tpub {fname} :: fn({ps}){ret_sig(g.rt, g.ropt)} {{\n{base}" + ptrcall_body(g.args, g.rt, g.ropt, c) + "\t}}\n"
@@ -219,13 +219,13 @@ builtin_method :: fn(bname: string, m: Obj) string {
 ## Fill a struct.
 fill :: fn(name: string, value: string, metas: []string) ?string {
 	open := value.split("(")
-	if open.len != 2 do return none
+	if open.len() != 2 do return none
 
 	parts: []string = []
 	toks := open[1].split(")")[0].split(", ")
-	if toks.len != metas.len do return none
+	if toks.len() != metas.len() do return none
 
-	loop i in 0..toks.len {
+	loop i in ..toks.len() {
 		tok := toks[i]
 		match metas[i] {
 			"float" => {
