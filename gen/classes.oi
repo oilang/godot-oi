@@ -98,7 +98,9 @@ resolve :: fn(t: string, meta: string) ?Typ {
 			return Typ.{ "enum", name, 8, name }
 		},
 		t.starts_with("bitfield::") => {
-			return Typ.{ "bitfield", "i64", 8, t }
+			name := enum_name(t[1..t.len()])
+			if name in masks do return Typ.{ "bitfield", "i64", 8, t }
+			return Typ.{ "flags", "Bits[{name}]", 8, name }
 		},
 		t.starts_with("typedarray::") => {
 			return Typ.{ "builtin", "Array", sizes["Array"], "Array" }
@@ -153,6 +155,7 @@ default :: fn(typ: Typ, d: string) string {
 	match typ.kind {
 		"int" => d,
 		"bitfield" => d,
+		"flags" => bits_lit(typ.name, int.try_from(d) or 0),
 		"bool" => d,
 		"float" => match {
 			d.contains("e") || d.contains("inf") || d.contains("nan") => "",
@@ -189,6 +192,7 @@ value :: fn(a: Arg, i: int) string {
 		"int" => if a.typ.sig == "i32" do "i64.({n})" else do n,
 		"float" => if a.typ.sig == "f32" do "f64.({n})" else do n,
 		"enum" => "i64.({n})",
+		"flags" => "{n}.mask()",
 		"object" => if a.opt {
 			"match {n} {{ .some.(o_) => o_.object, .none => ptr.(0) }}"
 		} else do "{n}.object",
@@ -324,6 +328,7 @@ get :: fn(rt: Typ, ropt: bool, roff: int) string {
 		},
 		"bool" => "rv := {read}[u8]() != 0",
 		"bitfield" => "rv := {read}[i64]()",
+		"flags" => "rv := bits_of[{rt.name}]({read}[i64]())",
 		"ptr" => "rv := {read}[ptr]()",
 		"enum" => "rv := {rt.sig}.from({read}[i64]()) or .{enum_first[rt.name]}",
 		"builtin" => "rv := {read}[{rt.sig}]()",

@@ -261,11 +261,7 @@ hooks :: [ "copy", "drop", "fmt", "str", "debug", "repr" ]
 
 ## `name` as an identifier, `clash` naming what else is taken where it lands.
 safe :: fn(name: string, clash: []string) string {
-	if name in keywords || name in clash {
-		name + "_"
-	} else {
-		name
-	}
+	if name in keywords || name in clash do "{name}_" else do name
 }
 
 ## `INHERIT` to `inherit`, `2D` to `_2d`.
@@ -281,6 +277,9 @@ variant :: fn(name: string) string {
 skip :: [ "StringName" ]
 hand :: [ "Object" "RefCounted" ]
 scalars :: [ "Nil" "bool" "int" "float" ]
+
+## Bitfields that pack values or mask unnamed bits stay `i64` plus consts.
+masks :: [ "KeyModifierMask" "MeshArrayFormat" "RenderingServerArrayFormat" "RenderingDeviceBarrierMask" ]
 
 rename :: fn(name: string) string {
 	if name == "Error" { "GodotError" } else { name }

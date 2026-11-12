@@ -14,6 +14,24 @@ Object :< {
 
 GodotError :< Error
 
+## A bitfield crosses as the bitmask.
+Bits[E] :< {
+	pub mask :: fn(self) i64 {
+		m := 0
+		loop e in self do m |= 1 << ord(e)
+		m
+	}
+}
+
+## The flags set in a bitmask.
+pub bits_of[E: Ordinal] :: fn(m: i64) out: Bits[E] {
+	loop i in ..E.count {
+		e := E.from_index(i) or continue
+		if m & 1 << ord(e) != 0 do out[e] = ()
+	}
+	out
+}
+
 Godot :< {
 	## `MethodBind`.
 	pub bind :: fn(self; slot: int, class: cstr, method: cstr, hash: i64) ptr {

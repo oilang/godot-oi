@@ -19,44 +19,71 @@ prefix :: fn(names: []string) string {
 	pre
 }
 
-## A flat enum, or an `i64` plus consts for a bitfield.
+## A flat enum, or an `i64` plus consts for a bitfield in `masks`.
 enum_block :: fn(label, name, owner: string; values: []Const, bitfield: bool) s: string {
 	pre := prefix(loop v in values do v.name)
-	if bitfield {
-		s += "## {label} (bitfield)\npub {name} :: i64\n"
+	raw := bitfield && name in masks
+	tag := if bitfield do " (bitfield)" else do ""
+	if raw {
+		s += "## {label}{tag}\npub {name} :: i64\n"
 	} else {
-		s += "## {label}\npub {name} :: enum {{\n"
+		s += "## {label}{tag}\npub {name} :: enum {{\n"
 	}
 
 	seen: []string
 	aliases: []string
+	combos: []Const
 	loop v in values {
 		vname := v.name
 		n := lit(v.value)
-		if bitfield {
+		if raw {
 			s += doc(v, "## ") + "pub {owner}{vname} :: {n}\n"
 			continue
 		}
+
 		vn := variant(vname[pre.len()..vname.len()])
 		key := "{name}:{n}"
+		m := int.(v.value)
+		if bitfield && (n in seen || m <= 0 || m & (m - 1) != 0) {
+			combos << v
+			continue
+		}
 		if n in seen {
 			aliases << "\tpub {vn} :: fn() {name} {{ {name}.{enum_values[key]} }}\n"
 			continue
 		}
 
 		seen << n
-		s += doc(v, "\t# ") + "\t{vn} = {n}\n"
+		bit := 0
+		loop bitfield && 1 << bit < m do bit += 1
+		s += doc(v, "\t# ") + "\t{vn} = " + if bitfield do "{bit}\n" else do "{n}\n"
 		if !(name in enum_first.keys) {
 			enum_first[name] = vn
 		}
 		enum_values[key] = vn
 	}
+	aliases << loop v in combos {
+		vn := variant(v.name[pre.len()..v.name.len()])
+		"\tpub {vn} :: fn() Bits[{name}] {{ {bits_lit(name, int.(v.value))} }}\n"
+	}
 
 	n_enums += 1
-	body := if bitfield { "{s}\n" } else { "{s}}}\n\n" }
+	body := if raw { "{s}\n" } else { "{s}}}\n\n" }
 	if aliases.len() > 0 {
 		body + "{name} :< {{\n" + aliases.join("") + "}}\n\n"
 	} else do body
+}
+
+## A mask as a `Bits` literal over the flags of `name`.
+bits_lit :: fn(name: string, mask: int) string {
+	flags: []string
+	loop b in ..63 {
+		if mask & 1 << b == 0 do continue
+		key := "{name}:{1 << b}"
+		if !(key in enum_values.keys) do return ""
+		flags << "." + enum_values[key]
+	}
+	".[" + flags.join(" ") + "]"
 }
 
 ## The enums nested in builtins or classes, as `{Owner}{Enum}`.
