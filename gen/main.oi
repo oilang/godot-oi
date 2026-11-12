@@ -7,8 +7,8 @@ fputs : fn(s: cstr, stream: ptr) i32 : foreign
 fclose : fn(stream: ptr) i32 : foreign
 system : fn(cmd: cstr) i32 : foreign
 
-out := "godot"
-head := "module godot\n\n"
+out :: "godot"
+head :: "module godot\n\n"
 
 emit :: fn(path: string, body: string) {
 	f := unsafe fopen(path.cstr(), "w".cstr())

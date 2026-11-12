@@ -190,7 +190,7 @@ builtin_method :: fn(bname: string, m: Method) string {
 	bind := "mb := gd.ptr_bind({n}, .{vtype(bname)}, \"{name}\", {m.hash})"
 
 	# static vs. const vs. non-const
-	recv := match true {
+	recv := match {
 		static => { "" },
 		m.is_const or false => { "self" },
 		_ => { "mut self" }
@@ -198,7 +198,7 @@ builtin_method :: fn(bname: string, m: Method) string {
 	base := if static { "" } else { "\t\tbase := self.bytes()\n" }
 
 	# a const method just frees its copy of the base, a mutating one reads it back
-	after := match true {
+	after := match {
 		static => { "" },
 		recv == "self" => { "\t\tunsafe free(base)\n" },
 		_ => { "\t\tself.set_bytes(base)\n" }
@@ -223,7 +223,7 @@ fill :: fn(name: string, value: string, metas: []string) ?string {
 		tok := toks[i]
 		match metas[i] {
 			"float" => {
-				parts << match true {
+				parts << match {
 					tok == "inf" => { "1e400" },
 					tok.contains(".") => { tok },
 					_ => { "{tok}.0" }

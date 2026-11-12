@@ -21,15 +21,15 @@ hooked: [string]bool
 member_metas: [string]string
 
 ## Params of these types take a plain `string`, built into the engine type inside the wrapper.
-strargs := [ "String" "StringName" "NodePath" ]
+strargs :: [ "String" "StringName" "NodePath" ]
 
 ## Enum to first variant, and `<enum>:<value>` to variant, for defaults.
 enum_first: [string]string
 enum_values: [string]string
-narrow := [ "int8" "int16" "int32" "uint8" "uint16" ]
+narrow :: [ "int8" "int16" "int32" "uint8" "uint16" ]
 
 ## Arg names that would shadow a local of the wrapper.
-taken := [ "bool" "string" "int" "float" "ptr" "i64" "i32" "f64" "f32" "u8" "usize" "gd" "blk" "mb" "rv" "at" "all" ]
+taken :: [ "bool" "string" "int" "float" "ptr" "i64" "i32" "f64" "f32" "u8" "usize" "gd" "blk" "mb" "rv" "at" "all" ]
 
 enum_name :: fn(raw: string) string {
 	rename(raw.split(".").join(""))
@@ -96,7 +96,7 @@ resolve :: fn(t: string, meta: string) ?Typ {
 		},
 	}
 
-	match true {
+	match {
 		t.starts_with("enum::") => {
 			name := enum_name(t[6..t.len()])
 			if !(name in enum_first.keys) do return none
@@ -139,7 +139,7 @@ zeroish :: fn(d: string) bool {
 
 ## An api `String` / `StringName` / `NodePath` default as an Oi string literal.
 str_default :: fn(d: string) string {
-	lit := match true {
+	lit := match {
 		d.starts_with("&\"") => { d[1..d.len()] },
 		d.starts_with("NodePath(\"") => { d[9..d.len() - 1] },
 		d.starts_with("\"") => { d },
@@ -159,7 +159,7 @@ default :: fn(typ: Typ, d: string) string {
 		"int" => d,
 		"bitfield" => d,
 		"bool" => d,
-		"float" => match true {
+		"float" => match {
 			d.contains("e") || d.contains("inf") || d.contains("nan") => "",
 			d.contains(".") => d,
 			_ => "{d}.0",
@@ -167,7 +167,7 @@ default :: fn(typ: Typ, d: string) string {
 		"enum" => if key in enum_values.keys { "." + enum_values[key] },
 		"object" => if d == "null" do "none",
 		"variant" => if d == "null" do "none",
-		"builtin" => match true {
+		"builtin" => match {
 			hooked[typ.name] => "{typ.sig}.new()",
 			typ.name in member_metas.keys => {
 				fill(typ.name, d, member_metas[typ.name].split(",")) or ""
@@ -390,7 +390,7 @@ invoke :: fn(c: Call, argp: string, rptr: string, argc: int) string {
 }
 
 ret_sig :: fn(rt: Typ, ropt: bool) string {
-	match true {
+	match {
 		rt.kind == "void" => { "" },
 		ropt => { " ?" + rt.sig },
 		_ => { " " + rt.sig }
@@ -420,7 +420,7 @@ ptrcall_body :: fn(args: []Arg, rt: Typ, ropt: bool, c: Call) s: string {
 		s += put(args[i], i, "ptr.(blk.0 + {offs[i]})")
 	}
 
-	rptr := match true {
+	rptr := match {
 		rt.kind == "variant" => { "rv.at" },
 		rt.kind == "string_name" => { "at" },
 		rt.kind == "void" => { "ptr.(0)" },

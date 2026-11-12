@@ -250,14 +250,14 @@ doc[T] :: fn(o: T, lead: string) string {
 	out
 }
 
-keywords: []string = [
+keywords :: [
 	"and", "break", "cancel", "comp", "continue", "defer", "discard", "do", "else", "enum", "fallthrough", "fn",
 	"foreign", "if", "in", "is", "loop", "match", "module", "move", "mut", "none", "or", "pub", "return", "struct",
 	"trait", "unsafe", "use", "via", "with",
 ]
 
 ## Method names the core `Drop`, `Copy`, `Display`, and `Debug` traits own.
-hooks: []string = [ "copy", "drop", "fmt", "str", "debug", "repr" ]
+hooks :: [ "copy", "drop", "fmt", "str", "debug", "repr" ]
 
 ## `name` as an identifier, `clash` naming what else is taken where it lands.
 safe :: fn(name: string, clash: []string) string {
@@ -277,10 +277,10 @@ variant :: fn(name: string) string {
 	}
 }
 
-## Hand-written in `godot/`: `skip` entirely, `hand` only the struct.
-skip: []string = ["StringName"]
-hand: []string = ["Object", "RefCounted"]
-scalars: []string = ["Nil", "bool", "int", "float"]
+## Hand-written overrides.
+skip :: [ "StringName" ]
+hand :: [ "Object" "RefCounted" ]
+scalars :: [ "Nil" "bool" "int" "float" ]
 
 rename :: fn(name: string) string {
 	if name == "Error" { "GodotError" } else { name }
