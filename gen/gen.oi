@@ -8,12 +8,16 @@ fclose : fn(stream: ptr) i32 : foreign
 system : fn(cmd: cstr) i32 : foreign
 
 out :: "godot"
-head :: "module godot\n\n"
 
 emit :: fn(path: string, body: string) {
 	f := unsafe fopen(path.cstr(), "w".cstr())
 	_ := unsafe fputs(body.cstr(), f)
 	if unsafe fclose(f) != 0 do print("gen: cannot write {path}")
+}
+
+## A `godot/` source file, its blocks a blank line apart.
+source :: fn(blocks: []string) string {
+	[ "module godot", ..blocks ].join(para) + nl
 }
 
 main :: fn() {

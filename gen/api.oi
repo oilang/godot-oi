@@ -1,5 +1,7 @@
 module main
 
+use json.{ Json, Arr, Obj }
+
 ## Generate Godot types.
 ## Enums, constants, structs, builtins, etc.
 
@@ -20,28 +22,22 @@ prefix :: fn(names: []string) string {
 }
 
 ## A flat enum, or an `i64` plus consts for a bitfield in `masks`.
-enum_block :: fn(label, name, owner: string; values: []Const, bitfield: bool) s: string {
+enum_block :: fn(label, name, owner: string; values: []Const, bitfield: bool) []string {
 	pre := prefix(loop v in values do v.name)
-	raw := bitfield && name in masks
 	tag := if bitfield do " (bitfield)" else do ""
-	if raw {
-		s += "## {label}{tag}\npub {name} :: i64\n"
-	} else {
-		s += "## {label}{tag}\npub {name} :: enum {{\n"
+	n_enums += 1
+	if bitfield && name in masks {
+		consts := loop v in values do doc(v, "## ") + "pub {owner}{v.name} :: {lit(v.value)}"
+		return [ [ "## {label}{tag}", "pub {name} :: i64", ..consts ].join(nl) ]
 	}
 
 	seen: []string
+	variants: []string
 	aliases: []string
 	combos: []Const
 	loop v in values {
-		vname := v.name
 		n := lit(v.value)
-		if raw {
-			s += doc(v, "## ") + "pub {owner}{vname} :: {n}\n"
-			continue
-		}
-
-		vn := variant(vname[pre.len()..vname.len()])
+		vn := variant(v.name[pre.len()..v.name.len()])
 		key := "{name}:{n}"
 		m := int.(v.value)
 		if bitfield && (n in seen || m <= 0 || m & (m - 1) != 0) {
@@ -49,14 +45,15 @@ enum_block :: fn(label, name, owner: string; values: []Const, bitfield: bool) s:
 			continue
 		}
 		if n in seen {
-			aliases << "\tpub {vn} :: fn() {name} {{ {name}.{enum_values[key]} }}\n"
+			aliases << "\tpub {vn} :: fn() {name} {{ {name}.{enum_values[key]} }}"
 			continue
 		}
 
 		seen << n
 		bit := 0
 		loop bitfield && 1 << bit < m do bit += 1
-		s += doc(v, "\t# ") + "\t{vn} = " + if bitfield do "{bit}\n" else do "{n}\n"
+		discriminant := if bitfield do "{bit}" else do n
+		variants << doc(v, "\t# ") + "\t{vn} = {discriminant}"
 		if !(name in enum_first.keys) {
 			enum_first[name] = vn
 		}
@@ -64,14 +61,17 @@ enum_block :: fn(label, name, owner: string; values: []Const, bitfield: bool) s:
 	}
 	aliases << loop v in combos {
 		vn := variant(v.name[pre.len()..v.name.len()])
-		"\tpub {vn} :: fn() Bits[{name}] {{ {bits_lit(name, int.(v.value))} }}\n"
+		"\tpub {vn} :: fn() Bits[{name}] {{ {bits_lit(name, int.(v.value))} }}"
 	}
 
-	n_enums += 1
-	body := if raw { "{s}\n" } else { "{s}}}\n\n" }
-	if aliases.len() > 0 {
-		body + "{name} :< {{\n" + aliases.join("") + "}}\n\n"
-	} else do body
+	decl := """
+		## {label}{tag}
+		pub {name} :: enum {{
+		{variants.join(nl)}
+		}}
+		"""
+	if aliases.len() == 0 do return [ decl ]
+	return [ decl, "{name} :< {{\n{aliases.join(nl)}\n}}" ]
 }
 
 ## A mask as a `Bits` literal over the flags of `name`.
@@ -87,39 +87,30 @@ bits_lit :: fn(name: string, mask: int) string {
 }
 
 ## The enums nested in builtins or classes, as `{Owner}{Enum}`.
-owner_enums[T] :: fn(items: []T) s: string {
+owner_enums[T] :: fn(items: []T) blocks: []string {
 	loop c in items {
 		pre := snake(c.name).upper() + "_"
 		loop e in c.enums or [] {
-			s += enum_block(
-				"{c.name}.{e.name}",
-				c.name + e.name,
-				pre,
-				e.values,
-				e.is_bitfield or false
-			)
+			blocks << enum_block("{c.name}.{e.name}", c.name + e.name, pre, e.values, e.is_bitfield or false)
 		}
 	}
-	s
+	blocks
 }
 
-enums :: fn(api: Api) s: string {
+enums :: fn(api: Api) string {
+	blocks: []string
 	loop e in api.global_enums {
-		s += enum_block(e.name, enum_name(e.name), "", e.values, e.is_bitfield or false)
+		blocks << enum_block(e.name, enum_name(e.name), "", e.values, e.is_bitfield or false)
 	}
-	emit(
-		"{out}/api_enums.oi",
-		head + s + owner_enums(api.builtin_classes) + owner_enums(api.classes)
-	)
+	blocks << owner_enums(api.builtin_classes) << owner_enums(api.classes)
+	emit("{out}/api_enums.oi", source(blocks))
 	"{n_enums} enums"
 }
 
-constants :: fn(api: Api) s: string {
+constants :: fn(api: Api) string {
 	items := api.global_constants
-	loop c in items {
-		s += "## @GlobalScope.{c.name}\n" + doc(c, "## ") + "pub {c.name} :: {lit(c.value)}\n"
-	}
-	emit("{out}/api_constants.oi", head + s)
+	consts := loop c in items do "## @GlobalScope.{c.name}\n" + doc(c, "## ") + "pub {c.name} :: {lit(c.value)}"
+	emit("{out}/api_constants.oi", source([ consts.join(nl) ]))
 	"{items.len()} constants"
 }
 
@@ -141,10 +132,9 @@ ctype :: fn(t: string) string {
 	}
 }
 
-## A native struct as a `@c` struct, "" when a field has no C layout in Oi.
-struct_block :: fn(s: Native) string {
-	body := ""
-	loop field in s.format.split(";") {
+## A native struct as a `@c` struct, none when a field has no C layout in Oi.
+struct_block :: fn(s: Native) ?string {
+	fields := loop field in s.format.split(";") {
 		parts := field.split(" = ")[0].split(" ")
 		typ := ctype(parts[0])
 		fname := parts[parts.len() - 1]
@@ -153,28 +143,26 @@ struct_block :: fn(s: Native) string {
 			fname = fname[1..fname.len()]
 		}
 		if fname.contains("[") {
-			if !(typ in [ "i32", "i64", "u8", "u16", "u32", "u64", "f32", "f64", "bool", "ptr" ]) do return ""
+			if !(typ in [ "i32", "i64", "u8", "u16", "u32", "u64", "f32", "f64", "bool", "ptr" ]) do return none
 			halves := fname.split("[")
 			count := halves[1].split("]")[0]
 			fname = halves[0]
 			typ = "[{count}]{typ}"
 		}
-		fname = safe(fname, [])
-		body += "\tpub {fname}: {typ}\n"
+		"pub {safe(fname, [])}: {typ}"
 	}
-	"## {s.name}\n@c pub {s.name} :: struct {{\n{body}}}\n\n"
+	"""
+		## {s.name}
+		@c pub {s.name} :: struct {{
+			{fields.join(nl1)}
+		}}
+		"""
 }
 
-structs :: fn(api: Api) s: string {
-	n := 0
-	loop item in api.native_structures {
-		block := struct_block(item)
-		if block == "" do continue
-		s += block
-		n += 1
-	}
-	emit("{out}/api_structs.oi", head + s)
-	"{n} structs"
+structs :: fn(api: Api) string {
+	blocks := loop item in api.native_structures do struct_block(item) or do continue
+	emit("{out}/api_structs.oi", source(blocks))
+	"{blocks.len()} structs"
 }
 
 ## The member layout of a math builtin, empty when it is opaque.
@@ -210,46 +198,40 @@ builtins :: fn(api: Api) string {
 		name := b.name
 		if name in scalars do continue
 
-		ms := ""
-		loop m in b.methods or [] {
-			ms += builtin_method(name, m)
-		}
-
+		ms := loop m in b.methods or [] do builtin_method(name, m) or do continue
 		fields := layout(offsets, name)
-		body := if fields.len() > 0 {
+		blocks := if fields.len() > 0 {
 			math(name, sizes[name], fields, b.constants or [], ms)
 		} else {
 			opaque(name, sizes[name], b.has_destructor, b.constructors, opaques, ms)
 		}
-		body += collection(name, b.methods or [])
-
-		body += conv(name, vtype(name), sizes[name], false, false)
 		d := doc(b, "## ")
-		emit("{out}/api_builtin_{snake(name)}.oi", "{head}## {name}\n{d}{body}")
+		blocks[0] = "## {name}\n{d}{blocks[0]}"
+		blocks << collection(name, b.methods or []) << conv(name, vtype(name), sizes[name], false, false)
+		emit("{out}/api_builtin_{snake(name)}.oi", source(blocks))
 		n += 1
 	}
 	"{n} builtins, {slot - nm} methods"
 }
 
-## Wrap in quotes.
-q :: fn(s: string) string { "\"{s}\"" }
-
-## Write index.json.
+## Write index.json, the parents, virtuals, and enums `godot/attr.oi` reads at comptime.
 index :: fn(api: Api) {
-	entries :: loop c in api.classes {
-		virtuals :: loop m in c.methods or [] {
+	root: Obj = []
+	loop c in api.classes {
+		virtuals: Arr = loop m in c.methods or [] {
 			if !(m.is_virtual or false) do continue
-
-			args :: loop a in m.arguments or [] do q(a.type)
+			args: Arr = loop a in m.arguments or [] do Json.(a.type)
 			ret := if r := m.return_value do r.type else do "void"
-			req := m.is_required or false
-			mname := q(m.name)
-			open := "{{\"name\":{mname},\"hash\":{m.hash},\"required\":{req},\"args\":["
-			open + args.join(",") + "],\"ret\":" + q(ret) + "}}"
+			Json.(Obj.[
+				"name" = m.name,
+				"hash" = float.(m.hash),
+				"required" = m.is_required or false,
+				"args" = args,
+				"ret" = ret,
+			])
 		}
-		names :: loop e in c.enums or [] do q(e.name)
-		body := ",\"virtuals\":[" + virtuals.join(",") + "],\"enums\":[" + names.join(",") + "]}}"
-		q(c.name) + ":{{\"parent\":" + q(c.inherits or "") + body
+		nested: Arr = loop e in c.enums or [] do Json.(e.name)
+		root[c.name] = Obj.[ "parent" = c.inherits or "", "virtuals" = virtuals, "enums" = nested ]
 	}
-	emit("{out}/api_index.json", "{{" + entries.join(",") + "}}\n")
+	emit("{out}/api_index.json", Json.(root).str() + nl)
 }

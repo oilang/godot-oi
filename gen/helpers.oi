@@ -133,6 +133,12 @@ Param :: struct {
 }
 Ret :: struct { type: string, meta: ?string }
 
+## Line breaks for joining emitted lines, the tabbed ones into a template line that deep.
+nl :: "\n"
+nl1 :: "\n\t"
+nl2 :: "\n\t\t"
+para :: "\n\n"
+
 INT_MIN :: "-9223372036854775807 - 1"
 INT_MAX :: "9223372036854775807"
 

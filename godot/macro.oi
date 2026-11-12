@@ -95,8 +95,7 @@ pub class! :: fn(input: Ast) Ast {
 			if noted(it, "hidden") do continue
 			fname := it.name.str()
 			if noted(it, "signal") {
-				sslots: []Ast
-				loop j in 1..it.items.len() {
+				sslots := loop j in 1..it.items.len() {
 					a := it.items[j]
 					aname := a.name.str()
 					ty := match kind(a.typ) {
@@ -104,7 +103,7 @@ pub class! :: fn(input: Ast) Ast {
 						"int" => `.int`,
 						_ => `.bool`
 					}
-					sslots << `godot.slot(%aname, %ty)`
+					`godot.slot(%aname, %ty)`
 				}
 				signals << `godot.sig(%fname, [%{..sslots}])`
 				continue
@@ -182,10 +181,7 @@ pub class! :: fn(input: Ast) Ast {
 }
 
 pub init! :: fn() Ast {
-	calls: []Ast
-	loop c in defs(class) {
-		calls << `%{ident(c.name.str() + "_class")}()`
-	}
+	calls := loop c in defs(class) do `%{ident(c.name.str() + "_class")}()`
 
 	`@export.{"godot_oi_init"}
 	godot_oi_init :: fn(get_proc: godot.GetProc, library: ptr, out: ptr) bool {
