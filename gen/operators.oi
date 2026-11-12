@@ -1,0 +1,83 @@
+module main
+
+## Generate builtin operators as core trait claims over `variant_get_ptr_operator_evaluator`.
+
+## The core trait, its method, and the `VariantOperator` behind a Godot operator.
+Op :: struct {
+	name: string,
+	method: string,
+	op: string,
+}
+
+op_of :: fn(name: string) ?Op {
+	match name {
+		"+" => Op.{ "Add", "add", "add" },
+		"-" => Op.{ "Sub", "sub", "subtract" },
+		"*" => Op.{ "Mul", "mul", "multiply" },
+		"/" => Op.{ "Div", "div", "divide" },
+		"%" => Op.{ "Mod", "mod", "module_" },
+		"**" => Op.{ "Pow", "pow", "power" },
+		"unary-" => Op.{ "Neg", "neg", "negate" },
+		_ => none,
+	}
+}
+
+## Types `godot/math.oi` claims inline, Self-ops and scaling by their own scalar.
+inline :: ["Vector2" "Vector2i" "Vector3" "Vector3i" "Vector4" "Vector4i" "Color"]
+
+## Whether `math.oi` already claims `lhs` with `spec`, an int promoting to its `f32`.
+inlined :: fn(lhs: string, spec: Operator) bool {
+	if !(lhs in inline) || !(spec.name in ["+" "-" "*" "/" "unary-"]) do return false
+	rhs := spec.right_type or { lhs }
+	rhs == lhs || (spec.name in ["*" "/"] && (rhs == "int" || (rhs == "float" && !lhs.ends_with("i"))))
+}
+
+## `lhs : Trait[Rhs] < { .. }` over the evaluator, "" when it has no trait or does not resolve.
+claim :: fn(lhs: string, spec: Operator) string {
+	info := op_of(spec.name) or do return ""
+	if inlined(lhs, spec) do return ""
+	ret := resolve(spec.return_type, "") or do return ""
+
+	args: []Arg = []
+	claimed := info.name
+	right_vt := "nil"
+	if rhs := spec.right_type {
+		# a `Variant` rhs is Godot's NIL, not a boxed Variant
+		if rhs == "Variant" do return ""
+		typ := resolve(rhs, "") or do return ""
+		args << Arg.{ "other", typ, false, "" }
+		right_vt = vtype(rhs)
+		if rhs != lhs do claimed = "{info.name}[{typ.sig}]"
+	}
+
+	index := slot
+	slot += 1
+	bind := "mb := gd.op_bind({index}, .{info.op}, .{vtype(lhs)}, .{right_vt})"
+	call := Call.{ "operator", "base", bind, "\t\tunsafe free(base)\n" }
+	mixed := if ret.sig == lhs do "" else do "\tOut :: {ret.sig}\n"
+	sig_params := params(args, "self")
+
+	lines: []string = [
+		"{lhs} : {claimed} < {{",
+		"{mixed}\t{info.method} :: fn({sig_params}) {ret.sig} {{",
+		"\t\tbase := self.bytes()",
+	]
+	lines.join("\n") + "\n" + ptrcall_body(args, ret, false, call) + "\t}}\n}}\n\n"
+}
+
+## `float : Mul[Vector2]` and the rest with a scalar on the left are orphan claims outside core, so left out.
+operators :: fn(api: Api) string {
+	count := 0
+	code := ""
+	loop builtin in api.builtin_classes {
+		if builtin.name in scalars do continue
+		loop spec in builtin.operators or [] {
+			claimed := claim(builtin.name, spec)
+			if claimed == "" do continue
+			code += claimed
+			count += 1
+		}
+	}
+	emit("{out}/api_operators.oi", head + code)
+	"{count} operators"
+}

@@ -385,6 +385,10 @@ invoke :: fn(c: Call, argp: string, rptr: string, argc: int) string {
 	match c.kind {
 		"builtin" => "unsafe BuiltinMethod.(mb)({c.this}, {argp}, {rptr}, {argc})",
 		"utility" => "unsafe UtilityFunction.(mb)({rptr}, {argp}, {argc})",
+		"operator" => {
+			right := if argc > 0 do "unsafe blk.read[ptr]()" else do "ptr.(0)"
+			"unsafe Evaluator.(mb)({c.this}, {right}, {rptr})"
+		},
 		_ => "gd.method_bind_ptrcall(mb, {c.this}, {argp}, {rptr})",
 	}
 }

@@ -94,6 +94,16 @@ Godot :< {
 
 		fp
 	}
+
+	pub op_bind :: fn(self; slot: int, op: VariantOperator, left: Type, right: Type) ptr {
+		cell := ptr.(self.binds.0 + ptr.size * usize.(slot))
+		fp := unsafe cell.read[ptr]()
+		if fp.is_null() {
+			fp = unsafe GetEvaluator.(lookups().evaluator)(i32.(op), i32.(left), i32.(right))
+			unsafe cell.write(fp)
+		}
+		fp
+	}
 }
 
 ## Constructor `index` of `type` over `args` into fresh storage taken on by the caller.

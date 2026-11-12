@@ -63,10 +63,18 @@ Builtin :: struct {
 	constants: ?[]Value,
 	enums: ?[]Enum,
 	methods: ?[]Method,
+	operators: ?[]Operator,
 	brief_description: ?string,
 	description: ?string,
 }
 Ctor :: struct { index: int, arguments: ?[]Param }
+
+## Binary and unary operators.
+Operator :: struct {
+	name: string,
+	right_type: ?string,
+	return_type: string,
+}
 
 ## A builtin constant, its value a constructor call like `Vector2(0, 0)`.
 Value :: struct {
