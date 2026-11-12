@@ -4,11 +4,10 @@ pub class! :: fn(input: Ast) Ast {
 	n := input.name
 	name := n.str()
 	items := input.items
-	defs: []Ast
+	params := [`inst: ptr`, `args: ptr`, `ret: ptr`]
 
 	parent := parent_of(items)
 	if parent != "" {
-		init := ident(name + "_init")
 		reg := ident(name + "_register")
 		on := ident(name + "_onready")
 		x := ident("x")
@@ -42,8 +41,6 @@ pub class! :: fn(input: Ast) Ast {
 				continue
 			}
 
-			g := ident("{name}_get_{fname}")
-			s := ident("{name}_set_{fname}")
 			m := ident(k)
 			sm := ident("set_{k}")
 			t := match k {
@@ -61,30 +58,22 @@ pub class! :: fn(input: Ast) Ast {
 			}
 
 			hint := if range == "" do `.nil` else do `.range`
-			defs << `%g :: fn(inst: ptr, args: ptr, ret: ptr) {
+			props << `godot.property(%fname, %t, fn(%{..params}) {
 				%x := %n.from_payload(inst)
 				godot.ret(ret).%sm(%x.%fd)
-			}`
-			defs << `%s :: fn(inst: ptr, args: ptr, ret: ptr) {
+			}, fn(%{..params}) {
 				%x := %n.from_payload(inst)
 				%v := godot.arg(args, 0).%m()
 				%put
 				unsafe godot.payload(inst).write(%x)
-			}`
-			props << `godot.property(%fname, %t, %g, %s, true, %hint, %range)`
+			}, true, %hint, %range)`
 		}
 
-		`%{..defs}
-		@c @class %input
+		`@c @class %input
 		%n :< {
 			pub from_payload :: fn(inst: ptr) %n {
 				unsafe godot.payload(inst).read[Self]()
 			}
-		}
-		%init :: fn(inst: ptr) {
-			p := godot.payload(inst)
-			unsafe p.write(%n.{})
-			unsafe p.write(godot.object(inst))
 		}
 		%on :: fn(inst: ptr) {
 			%x := %n.from_payload(inst)
@@ -92,7 +81,11 @@ pub class! :: fn(input: Ast) Ast {
 			unsafe godot.payload(inst).write(%x)
 		}
 		%reg :: fn(virtuals: []godot.Method, methods: []godot.Method, signals: []godot.Sig) {
-			godot.gd.register(%name, %parent, %n.size, virtuals, methods, [%{..props}], signals, %init, %on)
+			godot.gd.register(%name, %parent, %n.size, virtuals, methods, [%{..props}], signals, fn(%{params[0]}) {
+				p := godot.payload(inst)
+				unsafe p.write(%n.{})
+				unsafe p.write(godot.object(inst))
+			}, %on)
 		}`
 	} else {
 		cls := ident(name + "_class")
@@ -100,7 +93,12 @@ pub class! :: fn(input: Ast) Ast {
 		rd := ident(name + ".from_payload")
 		on := ident(name + "_onready")
 		x := ident("x")
-		up := parent_of(def(n).items)
+		fields := def(n).items
+		up := parent_of(fields)
+		wired := false
+		loop f in fields {
+			if noted(f, "onready") do wired = true
+		}
 		virtuals: []Ast
 		methods: []Ast
 		signals: []Ast
@@ -125,27 +123,24 @@ pub class! :: fn(input: Ast) Ast {
 				continue
 			}
 			virtual := !noted(it, "func")
+			vname := "_" + fname
+			h := virtual_hash(up, vname)
 
-			t := ident(name + "_" + fname)
 			m := ident(fname)
 			slots: []Ast
 			pre: []Ast
 			argv: []Ast
-			body := if virtual {
-				vname := "_" + fname
-				h := virtual_hash(up, vname)
+			if virtual {
 				if h < 0 do reject(name, fname, up)
 				if fname != "ready" && fname != "process" && fname != "physics_process" do unsupported(name, fname)
 				if fname == "ready" {
 					has_ready = true
-					pre << `%on(inst)`
+					if wired do pre << `%on(inst)`
 				} else {
 					slots << `godot.slot("delta", .float)`
 					argv << `godot.arg(args, 0).float()`
 				}
 				done << vname
-				virtuals << `godot.virtual(%vname, %t, [%{..slots}], none, %h)`
-				`%x.%m(%{..argv})`
 			} else {
 				loop j in 1..it.items.len() {
 					a := it.items[j]
@@ -161,41 +156,38 @@ pub class! :: fn(input: Ast) Ast {
 					argv << `godot.arg(args, %i).%g()`
 					slots << `godot.slot(%aname, %ty)`
 				}
+			}
 
-				call := `%x.%m(%{..argv})`
-				k := kind(it.typ)
+			call := `%x.%m(%{..argv})`
+			k := kind(it.typ)
+			set := ident("set_" + k)
+			body := if k == "" do call else do `godot.ret(ret).%set(%call)`
+			cb := `fn(%{..params}) {
+				%{..pre}
+				%x := %rd(inst)
+				%body
+				unsafe godot.payload(inst).write(%x)
+			}`
+			if virtual {
+				virtuals << `godot.virtual(%vname, %cb, [%{..slots}], none, %h)`
+			} else {
 				rt := match k {
 					"float" => `.float`,
 					"int" => `.int`,
 					"bool" => `.bool`,
 					_ => `none`
 				}
-
-				methods << `godot.method(%fname, %t, [%{..slots}], %rt)`
-				set := ident("set_" + k)
-				if k == "" do call else do `godot.ret(ret).%set(%call)`
+				methods << `godot.method(%fname, %cb, [%{..slots}], %rt)`
 			}
-
-			defs << `%t :: fn(inst: ptr, args: ptr, ret: ptr) {
-				%{..pre}
-				%x := %rd(inst)
-				%body
-				unsafe godot.payload(inst).write(%x)
-			}`
 		}
 		rh := virtual_hash(up, "_ready")
-		if !has_ready && rh >= 0 {
-			tr := ident(name + "_ready")
+		if wired && !has_ready && rh >= 0 {
 			done << "_ready"
-			virtuals << `godot.virtual("_ready", %tr, [], none, %rh)`
-			defs << `%tr :: fn(inst: ptr, args: ptr, ret: ptr) {
-				%on(inst)
-			}`
+			virtuals << `godot.virtual("_ready", fn(%{..params}) { %on(inst) }, [], none, %rh)`
 		}
 		require_all(name, up, done)
 
-		`%{..defs}
-		%input
+		`%input
 		%cls :: fn() {
 			%reg([%{..virtuals}], [%{..methods}], [%{..signals}])
 		}`
