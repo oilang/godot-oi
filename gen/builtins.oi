@@ -115,6 +115,41 @@ opaque :: fn(
 	body
 }
 
+## Core collection claims off a builtin's `size`, `has`, and `get`, plus `From[[]T]` and `Keyed` on sequences.
+collection :: fn(name: string, methods: []Method) string {
+	body := ""
+	loop m in methods {
+		g := sig(m) or do continue
+		a := if g.args.len() > 0 do g.args[0].typ.sig else do ""
+		r := g.rt.sig
+		claim := match m.name {
+			"size" => "{name} : Length < {{ len :: fn(self) int {{ int.(self.size()) }} }}",
+			"has" => "{name} : Contains[{a}] < {{ contains :: fn(self; v: {a}) bool {{ self.has(v) }} }}",
+			"get" => "{name} : Index[{a}, {r}] < {{ index :: fn(self; i: {a}) {r} {{ self.get(i) }} }}",
+			"push_back" => """
+				{name} : From[[]{a}] < {{
+					from :: fn(xs: []{a}) {name} {{
+						s := {name}.new()
+						loop x in xs do s.push_back(x)
+						s
+					}}
+				}}
+
+				{name} : Keyed[i64, {a}] < {{
+					pairs :: fn(self; after: ?i64) ?({a}, i64) {{
+						i := (after or -1) + 1
+						if i >= self.size() do return none
+						(self.get(i), i)
+					}}
+				}}
+				""",
+			_ => continue,
+		}
+		body += "\n{claim}\n"
+	}
+	body
+}
+
 ## A vararg builtin method over `variant_call`, the base and fixed args boxed into Variants.
 ## Const instance methods only.
 variant_call :: fn(bname: string, name: string, fname: string, g: Sig) string {

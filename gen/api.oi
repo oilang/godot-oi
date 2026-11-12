@@ -221,6 +221,7 @@ builtins :: fn(api: Api) string {
 		} else {
 			opaque(name, sizes[name], b.has_destructor, b.constructors, opaques, ms)
 		}
+		body += collection(name, b.methods or [])
 
 		body += conv(name, vtype(name), sizes[name], false, false)
 		d := doc(b, "## ")

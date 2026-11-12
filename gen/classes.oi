@@ -98,7 +98,7 @@ resolve :: fn(t: string, meta: string) ?Typ {
 			return Typ.{ "enum", name, 8, name }
 		},
 		t.starts_with("bitfield::") => {
-			name := enum_name(t[1..t.len()])
+			name := enum_name(t[10..t.len()])
 			if name in masks do return Typ.{ "bitfield", "i64", 8, t }
 			return Typ.{ "flags", "Bits[{name}]", 8, name }
 		},

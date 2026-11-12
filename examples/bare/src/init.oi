@@ -1,5 +1,5 @@
 use godot
-use godot.{ String, NodePath, StringName, Vector2, Vector2i, Color, Array, Variant, Node, Node2D }
+use godot.{ String, NodePath, StringName, Vector2, Vector2i, Color, Array, PackedInt32Array, Variant, Node, Node2D }
 
 godot.init!()
 
@@ -67,6 +67,11 @@ OiNode :< {
 		list.push_back(seven)
 		seven.drop()
 		print("oi: builtin {hi.length()} {up} {v2.length()} {list.size()}")
+
+		ints: PackedInt32Array = .[1 2 3]
+		total: i64 = 0
+		loop x in ints do total += x
+		print("oi: packed {total} {2 in ints} {ints[1]} {ints.len()}")
 
 		godot.printl("oi: utility print")
 		godot.warn("oi: warn")

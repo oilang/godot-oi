@@ -240,8 +240,8 @@ Godot :< {
 			n := unsafe p.name.str()
 			names << "get_{n}"
 			names << "set_{n}"
-			methods << method(get.cstr(), p.get, [], p.type)
-			methods << method(set.cstr(), p.set, [slot(p.name, p.type)], none)
+			methods << method(names[2 * i].cstr(), p.get, [], p.type)
+			methods << method(names[2 * i + 1].cstr(), p.set, [slot(p.name, p.type)], none)
 		}
 
 		vt := self.table(virtuals)
