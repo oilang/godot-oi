@@ -2,7 +2,7 @@ module godot
 
 use fs
 use os
-use json.{ Arr, Obj, parse }
+use json.{ Obj, parse, from_json }
 
 ## Marks a struct `class!` registered, for `init!` to find.
 pub class :: ()
@@ -63,49 +63,26 @@ index :: fn() Obj {
 	root
 }
 
+## A class's `api_index.json` entry.
+Entry :: struct { pub parent: string, pub virtuals: []Virtual }
+Virtual :: struct { pub name: string, pub hash: int, pub required: bool }
+
 ## Every virtual class and its ancestors declare, nearest first.
-inherited :: fn(class: string) out: []Obj {
+inherited :: fn(class: string) out: []Virtual {
 	root := index()
 	c := class
 	loop c != "" && c in root.keys {
-		o: Obj = match v := root[c] {
-			is Obj => v,
-			_ => []
-		}
-		vs: Arr = match v := o["virtuals"] {
-			is Arr => v,
-			_ => []
-		}
-		loop it in vs {
-			out << match v := it {
-				is Obj => v,
-				_ => []
-			}
-		}
-		c = match v := o["parent"] {
-			is string => v,
-			_ => ""
-		}
+		e :: from_json[Entry](root[c]) or panic!("godot: api_index.json {c}: {$.message()}")
+		out << e.virtuals
+		c = e.parent
 	}
 	return
-}
-
-named :: fn(v: Obj) string {
-	match s := v["name"] {
-		is string => s,
-		_ => ""
-	}
 }
 
 ## The signature hash of virtual name on class or an ancestor.
 pub virtual_hash :: fn(class: string, name: string) int {
 	loop v in inherited(class) {
-		if named(v) == name {
-			return match h := v["hash"] {
-				is float => int.(h),
-				_ => 0
-			}
-		}
+		if v.name == name do return v.hash
 	}
 	return -1
 }
@@ -126,13 +103,8 @@ pub unsupported :: fn(class: string, fname: string) {
 ## Fail the build when an ancestor of `class` marks a virtual required that `have` does not list.
 pub require_all :: fn(class: string, parent: string, have: []string) {
 	loop v in inherited(parent) {
-		n := named(v)
-		req := match b := v["required"] {
-			is bool => b,
-			_ => false
-		}
-		if req && !(n in have) {
-			panic!("godot: {class} must implement {n}, {parent} requires it")
+		if v.required && !(v.name in have) {
+			panic!("godot: {class} must implement {v.name}, {parent} requires it")
 		}
 	}
 }
