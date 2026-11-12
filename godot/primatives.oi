@@ -12,6 +12,8 @@ Godot :< {
 }
 
 StringName :< {
+	## Hand-written, no `Drop` claim, so free it here.
+	## Generated builtins drop at scope exit and `drop` is private.
 	pub destroy :: fn(self) {
 		gd.drop_string_name(self.at)
 		unsafe free(self.at)

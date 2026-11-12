@@ -26,3 +26,6 @@ func _ready() -> void:
 
 	$OiNode2D.hp += 2
 	print("gd: hp ", $OiNode2D.hp)
+
+	$OiNode2D.aim += Vector2(1, 1)
+	print("gd: aim ", $OiNode2D.aim)

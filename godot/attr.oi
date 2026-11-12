@@ -24,6 +24,22 @@ pub kind :: fn(t: Ast) string {
 	""
 }
 
+## The `Type` variant a field boxes as.
+## `f64` -> `float`, `godot.PackedInt32Array` -> `packed_int32_array`
+pub vtype :: fn(t: Ast) out: string {
+	k := kind(t)
+	if k != "" do return k
+	parts := t.str().split(".")
+	n := parts[parts.len() - 1]
+	low := fn(j: int) bool { j < n.len() && n[j] >= 'a' && n[j] <= 'z' }
+	loop i in ..n.len() {
+		up := n[i] >= 'A' && n[i] <= 'Z'
+		if i > 0 && up && (low(i - 1) || low(i + 1)) do out += "_"
+		out += n[i..i + 1].lower()
+	}
+	out
+}
+
 pub noted :: fn(item: Ast, name: string) bool {
 	loop a in item.notes {
 		if a.name.str() == "godot." + name do return true

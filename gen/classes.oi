@@ -161,11 +161,12 @@ default :: fn(typ: Typ, d: string) string {
 		},
 		"enum" => if key in enum_values.keys { "." + enum_values[key] },
 		"object" => if d == "null" do "none",
+		"refobj" => if d == "null" do "none",
 		"variant" => if d == "null" do "none",
 		"builtin" => match {
-			hooked[typ.name] => "{typ.sig}.new()",
+			hooked[typ.name] => "godot.{typ.sig}.new()",
 			typ.name in member_metas.keys => {
-				fill(typ.name, d, member_metas[typ.name].split(",")) or ""
+				if f := fill(typ.name, d, member_metas[typ.name].split(",")) do "godot.{f}" else do ""
 			},
 			zeroish(d) => "none",
 			_ => ""
@@ -479,6 +480,8 @@ method :: fn(cname: string, m: Method) string {
 }
 
 ## Get the non-virtual method named `name`, from `cname` or an ancestor.
+## The dump omits underscore-prefixed accessors (`_set_anchor`, `_get_filters`), so those properties stay without a getter or setter.
+## Reaching them needs `Object.call` by name.
 member :: fn(cname: string, name: string) ?Method {
 	n := cname
 	loop n != "" {

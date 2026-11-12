@@ -35,20 +35,7 @@ pub class! :: fn(input: Ast) Ast {
 			}
 			if !noted(f, "export") do continue
 
-			k := kind(ty)
-			if k == "" {
-				core.print("godot: {name}.{fname} is not a float, int, or bool, not exported")
-				continue
-			}
-
-			m := ident(k)
-			sm := ident("set_{k}")
-			t := match k {
-				"float" => `.float`,
-				"int" => `.int`,
-				_ => `.bool`
-			}
-
+			t := parse("." + vtype(ty))
 			range := ""
 			loop a in f.notes {
 				range = match a {
@@ -60,10 +47,10 @@ pub class! :: fn(input: Ast) Ast {
 			hint := if range == "" do `.nil` else do `.range`
 			props << `godot.property(%fname, %t, fn(%{..params}) {
 				%x := %n.from_payload(inst)
-				godot.ret(ret).%sm(%x.%fd)
+				godot.ret(ret).take(godot.Variant.(%x.%fd))
 			}, fn(%{..params}) {
 				%x := %n.from_payload(inst)
-				%v := godot.arg(args, 0).%m()
+				%v := godot.unbox[%ty](godot.arg(args, 0))
 				%put
 				unsafe godot.payload(inst).write(%x)
 			}, true, %hint, %range)`

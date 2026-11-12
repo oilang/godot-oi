@@ -57,7 +57,7 @@ OiNode :< {
 		up := hi.to_upper()
 		v2 := Vector2.{ 3.0, 4.0 }
 		list := Array.new()
-		seven := gd.int(7)
+		seven := Variant.(7)
 		list.push_back(seven)
 		seven.drop()
 		print("oi: builtin {hi.length()} {up} {v2.length()} {list.size()}")

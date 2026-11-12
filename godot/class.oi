@@ -234,16 +234,22 @@ Godot :< {
 	) {
 		methods: []Method
 		methods << own
+		# `cstr` borrows the buffer, so the accessor names live here for now
+		names: []string
 		loop p, i in props {
 			n := unsafe p.name.str()
-			methods << method(("get_" + n).cstr(), p.get, [], p.type)
-			methods << method(("set_" + n).cstr(), p.set, [slot(p.name, p.type)], none)
+			names << "get_{n}"
+			names << "set_{n}"
+			methods << method(get.cstr(), p.get, [], p.type)
+			methods << method(set.cstr(), p.set, [slot(p.name, p.type)], none)
 		}
+
 		vt := self.table(virtuals)
 		mt := self.table(methods)
 		loop p, i in props {
 			unsafe bound(mt, own.len() + 2 * i + 1).write((p.default or Variant.{ ptr.(0) }).at)
 		}
+
 		class := unsafe malloc(Class.size)
 		unsafe class.write(Class.{
 			self.string_name(name), self.string_name(parent), state,
@@ -260,6 +266,7 @@ Godot :< {
 		})
 		self.register_class(self.library, c.name.at, c.parent.at, info)
 		unsafe free(info)
+
 		minfo := unsafe malloc(MethodInfo.size)
 		loop m, i in methods {
 			b := bound(mt, i)
@@ -284,6 +291,7 @@ Godot :< {
 			unsafe free(ret)
 		}
 		unsafe free(minfo)
+
 		pinfo := unsafe malloc(PropertyInfo.size)
 		loop p, i in props {
 			info := self.slot_info(Slot.{ p.name, p.type }, p.hint, p.hint_string)
@@ -295,6 +303,7 @@ Godot :< {
 			self.drop_slot(info)
 		}
 		unsafe free(pinfo)
+
 		loop sg, i in signals {
 			args := unsafe malloc(PropertyInfo.size * usize.(sg.args.len()))
 			loop a, j in sg.args {

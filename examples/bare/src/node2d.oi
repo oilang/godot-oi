@@ -6,6 +6,7 @@ OiNode2D :: struct {
 	Node2D,
 	sprite: godot.Sprite2D @godot.onready.{ "../Sprite" },
 	hp: i64 = 3 @godot.export,
+	aim: Vector2 = Vector2.{ 1.0, 2.0 } @godot.export,
 }
 
 @godot.class!
@@ -14,7 +15,6 @@ OiNode2D :< {
 		print("oi: ready 2d")
 		sp := self.sprite.get_position()
 		print("oi: onready {self.sprite.get_name()} {sp.x} {sp.y}")
-		gd := godot.gd
 		o := godot.Object.from_ptr(self.object)
 		v := Vector2.{ 1.0, 2.0 }
 		self.set_position(v)
@@ -46,9 +46,9 @@ OiNode2D :< {
 		ov := Variant.(o)
 		c := godot.Callable.create(ov, "add")
 		ov.drop()
-		one := gd.int(1)
-		two := gd.int(2)
-		nine := gd.int(9)
+		one := Variant.(1)
+		two := Variant.(2)
+		nine := Variant.(9)
 		r := c.call([one, two])
 		b := c.bind([nine])
 		print("oi: callable {r.int()} {b.get_bound_arguments_count()}")
@@ -85,7 +85,7 @@ OiNode2D :< {
 	@godot.func
 	fire :: fn(self; damage: i64) {
 		o := godot.Object.from_ptr(self.object)
-		v := godot.gd.int(damage)
+		v := Variant.(damage)
 		known := o.has_signal("hit")
 		print("oi: has_signal {known}")
 		sg := godot.Signal.of(self.object, "hit")

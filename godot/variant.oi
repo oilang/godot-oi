@@ -28,25 +28,7 @@ Godot :< {
 		Variant.{ unsafe calloc(1, usize.(VARIANT_SIZE)) }
 	}
 
-	## Fresh `Variant`s holding a value.
-	pub bool :: fn(self; b: bool) Variant {
-		v := self.variant()
-		v.set_bool(b)
-		v
-	}
-
-	pub int :: fn(self; n: i64) Variant {
-		v := self.variant()
-		v.set_int(n)
-		v
-	}
-
-	pub float :: fn(self; f: f64) Variant {
-		v := self.variant()
-		v.set_float(f)
-		v
-	}
-
+	## A fresh `Variant` holding `s`.
 	pub string :: fn(self; s: string) Variant {
 		v := self.variant()
 		v.set_string(s)
@@ -62,6 +44,41 @@ Godot :< {
 	pub to_type :: fn(self; t: Type, v: Variant, out: ptr) {
 		ctor := unsafe ToType.(self.variant_to_type(i32.(t)))
 		ctor(out, v.at)
+	}
+}
+
+## Fresh `Variant`s holding a value, `Variant.(1)`.
+Variant : From[bool] < {
+	from :: fn(b: bool) Variant {
+		v := gd.variant()
+		v.set_bool(b)
+		v
+	}
+}
+
+Variant : From[i64] < {
+	from :: fn(n: i64) Variant {
+		v := gd.variant()
+		v.set_int(n)
+		v
+	}
+}
+
+Variant : From[f64] < {
+	from :: fn(f: f64) Variant {
+		v := gd.variant()
+		v.set_float(f)
+		v
+	}
+}
+
+## Unbox a Varaint as `T`.
+pub unbox[T] :: fn(v: Variant) T {
+	comp match T {
+		bool => v.bool(),
+		i64 => v.int(),
+		f64 => v.float(),
+		_ => T.from(v),
 	}
 }
 
@@ -150,6 +167,14 @@ Variant :< {
 		defer gd.drop_string(str)
 
 		gd.from_type(.string, self, str)
+	}
+
+	## Move a Variant in over a nil slot, freeing it without clearing it.
+	pub take :: fn(self; v: Variant) {
+		loop i in ..3 {
+			unsafe self.at.offset(8 * i).write(v.at.offset(8 * i).read[u64]())
+		}
+		unsafe free(v.at)
 	}
 
 	## Release the held value.
