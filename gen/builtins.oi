@@ -131,8 +131,7 @@ variant_call :: fn(bname: string, name: string, fname: string, g: Sig) string {
 		all = "all"
 		lines << "\t\tblk := unsafe calloc(1, usize.({8 * g.args.len()}))"
 		lines << "\t\tall: []Variant = []"
-		loop i in ..g.args.len() {
-			a := g.args[i]
+		loop a, i in g.args {
 			store := "ptr.(blk.0 + {8 * i})"
 			lines << "\t\tva_{i} := gd.variant()"
 			lines << "\t\tunsafe {store}.write({value(a, i)})"
@@ -219,9 +218,8 @@ fill :: fn(name: string, value: string, metas: []string) ?string {
 	toks := open[1].split(")")[0].split(", ")
 	if toks.len() != metas.len() do return none
 
-	loop i in ..toks.len() {
-		tok := toks[i]
-		match metas[i] {
+	loop tok in toks, meta in metas {
+		match meta {
 			"float" => {
 				parts << match {
 					tok == "inf" => { "1e400" },

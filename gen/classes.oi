@@ -40,22 +40,17 @@ prepare :: fn(api: Api) {
 		sizes[s.name] = s.size
 	}
 	all_classes = api.classes
-	loop i in ..all_classes.len() {
-		name := all_classes[i].name
-		class_set[name] = true
-		refcounted[name] = all_classes[i].is_refcounted
-		class_at[name] = i
-		parents[name] = all_classes[i].inherits or ""
+	loop c, i in all_classes {
+		class_set[c.name] = true
+		refcounted[c.name] = c.is_refcounted
+		class_at[c.name] = i
+		parents[c.name] = c.inherits or ""
 	}
 	loop b in api.builtin_classes {
 		hooked[b.name] = b.has_destructor
 	}
 	loop c in config(api.builtin_class_member_offsets).classes or [] {
-		metas: []string
-		loop m in c.members {
-			metas << m.meta
-		}
-		member_metas[c.name] = metas.join(",")
+		member_metas[c.name] = (loop m in c.members do m.meta).join(",")
 	}
 }
 
@@ -267,10 +262,9 @@ sig :: fn(m: Method) ?Sig {
 }
 
 params :: fn(args: []Arg, recv: string, tail := "") string {
-	list: []string
-	loop a in args {
+	list := loop a in args {
 		t := if a.opt do "?{a.typ.sig}" else do a.typ.sig
-		list << if a.def == "" { "{a.name}: {t}" } else { "{a.name}: {t} = {a.def}" }
+		if a.def == "" { "{a.name}: {t}" } else { "{a.name}: {t} = {a.def}" }
 	}
 	if tail != "" { list << tail }
 	ps := list.join(", ")
@@ -346,8 +340,7 @@ vararg :: fn(bind: string, this: string, args: []Arg, rt: Typ) s: string {
 	}
 	s += "\t\tall: []Variant\n"
 	drops := ""
-	loop i in ..args.len() {
-		a := args[i]
+	loop a, i in args {
 		if a.typ.sig == "string" {
 			s += strarg(a, i)
 		}
@@ -416,8 +409,8 @@ ptrcall_body :: fn(args: []Arg, rt: Typ, ropt: bool, c: Call) s: string {
 	if cursor > 0 {
 		s += "\t\tblk := unsafe calloc(1, usize.({cursor}))\n"
 	}
-	loop i in ..args.len() {
-		s += put(args[i], i, "ptr.(blk.0 + {offs[i]})")
+	loop a, i in args, off in offs {
+		s += put(a, i, "ptr.(blk.0 + {off})")
 	}
 
 	rptr := match {
@@ -441,8 +434,7 @@ ptrcall_body :: fn(args: []Arg, rt: Typ, ropt: bool, c: Call) s: string {
 	}
 	s += c.after
 
-	loop i in ..args.len() {
-		a := args[i]
+	loop a, i in args {
 		if a.typ.kind == "variant" && a.opt {
 			s += "\t\tif {a.name} == none {{ va_{i}.drop() }}\n"
 		}
@@ -567,10 +559,7 @@ body :: fn(c: Class) s: string {
 		lines << "\t}}"
 	}
 
-	names: []string
-	loop m in c.methods or [] {
-		names << m.name
-	}
+	names :: loop m in c.methods or [] do m.name
 
 	if c.is_instantiable && !("new" in names) {
 		lines << "\tpub new :: fn() {name} {{"
@@ -588,9 +577,7 @@ body :: fn(c: Class) s: string {
 	}
 
 	used: []string = [ "cast", "new", "from_ptr" ]
-	loop m in c.methods or [] {
-		used << safe(m.name, hooks)
-	}
+	used << loop m in c.methods or [] do safe(m.name, hooks)
 
 	loop sg in c.signals or [] {
 		raw := sg.name
@@ -686,9 +673,9 @@ binds :: fn(api: Api) string {
 singletons :: fn(api: Api) string {
 	lines: []string = [ "## Engine singletons, fetched through `global_get_singleton` on first use.", "" ]
 	list := api.singletons
-	loop i in ..list.len() {
-		name := list[i].name
-		typ := list[i].type
+	loop sg, i in list {
+		name := sg.name
+		typ := sg.type
 		lines << "{typ} :< {{"
 		lines << "\tpub singleton :: fn() {typ} {{"
 		lines << "\t\tcell := ptr.(gd.singletons.0 + ptr.size * {i})"

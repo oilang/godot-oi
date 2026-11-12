@@ -21,12 +21,7 @@ prefix :: fn(names: []string) string {
 
 ## A flat enum, or an `i64` plus consts for a bitfield.
 enum_block :: fn(label, name, owner: string; values: []Const, bitfield: bool) s: string {
-	names: []string = []
-	loop v in values {
-		names << v.name
-	}
-
-	pre := prefix(names)
+	pre := prefix(loop v in values do v.name)
 	if bitfield {
 		s += "## {label} (bitfield)\npub {name} :: i64\n"
 	} else {
@@ -213,28 +208,20 @@ q :: fn(s: string) string { "\"{s}\"" }
 
 ## Write index.json.
 index :: fn(api: Api) {
-	entries: []string = []
-	loop c in api.classes {
-		virtuals: []string = []
-		loop m in c.methods or [] {
+	entries :: loop c in api.classes {
+		virtuals :: loop m in c.methods or [] {
 			if !(m.is_virtual or false) do continue
 
-			args: []string = []
-			loop a in m.arguments or [] {
-				args << q(a.type)
-			}
+			args :: loop a in m.arguments or [] do q(a.type)
 			ret := if r := m.return_value do r.type else do "void"
 			req := m.is_required or false
 			mname := q(m.name)
 			open := "{{\"name\":{mname},\"hash\":{m.hash},\"required\":{req},\"args\":["
-			virtuals << open + args.join(",") + "],\"ret\":" + q(ret) + "}}"
+			open + args.join(",") + "],\"ret\":" + q(ret) + "}}"
 		}
-		names: []string = []
-		loop e in c.enums or [] {
-			names << q(e.name)
-		}
+		names :: loop e in c.enums or [] do q(e.name)
 		body := ",\"virtuals\":[" + virtuals.join(",") + "],\"enums\":[" + names.join(",") + "]}}"
-		entries << q(c.name) + ":{{\"parent\":" + q(c.inherits or "") + body
+		q(c.name) + ":{{\"parent\":" + q(c.inherits or "") + body
 	}
 	emit("{out}/api_index.json", "{{" + entries.join(",") + "}}\n")
 }
