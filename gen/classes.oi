@@ -364,7 +364,8 @@ vararg :: fn(bind: string, this: string, args: []Arg, rt: Typ) s: string {
 	if rt.kind != "enum" {
 		return s + "\t\trv\n"
 	}
-	"{s}\t\tcode := {rt.sig}.from(rv.int()) or .{enum_first[rt.name]}\n\t\trv.drop()\n\t\tcode\n"
+	s += "\t\tcode := {rt.sig}.from(rv.int()) or .{enum_first[rt.name]}\n\t\trv.drop()\n"
+	s + "\t\tif code != .ok do return error(code)\n"
 }
 
 ## The engine fn a wrapper wraps, what it is called on, and how it disposes of the receiver.
@@ -385,9 +386,10 @@ invoke :: fn(c: Call, argp: string, rptr: string, argc: int) string {
 
 ret_sig :: fn(rt: Typ, ropt: bool) string {
 	match {
-		rt.kind == "void" => { "" },
-		ropt => { " ?" + rt.sig },
-		_ => { " " + rt.sig }
+		rt.kind == "void" => "",
+		rt.sig == "GodotError" => " !()",
+		ropt => " ?{rt.sig}",
+		_ => " {rt.sig}"
 	}
 }
 
@@ -447,7 +449,9 @@ ptrcall_body :: fn(args: []Arg, rt: Typ, ropt: bool, c: Call) s: string {
 	if cursor > 0 {
 		s += "\t\tunsafe free(blk)\n"
 	}
-	if rt.kind != "void" {
+	if rt.sig == "GodotError" {
+		s += "\t\tif rv != .ok do return error(rv)\n"
+	} else if rt.kind != "void" {
 		s += "\t\trv\n"
 	}
 
@@ -472,7 +476,7 @@ method :: fn(cname: string, m: Method) string {
 	d := doc(m, "\t## ")
 
 	if m.is_vararg {
-		rs := if rt.kind == "enum" { rt.sig } else { "Variant" }
+		rs := if rt.kind == "enum" do "!()" else do "Variant"
 		return d + "\tpub {fname} :: fn({ps}) {rs} {{\n" + vararg(bind, this, args, rt) + "\t}}\n"
 	}
 	c := Call.{ "class", this, bind, "" }

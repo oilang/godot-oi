@@ -68,6 +68,9 @@ OiNode :< {
 		o.add_user_signal("boom")
 		boom := o.has_signal("boom")
 		print("oi: default {boom}")
+		json := godot.JSON.new()
+		good := json.parse("[1]") and "ok" or "bad"
+		json.parse("[") or { print("oi: error {good} {$.message()}") }
 		print("oi: hidden {self.tag()}")
 	}
 

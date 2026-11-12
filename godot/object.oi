@@ -12,6 +12,8 @@ Object :< {
 	pub is_a :: fn(self; class: string) bool { self.is_class(class) }
 }
 
+GodotError :< Error
+
 Godot :< {
 	## `MethodBind`.
 	pub bind :: fn(self; slot: int, class: cstr, method: cstr, hash: i64) ptr {
