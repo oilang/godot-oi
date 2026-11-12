@@ -72,69 +72,84 @@ Variant :< {
 
 	pub bool :: fn(self) bool {
 		buf := unsafe malloc(1)
+		defer unsafe free(buf)
+
 		gd.to_type(.bool, self, buf)
-		b := unsafe buf.read[u8]()
-		unsafe free(buf)
-		b != 0
+		unsafe buf.read[u8]() != 0
 	}
 
 	pub int :: fn(self) i64 {
 		buf := unsafe malloc(8)
+		defer unsafe free(buf)
+
 		gd.to_type(.int, self, buf)
-		n := unsafe buf.read[i64]()
-		unsafe free(buf)
-		n
+		unsafe buf.read[i64]()
 	}
 
 	pub float :: fn(self) f64 {
 		buf := unsafe malloc(8)
+		defer unsafe free(buf)
+
 		gd.to_type(.float, self, buf)
-		f := unsafe buf.read[f64]()
-		unsafe free(buf)
-		f
+		unsafe buf.read[f64]()
 	}
 
 	pub string :: fn(self) string {
 		str := unsafe malloc(usize.(STRING_SIZE))
+		defer unsafe free(str)
+
 		gd.to_type(.string, self, str)
+		defer gd.drop_string(str)
+
 		n := gd.string_utf8(str, ptr.(0), 0)
 		buf := unsafe malloc(usize.(n))
+		defer unsafe free(buf)
+
 		gd.string_utf8(str, buf, n)
-		s := unsafe buf.string(int.(n))
-		unsafe free(buf)
-		gd.drop_string(str)
-		unsafe free(str)
-		s
+		unsafe buf.string(int.(n))
+	}
+
+	## Godot's own rendering of the value, which feeds `Display`.
+	pub str :: fn(self) string {
+		b := unsafe malloc(String.size)
+		gd.variant_stringify(self.at, b)
+		s := String.from_bytes(b)
+		s.str()
 	}
 
 	## Setters overwrite in place.
 	pub set_bool :: fn(self; b: bool) {
 		buf := unsafe malloc(1)
-		unsafe buf.write(u8.(if b { 1 } else { 0 }))
+		defer unsafe free(buf)
+
+		unsafe buf.write(b8.(b))
 		gd.from_type(.bool, self, buf)
-		unsafe free(buf)
 	}
 
 	pub set_int :: fn(self; n: i64) {
 		buf := unsafe malloc(8)
+		defer unsafe free(buf)
+
 		unsafe buf.write(n)
 		gd.from_type(.int, self, buf)
-		unsafe free(buf)
 	}
 
 	pub set_float :: fn(self; f: f64) {
 		buf := unsafe malloc(8)
+		defer unsafe free(buf)
+
 		unsafe buf.write(f)
 		gd.from_type(.float, self, buf)
-		unsafe free(buf)
 	}
 
 	pub set_string :: fn(self; s: string) {
 		str := unsafe malloc(usize.(STRING_SIZE))
+		defer unsafe free(str)
+
 		gd.new_string(str, s.ptr, i64.(s.len()))
+		defer gd.drop_string(str)
+
 		gd.from_type(.string, self, str)
-		gd.drop_string(str)
-		unsafe free(str)
 	}
 
 	## Release the held value.

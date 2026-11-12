@@ -63,14 +63,17 @@ lookups :: fn() Procs {
 Godot :< {
 	pub variant_call :: fn(self; base: Variant, method: StringName, args: []Variant) Variant {
 		packed := unsafe malloc(ptr.size * usize.(args.len()))
-		loop i in ..args.len() {
-			unsafe ptr.(packed.0 + ptr.size * usize.(i)).write(args[i].at)
+		defer unsafe free(packed)
+
+		loop a, i in args {
+			unsafe ptr.(packed.0 + ptr.size * usize.(i)).write(a.at)
 		}
+
 		out := self.variant()
 		err := unsafe malloc(CallError.size)
+		defer unsafe free(err)
+
 		unsafe VariantCall.(lookups().call)(base.at, method.at, packed, i64.(args.len()), out.at, err)
-		unsafe free(err)
-		unsafe free(packed)
 		out
 	}
 
@@ -99,15 +102,16 @@ pub construct :: fn(type: Type, size: usize, index: int, args: []ptr) ptr {
 	get := unsafe GetConstructor.(lookups().constructor)
 	ctor := unsafe Constructor.(get(i32.(type), i32.(index)))
 	packed := unsafe malloc(ptr.size * usize.(args.len()))
-	loop i in ..args.len() {
-		unsafe packed.offset(i * int.(ptr.size)).write(args[i])
+	defer unsafe free(packed)
+
+	loop a, i in args {
+		unsafe packed.offset(i * int.(ptr.size)).write(a)
 	}
+
 	base := unsafe malloc(size)
 	ctor(base, packed)
-	loop a in args {
-		unsafe free(a)
-	}
-	unsafe free(packed)
+	loop a in args do unsafe free(a)
+
 	base
 }
 
@@ -124,12 +128,12 @@ pub equal :: fn(type: Type, left: ptr, right: ptr) bool {
 	get :: unsafe GetEvaluator.(lookups().evaluator)
 	eval :: unsafe Evaluator.(get(i32.(EQUAL), i32.(type), i32.(type)))
 	out := unsafe malloc(1)
+	defer unsafe free(out)
+	defer unsafe free(left)
+	defer unsafe free(right)
+
 	eval(left, right, out)
-	hit := unsafe out.read[u8]()
-	unsafe free(out)
-	unsafe free(left)
-	unsafe free(right)
-	hit != 0
+	unsafe out.read[u8]() != 0
 }
 
 ## An oi fn behind a custom `Callable`.
@@ -178,15 +182,17 @@ Callable :< {
 	## A `Callable` over an oi fn, boxed until Godot frees the callable.
 	pub of :: fn(f: Fn) Callable {
 		info := unsafe malloc(CallableCustomInfo2.size)
+		defer unsafe free(info)
+
 		unsafe info.write(CallableCustomInfo2.{
 			callable_userdata = ptr.(usize.(box(f))),
 			token = gd.library,
 			call_func = callable_call,
 			free_func = callable_free,
 		})
+
 		at := unsafe malloc(Callable.size)
 		unsafe CallableCustomCreate2.(lookups().callable_custom)(at, info)
-		unsafe free(info)
 		Callable.from_bytes(at)
 	}
 }
@@ -206,13 +212,14 @@ Signal :< {
 String :< {
 	pub str :: fn(self) string {
 		b := self.bytes()
+		defer unsafe free(b)
+
 		n := gd.string_utf8(b, ptr.(0), 0)
 		buf := unsafe malloc(usize.(n))
+		defer unsafe free(buf)
+
 		_ := gd.string_utf8(b, buf, n)
-		s := unsafe buf.string(int.(n))
-		unsafe free(buf)
-		unsafe free(b)
-		s
+		unsafe buf.string(int.(n))
 	}
 }
 

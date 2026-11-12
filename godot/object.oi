@@ -33,14 +33,17 @@ Godot :< {
 	## Call `bind` on the engine `object`.
 	pub call :: fn(self; object: ptr, bind: ptr, args: []Variant) Variant {
 		packed := unsafe malloc(ptr.size * usize.(args.len()))
-		loop i in ..args.len() {
-			unsafe ptr.(packed.0 + ptr.size * usize.(i)).write(args[i].at)
+		defer unsafe free(packed)
+
+		loop a, i in args {
+			unsafe ptr.(packed.0 + ptr.size * usize.(i)).write(a.at)
 		}
+
 		out := self.variant()
 		err := unsafe malloc(CallError.size)
+		defer unsafe free(err)
+
 		self.method_bind_call(bind, object, packed, i64.(args.len()), out.at, err)
-		unsafe free(err)
-		unsafe free(packed)
 		out
 	}
 }

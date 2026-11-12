@@ -36,7 +36,10 @@ VariantGetType :: @c fn(variant: ptr) i32
 VariantDestroy :: @c fn(variant: ptr)
 
 ## GDExtensionInterfaceVariantCanConvertStrict
-CanConvert :: @c fn(from: i32, to: i32) u8
+CanConvert :: @c fn(from: i32, to: i32) b8
+
+## GDExtensionInterfaceVariantStringify
+VariantStringify :: @c fn(variant: ptr, out: ptr)
 
 ## GDExtensionInterfaceStringNewWithUtf8CharsAndLen
 NewString :: @c fn(dest: ptr, contents: ptr, size: i64)
