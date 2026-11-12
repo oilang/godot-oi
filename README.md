@@ -19,7 +19,7 @@ just install
 just run bare
 ```
 
-Requires `oi` and `godot` (4.5+).
+Requires `oi` and `godot` (4.7+).
 
 # TODO
 

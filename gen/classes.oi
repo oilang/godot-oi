@@ -1,7 +1,5 @@
 module main
 
-use json.{ Obj }
-
 ## Generate Godot classes.
 
 slot := 0
@@ -12,7 +10,7 @@ class_set: [string]bool
 refcounted: [string]bool
 
 ## Classes by name and their inheritors.
-all_classes: []Obj
+all_classes: []Class
 class_at: [string]int
 parents: [string]string
 
@@ -37,27 +35,27 @@ enum_name :: fn(raw: string) string {
 	rename(raw.split(".").join(""))
 }
 
-prepare :: fn(api: Obj) {
-	loop s in arr(config(api, "builtin_class_sizes"), "sizes") {
-		sizes[text(s, "name")] = num(s, "size")
+prepare :: fn(api: Api) {
+	loop s in config(api.builtin_class_sizes).sizes or [] {
+		sizes[s.name] = s.size
 	}
-	all_classes = arr(api, "classes")
+	all_classes = api.classes
 	loop i in ..all_classes.len() {
-		name := text(all_classes[i], "name")
+		name := all_classes[i].name
 		class_set[name] = true
-		refcounted[name] = flag(all_classes[i], "is_refcounted")
+		refcounted[name] = all_classes[i].is_refcounted
 		class_at[name] = i
-		parents[name] = text(all_classes[i], "inherits")
+		parents[name] = all_classes[i].inherits or ""
 	}
-	loop b in arr(api, "builtin_classes") {
-		hooked[text(b, "name")] = flag(b, "has_destructor")
+	loop b in api.builtin_classes {
+		hooked[b.name] = b.has_destructor
 	}
-	loop c in arr(config(api, "builtin_class_member_offsets"), "classes") {
+	loop c in config(api.builtin_class_member_offsets).classes or [] {
 		metas: []string
-		loop m in arr(c, "members") {
-			metas << text(m, "meta")
+		loop m in c.members {
+			metas << m.meta
 		}
-		member_metas[text(c, "name")] = metas.join(",")
+		member_metas[c.name] = metas.join(",")
 	}
 }
 
@@ -214,17 +212,17 @@ Sig :: struct {
 }
 
 ## Args of a method, `none` when a type does not resolve.
-args_of :: fn(raw: []Obj) ?[]Arg {
+args_of :: fn(raw: []Param) ?[]Arg {
 	typs := []Typ.[]
 	defs := []string.[]
 
 	loop a in raw {
-		typ := resolve(text(a, "type"), text(a, "meta")) or do return none
+		typ := resolve(a.type, a.meta or "") or do return none
 		if typ.name in strargs {
 			typ.sig = "string"
 		}
 		typs << typ
-		defs << default(typ, text(a, "default_value"))
+		defs << default(typ, a.default_value or "")
 	}
 
 	first := defs.len()
@@ -238,12 +236,12 @@ args_of :: fn(raw: []Obj) ?[]Arg {
 		def := if i >= first do defs[i]
 		byref := typs[i].kind in [ "object", "refobj" ]
 		opt := if byref {
-			text(raw[i], "meta") != "required"
+			(raw[i].meta or "") != "required"
 		} else {
 			def == "none"
 		}
 		args << Arg.{
-			safe(text(raw[i], "name"), taken),
+			safe(raw[i].name, taken),
 			typs[i],
 			opt,
 			def,
@@ -254,16 +252,16 @@ args_of :: fn(raw: []Obj) ?[]Arg {
 }
 
 ## Args and return signatures.
-sig :: fn(m: Obj) ?Sig {
-	args := args_of(arr(m, "arguments")) or do return none
+sig :: fn(m: Method) ?Sig {
+	args := args_of(m.arguments or []) or do return none
 
 	rt := Typ.{ "void", "", 0, "" }
 	ropt := false
-	ret := if has(m, "return_value") { node(m, "return_value") } else do m
-	key := if has(m, "return_value") do "type" else do "return_type"
-	if has(ret, key) {
-		rt = resolve(text(ret, key), text(ret, "meta")) or do return none
-		ropt = rt.kind in [ "object", "refobj" ] && text(ret, "meta") != "required"
+	ret := m.return_value or Ret.{ type = m.return_type or "" }
+	if ret.type != "" {
+		meta := ret.meta or ""
+		rt = resolve(ret.type, meta) or do return none
+		ropt = rt.kind in [ "object", "refobj" ] && meta != "required"
 	}
 	Sig.{ args, rt, ropt }
 }
@@ -463,25 +461,24 @@ ptrcall_body :: fn(args: []Arg, rt: Typ, ropt: bool, c: Call) s: string {
 	s
 }
 
-method :: fn(cname: string, m: Obj) string {
+method :: fn(cname: string, m: Method) string {
 	g :: sig(m) or {
 		skipped += 1
 		return ""
 	}
 	args := g.args
 	rt := g.rt
-	name := text(m, "name")
-	static := flag(m, "is_static")
-	hash := lit(m, "hash")
+	name := m.name
+	static := m.is_static or false
 	this := if static { "ptr.(0)" } else { "self.object" }
 	fname := safe(name, hooks)
-	ps := params(args, if static { "" } else { "self" }, if flag(m, "is_vararg") do "varargs: []Variant" else do "")
+	ps := params(args, if static { "" } else { "self" }, if m.is_vararg do "varargs: []Variant" else do "")
 	n := slot
 	slot += 1
-	bind := "mb := gd.bind({n}, \"{cname}\", \"{name}\", {hash})"
+	bind := "mb := gd.bind({n}, \"{cname}\", \"{name}\", {m.hash})"
 	d := doc(m, "\t## ")
 
-	if flag(m, "is_vararg") {
+	if m.is_vararg {
 		rs := if rt.kind == "enum" { rt.sig } else { "Variant" }
 		return d + "\tpub {fname} :: fn({ps}) {rs} {{\n" + vararg(bind, this, args, rt) + "\t}}\n"
 	}
@@ -490,37 +487,35 @@ method :: fn(cname: string, m: Obj) string {
 }
 
 ## Get the non-virtual method named `name`, from `cname` or an ancestor.
-member :: fn(cname: string, name: string) Obj {
+member :: fn(cname: string, name: string) ?Method {
 	n := cname
 	loop n != "" {
 		if !(n in class_at.keys) do break
-		loop m in arr(all_classes[class_at[n]], "methods") {
-			if text(m, "name") != name do continue
-			if flag(m, "is_virtual") do continue
+		loop m in all_classes[class_at[n]].methods or [] {
+			if m.name != name do continue
+			if m.is_virtual or false do continue
 			return m
 		}
 		n = parents[n]
 	}
-	[]
+	none
 }
 
 ## `properties` accessors over the getter and setter, wherever they are declared.
-accessors :: fn(c: Obj, used: []string) s: string {
-	cname := text(c, "name")
+accessors :: fn(c: Class, used: []string) s: string {
+	cname := c.name
 	names := used
-	loop p in arr(c, "properties") {
-		raw := text(p, "name")
+	loop p in c.properties or [] {
+		raw := p.name
 		pname := safe(raw, [])
-		gname := text(p, "getter")
-		gm := member(cname, gname)
-		if !has(gm, "name") do continue
+		gname := p.getter
+		gm := member(cname, gname) or do continue
 		gs := sig(gm) or do continue
 
-		nidx := if has(p, "index") do 1 else do 0
+		nidx := if p.index == none do 0 else do 1
 		if gs.args.len() != nidx do continue
 		idx := ""
-		if nidx == 1 {
-			iv := num(p, "index")
+		if iv := p.index {
 			idx = default(gs.args[0].typ, "{iv}")
 			if idx == "" do continue
 		}
@@ -533,12 +528,10 @@ accessors :: fn(c: Obj, used: []string) s: string {
 			s += d + "\tpub {pname} :: fn(self){ret_sig(gs.rt, gs.ropt)} {{ self.{g}({idx}) }}\n"
 		}
 
-		sname := text(p, "setter")
-		if sname == "" do continue
+		sname := p.setter or do continue
 		sfn := "set_{raw}"
 		if sfn in names do continue
-		sm := member(cname, sname)
-		if !has(sm, "name") do continue
+		sm := member(cname, sname) or do continue
 		ss := sig(sm) or do continue
 		if ss.args.len() != nidx + 1 do continue
 
@@ -556,8 +549,8 @@ accessors :: fn(c: Obj, used: []string) s: string {
 
 ## Generate method body.
 ## `cast` from a bare `Object`, `new` when instantiable, then every non-virtual method.
-body :: fn(c: Obj) s: string {
-	name := text(c, "name")
+body :: fn(c: Class) s: string {
+	name := c.name
 	lines: []string
 
 	if name != "Object" {
@@ -575,11 +568,11 @@ body :: fn(c: Obj) s: string {
 	}
 
 	names: []string
-	loop m in arr(c, "methods") {
-		names << text(m, "name")
+	loop m in c.methods or [] {
+		names << m.name
 	}
 
-	if flag(c, "is_instantiable") && !("new" in names) {
+	if c.is_instantiable && !("new" in names) {
 		lines << "\tpub new :: fn() {name} {{"
 		lines << "\t\tname := gd.string_name(\"{name}\")"
 		lines << "\t\tp_ := gd.construct_object(name.at)"
@@ -595,20 +588,20 @@ body :: fn(c: Obj) s: string {
 	}
 
 	used: []string = [ "cast", "new", "from_ptr" ]
-	loop m in arr(c, "methods") {
-		used << safe(text(m, "name"), hooks)
+	loop m in c.methods or [] {
+		used << safe(m.name, hooks)
 	}
 
-	loop sg in arr(c, "signals") {
-		raw := text(sg, "name")
+	loop sg in c.signals or [] {
+		raw := sg.name
 		fname := safe(snake(raw), [ "cast", "new", "from_ptr" ])
 		used << fname
 		s += doc(sg, "\t## ")
 		s += "\tpub {fname} :: fn(self) Signal {{ Signal.of(self.object, \"{raw}\") }}\n"
 	}
 
-	loop m in arr(c, "methods") {
-		if !flag(m, "is_virtual") {
+	loop m in c.methods or [] {
+		if !(m.is_virtual or false) {
 			s += method(name, m)
 		}
 	}
@@ -654,11 +647,11 @@ conv :: fn(name: string, vt: string, size: int, obj: bool, refc: bool) string {
 	lines.join("\n") + "\n"
 }
 
-classes :: fn(api: Obj) string {
-	items := arr(api, "classes")
+classes :: fn(api: Api) string {
+	items := api.classes
 	n := 0
 	loop c in items {
-		name := text(c, "name")
+		name := c.name
 		if name in skip do continue
 
 		s := ""
@@ -671,10 +664,8 @@ classes :: fn(api: Obj) string {
 			s += "{name} :< {{\n\tpub from_ptr :: fn(p: ptr) {name} {{\n\t\tx: {name} = .{{}}\n\t\tx.object = p\n\t\tx\n\t}}\n"
 		}
 
-		loop k in arr(c, "constants") {
-			kname := text(k, "name")
-			kval := lit(k, "value")
-			s += doc(k, "\t## ") + "\tpub {kname} :: {kval}\n"
+		loop k in c.constants or [] {
+			s += doc(k, "\t## ") + "\tpub {k.name} :: {lit(k.value)}\n"
 		}
 		tail := conv(name, "object", 8, true, refcounted[name])
 		emit("{out}/api_class_{snake(name)}.oi", head + s + body(c) + "}}\n{tail}")
@@ -684,20 +675,20 @@ classes :: fn(api: Obj) string {
 }
 
 ## Slot counts.
-binds :: fn(api: Obj) string {
+binds :: fn(api: Api) string {
 	note := "## Slots in `Godot.binds`, one per generated call, and in `Godot.singletons`."
-	nsing := arr(api, "singletons").len()
+	nsing := api.singletons.len()
 
 	emit("{out}/api_binds.oi", "{head}{note}\npub BINDS :: {slot}\npub SINGLETONS :: {nsing}\n")
 	"{slot} binds"
 }
 
-singletons :: fn(api: Obj) string {
+singletons :: fn(api: Api) string {
 	lines: []string = [ "## Engine singletons, fetched through `global_get_singleton` on first use.", "" ]
-	list := arr(api, "singletons")
+	list := api.singletons
 	loop i in ..list.len() {
-		name := text(list[i], "name")
-		typ := text(list[i], "type")
+		name := list[i].name
+		typ := list[i].type
 		lines << "{typ} :< {{"
 		lines << "\tpub singleton :: fn() {typ} {{"
 		lines << "\t\tcell := ptr.(gd.singletons.0 + ptr.size * {i})"

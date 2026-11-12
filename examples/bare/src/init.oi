@@ -34,10 +34,10 @@ OiNode :< {
 		class := name.string()
 		name.drop()
 		print("oi: class {class}")
-		hi := String.("hi there")
+		hi: String = "hi there"
 		same := hi == String.("hi there")
-		path := NodePath.("Player/Sprite")
-		sn := StringName.("ready")
+		path: NodePath = "Player/Sprite"
+		sn: StringName = "ready"
 		print("oi: string {hi} {same} {path} {sn}")
 		z := Vector2.ZERO
 		w := Color.WHITE
@@ -87,8 +87,8 @@ OiNode :< {
 	}
 
 	@godot.func
-	add :: fn(self; a: i64, b: i64) i64 { a + b }
+	add :: fn(self; a, b: i64) i64 { a + b }
 
 	@godot.func
-	add4 :: fn(self; a: i64, b: i64, c: i64, d: i64) i64 { a + b + c + d }
+	add4 :: fn(self; a, b, c, d: i64) i64 { a + b + c + d }
 }

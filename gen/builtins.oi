@@ -1,7 +1,5 @@
 module main
 
-use json.{ Obj }
-
 ## Generate Godot builtins.
 
 Member :: struct {
@@ -43,25 +41,22 @@ movers :: fn(name: string, size: int, ms: []Member) lines: []string {
 }
 
 ## A math builtin as a `@c` struct with real fields, its constants as fills.
-math :: fn(name: string, size: int, members: []Obj, consts: []Obj, methods: string) s: string {
+math :: fn(name: string, size: int, members: []Field, consts: []Value, methods: string) s: string {
 	metas: []string = []
 	ms: []Member = []
 
 	s += "@c pub {name} :: struct {{\n"
 	loop m in members {
-		meta := text(m, "meta")
-		mname := text(m, "member")
-		metas << meta
-		ms << Member.{ mname, member_type(meta), num(m, "offset") }
-		s += "\tpub {mname}: {member_type(meta)}\n"
+		metas << m.meta
+		ms << Member.{ m.member, member_type(m.meta), m.offset }
+		s += "\tpub {m.member}: {member_type(m.meta)}\n"
 	}
 	s += "}}\n\n"
 
 	lines := movers(name, size, ms)
 	loop k in consts {
-		kname := text(k, "name")
-		f := fill(name, text(k, "value"), metas) or { continue }
-		lines << "\tpub {kname} :: {f}"
+		f := fill(name, k.value, metas) or { continue }
+		lines << "\tpub {k.name} :: {f}"
 	}
 
 	"{s}{name} :< {{\n" + lines.join("\n") + "\n{methods}}}\n"
@@ -72,7 +67,7 @@ opaque :: fn(
 	name: string,
 	size: int,
 	destructor: bool,
-	ctors: []Obj,
+	ctors: []Ctor,
 	opaques: []string,
 	methods: string
 ) string {
@@ -90,14 +85,14 @@ opaque :: fn(
 	lines << "\tpub new :: fn() {name} {{ {name}.from_bytes(construct(.{t}, {size}, 0, [])) }}"
 
 	loop c in ctors {
-		args := arr(c, "arguments")
+		args := c.arguments or []
 		if args.len() != 1 { continue }
 
-		at := text(args[0], "type")
+		at := args[0].type
 		if at == name || !(at in opaques) { continue }
 
-		an := text(args[0], "name")
-		idx := lit(c, "index")
+		an := args[0].name
+		idx := c.index
 		vt := vtype(at)
 
 		lines << ""
@@ -171,18 +166,19 @@ variant_call :: fn(bname: string, name: string, fname: string, g: Sig) string {
 }
 
 ## A builtin method over `variant_get_ptr_builtin_method`.
-builtin_method :: fn(bname: string, m: Obj) string {
+builtin_method :: fn(bname: string, m: Method) string {
 	g :: sig(m) or {
 		skipped += 1
 		return ""
 	}
-	name := text(m, "name")
+	name := m.name
 	own := [ "new", "bytes", "from_bytes", "set_bytes", "copy", "drop", "eq", "fmt", "str", "debug", "repr" ]
 	fname := safe(name, own)
 	d := doc(m, "\t## ")
 
-	if flag(m, "is_vararg") {
-		if flag(m, "is_static") || !flag(m, "is_const") || g.rt.kind in [ "object", "refobj" ] {
+	static := m.is_static or false
+	if m.is_vararg {
+		if static || !(m.is_const or false) || g.rt.kind in [ "object", "refobj" ] {
 			skipped += 1
 			return ""
 		}
@@ -191,14 +187,12 @@ builtin_method :: fn(bname: string, m: Obj) string {
 
 	n := slot
 	slot += 1
-	hash := lit(m, "hash")
-	bind := "mb := gd.ptr_bind({n}, .{vtype(bname)}, \"{name}\", {hash})"
+	bind := "mb := gd.ptr_bind({n}, .{vtype(bname)}, \"{name}\", {m.hash})"
 
 	# static vs. const vs. non-const
-	static := flag(m, "is_static")
 	recv := match true {
 		static => { "" },
-		flag(m, "is_const") => { "self" },
+		m.is_const or false => { "self" },
 		_ => { "mut self" }
 	}
 	base := if static { "" } else { "\t\tbase := self.bytes()\n" }

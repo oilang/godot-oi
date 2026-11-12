@@ -1,7 +1,5 @@
 module main
 
-use json.{ Obj }
-
 ## Generate the `@GlobalScope` utility functions.
 
 ## A vararg utility fn.
@@ -34,24 +32,23 @@ utility_vararg :: fn(fname: string, bind: string, rt: Typ) s: string {
 	s + tail + "}}\n"
 }
 
-utility :: fn(api: Obj) string {
+utility :: fn(api: Api) string {
 	lines: []string = []
 	n := 0
-	loop f in arr(api, "utility_functions") {
+	loop f in api.utility_functions {
 		g := sig(f) or {
 			skipped += 1
 			continue
 		}
-		name := text(f, "name")
-		hash := lit(f, "hash")
+		name := f.name
 		i := slot
 		slot += 1
-		bind := "mb := gd.ptr_bind({i}, .nil, \"{name}\", {hash})"
+		bind := "mb := gd.ptr_bind({i}, .nil, \"{name}\", {f.hash})"
 		fname := safe(name, [])
 		d := doc(f, "## ")
 		n += 1
 
-		if flag(f, "is_vararg") {
+		if f.is_vararg {
 			lines << d + utility_vararg(fname, bind, g.rt)
 			continue
 		}

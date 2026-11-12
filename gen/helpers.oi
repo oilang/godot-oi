@@ -1,62 +1,135 @@
 module main
 
 use fs
-use json.{ Json, Arr, Obj, parse }
+use json
 
-at :: fn(o: Obj, k: string) Json {
-	if k in o.keys { o[k] } else { :null }
-}
-has :: fn(o: Obj, k: string) bool {
-	k in o.keys
-}
-text :: fn(o: Obj, k: string) string {
-	match v := at(o, k) {
-		is string => v,
-		_ => ""
-	}
-}
-flag :: fn(o: Obj, k: string) bool {
-	match v := at(o, k) {
-		is bool => v,
-		_ => false
-	}
-}
-num :: fn(o: Obj, k: string) int {
-	match v := at(o, k) {
-		is float => int.(v),
-		_ => 0
-	}
-}
-node :: fn(o: Obj, k: string) Obj {
-	match v := at(o, k) {
-		is Obj => v,
-		_ => []
-	}
+## Fields from `extension_api.json`.
+Api :: struct {
+	builtin_class_sizes: []Config,
+	builtin_class_member_offsets: []Config,
+	global_constants: []Const,
+	global_enums: []Enum,
+	utility_functions: []Method,
+	builtin_classes: []Builtin,
+	classes: []Class,
+	singletons: []Singleton,
+	native_structures: []Native,
 }
 
-arr :: fn(o: Obj, k: string) []Obj {
-	out: []Obj = []
-	raw: Arr = match v := at(o, k) {
-		is Arr => v,
-		_ => []
-	}
-	loop item in raw {
-		out << match v := item {
-			is Obj => v,
-			_ => []
-		}
-	}
-	out
+Config :: struct {
+	build_configuration: string,
+	sizes: ?[]Size,
+	classes: ?[]Layout,
 }
+Size :: struct {
+	name: string,
+	size: int,
+}
+Layout :: struct {
+	name: string,
+	members: []Field,
+}
+Field :: struct {
+	member: string,
+	meta: string,
+	offset: int,
+}
+
+## A global or class constant, or an enum value.
+Const :: struct {
+	name: string,
+	value: float,
+	brief_description: ?string,
+	description: ?string,
+}
+Enum :: struct {
+	name: string,
+	is_bitfield: ?bool,
+	values: []Const,
+}
+Singleton :: struct {
+	name: string,
+	type: string,
+}
+Native :: struct {
+	name: string,
+	format: string,
+}
+
+Builtin :: struct {
+	name: string,
+	has_destructor: bool,
+	constructors: []Ctor,
+	constants: ?[]Value,
+	enums: ?[]Enum,
+	methods: ?[]Method,
+	brief_description: ?string,
+	description: ?string,
+}
+Ctor :: struct { index: int, arguments: ?[]Param }
+
+## A builtin constant, its value a constructor call like `Vector2(0, 0)`.
+Value :: struct {
+	name: string,
+	value: string,
+}
+
+Class :: struct {
+	name: string,
+	inherits: ?string,
+	is_refcounted: bool,
+	is_instantiable: bool,
+	constants: ?[]Const,
+	enums: ?[]Enum,
+	methods: ?[]Method,
+	properties: ?[]Property,
+	signals: ?[]Signal,
+	brief_description: ?string,
+	description: ?string,
+}
+Property :: struct {
+	name: string,
+	getter: string,
+	setter: ?string,
+	index: ?int,
+	brief_description: ?string,
+	description: ?string,
+}
+Signal :: struct {
+	name: string,
+	brief_description: ?string,
+	description: ?string,
+}
+
+## A class or builtin method, or a utility fn.
+## Classes return a `return_value` node and others return a bare `return_type`.
+Method :: struct {
+	name: string,
+	hash: int,
+	is_const: ?bool,
+	is_static: ?bool,
+	is_vararg: bool,
+	is_virtual: ?bool,
+	is_required: ?bool,
+	arguments: ?[]Param,
+	return_value: ?Ret,
+	return_type: ?string,
+	brief_description: ?string,
+	description: ?string,
+}
+Param :: struct {
+	name: string,
+	type: string,
+	meta: ?string,
+	default_value: ?string,
+}
+Ret :: struct { type: string, meta: ?string }
 
 INT_MIN :: "-9223372036854775807 - 1"
 INT_MAX :: "9223372036854775807"
 
-lit :: fn(o: Obj, k: string) string {
-	s := match v := at(o, k) {
-		is float => v.str(),
-		_ => "0.0"
-	}
+lit :: fn(v: float) string {
+	s := v.str()
 	if s.contains("e") {
 		return if s.starts_with("-") { INT_MIN } else { INT_MAX }
 	}
@@ -64,24 +137,19 @@ lit :: fn(o: Obj, k: string) string {
 }
 
 ## The `float_64` row of a per-build table.
-config :: fn(api: Obj, table: string) Obj {
-	loop c in arr(api, table) {
-		if text(c, "build_configuration") == "float_64" do return c
+config :: fn(rows: []Config) Config {
+	loop c in rows {
+		if c.build_configuration == "float_64" do return c
 	}
-	[]
+	Config.{}
 }
 
-load :: fn(path: string) Obj {
+load :: fn(path: string) Api {
 	src := fs.read(path) or {
 		panic!("gen: cannot read {path}, run `just api`")
 	}
-	parsed :: parse(src) or {
+	json.decode[Api](src) or {
 		panic!("gen: {path}: {$.message()}")
-		:null
-	}
-	match v := parsed {
-		is Obj => v,
-		_ => []
 	}
 }
 
@@ -160,10 +228,10 @@ plain :: fn(s: string) string {
 
 ## The docs for an api item as comment lines.
 ## `--dump-extension-api-with-docs` writes whole manual pages.
-doc :: fn(o: Obj, lead: string) string {
-	src := text(o, "brief_description")
+doc[T] :: fn(o: T, lead: string) string {
+	src := o.brief_description or ""
 	if src == "" {
-		src = text(o, "description")
+		src = o.description or ""
 	}
 	if src == "" do return ""
 
