@@ -208,7 +208,7 @@ builtins :: fn(api: Api) string {
 	nm := slot
 	loop b in items {
 		name := b.name
-		if name in skip || name in scalars { continue }
+		if name in scalars do continue
 
 		ms := ""
 		loop m in b.methods or [] {

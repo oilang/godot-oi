@@ -165,7 +165,7 @@ pub ret :: fn(at: ptr) Variant { Variant.{ at } }
 ## A `Method` once registered.
 @c Bound :: struct {
 	default: ptr,
-	name: StringName,
+	name: ptr,
 	call: ptr,
 	argc: i32,
 	types: ptr,
@@ -175,8 +175,8 @@ pub ret :: fn(at: ptr) Variant { Variant.{ at } }
 
 ## Per-class state, handed to Godot as `class_userdata`. Classes chain through `next`.
 @c pub Class :: struct {
-	name: StringName,
-	parent: StringName,
+	name: ptr,
+	parent: ptr,
 	state: usize,
 	virtuals: ptr,
 	nvirtuals: int,
@@ -264,7 +264,7 @@ Godot :< {
 			get_virtual_call_data = get_virtual_call_data, call_virtual_with_data = call_virtual_with_data,
 			class_userdata = class,
 		})
-		self.register_class(self.library, c.name.at, c.parent.at, info)
+		self.register_class(self.library, c.name, c.parent, info)
 		unsafe free(info)
 
 		minfo := unsafe malloc(MethodInfo.size)
@@ -278,10 +278,10 @@ Godot :< {
 			ret := unsafe malloc(PropertyInfo.size)
 			unsafe ret.write(self.slot_info(Slot.{ "", m.ret or .nil }))
 			unsafe minfo.write(MethodInfo.{
-				b.read[Bound]().name.at, b, call_method, ptrcall_method, u32.(METHOD_DEFAULT),
+				b.read[Bound]().name, b, call_method, ptrcall_method, u32.(METHOD_DEFAULT),
 				m.ret != none, ret, 0, u32.(m.args.len()), args, meta,
 			})
-			self.register_method(self.library, c.name.at, minfo)
+			self.register_method(self.library, c.name, minfo)
 			loop j in ..m.args.len() {
 				self.drop_slot(unsafe prop(args, j).read[PropertyInfo]())
 			}
@@ -297,9 +297,9 @@ Godot :< {
 			info := self.slot_info(Slot.{ p.name, p.type }, p.hint, p.hint_string)
 			info.usage = u32.(if p.exported { USAGE_DEFAULT } else { 0 })
 			unsafe pinfo.write(info)
-			get := unsafe bound(mt, own.len() + 2 * i).read[Bound]().name.at
-			set := unsafe bound(mt, own.len() + 2 * i + 1).read[Bound]().name.at
-			self.register_property(self.library, c.name.at, pinfo, set, get)
+			get := unsafe bound(mt, own.len() + 2 * i).read[Bound]().name
+			set := unsafe bound(mt, own.len() + 2 * i + 1).read[Bound]().name
+			self.register_property(self.library, c.name, pinfo, set, get)
 			self.drop_slot(info)
 		}
 		unsafe free(pinfo)
@@ -310,8 +310,8 @@ Godot :< {
 				unsafe prop(args, j).write(self.slot_info(a))
 			}
 			sn := self.string_name(sg.name)
-			self.register_signal(self.library, c.name.at, sn.at, args, i64.(sg.args.len()))
-			sn.destroy()
+			self.register_signal(self.library, c.name, sn, args, i64.(sg.args.len()))
+			self.free_name(sn)
 			loop j in ..sg.args.len() {
 				self.drop_slot(unsafe prop(args, j).read[PropertyInfo]())
 			}
@@ -324,9 +324,9 @@ Godot :< {
 		class := unsafe self.classes.read[ptr]()
 		loop !class.is_null() {
 			c := unsafe class.read[Class]()
-			self.unregister_class(self.library, c.name.at)
-			c.name.destroy()
-			c.parent.destroy()
+			self.unregister_class(self.library, c.name)
+			self.free_name(c.name)
+			self.free_name(c.parent)
 			self.unbind(c.virtuals, c.nvirtuals)
 			self.unbind(c.methods, c.nmethods)
 			unsafe free(class)
@@ -356,8 +356,8 @@ Godot :< {
 		usage := if s.type == .nil { USAGE_VARIANT } else { USAGE_DEFAULT }
 		PropertyInfo.{
 			i32.(s.type),
-			self.string_name(s.name).at,
-			self.string_name("").at,
+			self.string_name(s.name),
+			self.string_name(""),
 			u32.(hint),
 			hs,
 			u32.(usage)
@@ -365,8 +365,8 @@ Godot :< {
 	}
 
 	drop_slot :: fn(self; p: PropertyInfo) {
-		StringName.{ p.name }.destroy()
-		StringName.{ p.class_name }.destroy()
+		self.free_name(p.name)
+		self.free_name(p.class_name)
 		self.drop_string(p.hint_string)
 		unsafe free(p.hint_string)
 	}
@@ -374,7 +374,7 @@ Godot :< {
 	unbind :: fn(self; table: ptr, n: int) {
 		loop i in ..n {
 			b := unsafe bound(table, i).read[Bound]()
-			b.name.destroy()
+			self.free_name(b.name)
 			unsafe free(b.types)
 			if !b.default.is_null() {
 				Variant.{ b.default }.drop()
@@ -397,10 +397,10 @@ fill_defaults :: fn(inst: ptr, c: Class) {
 
 create_instance :: fn(class: ptr, notify: u8) ptr {
 	c := unsafe class.read[Class]()
-	object := gd.construct_object(c.parent.at)
+	object := gd.construct_object(c.parent)
 	inst := unsafe calloc(1, Instance.size + c.state)
 	unsafe inst.write(Instance.{ class, object })
-	gd.set_instance(object, c.name.at, inst)
+	gd.set_instance(object, c.name, inst)
 	init := c.init
 	init(inst)
 	if notify != 0 {
@@ -432,7 +432,7 @@ get_virtual_call_data :: fn(class: ptr, name: ptr, hash: u32) ptr {
 	loop i in ..c.nvirtuals {
 		at := bound(c.virtuals, i)
 		b := unsafe at.read[Bound]()
-		if b.hash == hash && b.name.same(name) do return at
+		if b.hash == hash && (unsafe b.name.read[u64]() == name.read[u64]()) do return at
 	}
 	ptr.(0)
 }

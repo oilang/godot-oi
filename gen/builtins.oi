@@ -180,7 +180,7 @@ variant_call :: fn(bname: string, name: string, fname: string, g: Sig) string {
 
 	lines << "\t\tmn := gd.string_name(\"{name}\")"
 	lines << "\t\trv := gd.variant_call(sv, mn, {all})"
-	lines << "\t\tmn.destroy()"
+	lines << "\t\tgd.free_name(mn)"
 	lines << drops
 	lines << "\t\tsv.drop()"
 

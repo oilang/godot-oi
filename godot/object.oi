@@ -41,10 +41,10 @@ Godot :< {
 
 		class_name := self.string_name(class)
 		method_name := self.string_name(method)
-		bind = self.get_method_bind(class_name.at, method_name.at, hash)
+		bind = self.get_method_bind(class_name, method_name, hash)
 
-		class_name.destroy()
-		method_name.destroy()
+		self.free_name(class_name)
+		self.free_name(method_name)
 		unsafe cell.write(bind)
 
 		bind

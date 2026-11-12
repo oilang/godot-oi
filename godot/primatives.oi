@@ -1,26 +1,15 @@
 module godot
 
-## GDExtensionStringNamePtr
-@c pub StringName :: struct { at: ptr }
-
+## Raw `GDExtensionStringNamePtr`s for the interface calls and the records that outlive a call.
 Godot :< {
-	pub string_name :: fn(self; s: cstr) StringName {
+	pub string_name :: fn(self; s: cstr) ptr {
 		at := unsafe malloc(StringName.size)
 		self.new_string_name(at, s, 0)
-		StringName.{ at }
-	}
-}
-
-StringName :< {
-	## Hand-written, no `Drop` claim, so free it here.
-	## Generated builtins drop at scope exit and `drop` is private.
-	pub destroy :: fn(self) {
-		gd.drop_string_name(self.at)
-		unsafe free(self.at)
+		at
 	}
 
-	## Compare against the `GDExtensionConstStringNamePtr` passed by Godot.
-	pub same :: fn(self; other: ptr) bool {
-		unsafe self.at.read[usize]() == other.read[usize]()
+	pub free_name :: fn(self; at: ptr) {
+		self.drop_string_name(at)
+		unsafe free(at)
 	}
 }

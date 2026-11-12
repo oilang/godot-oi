@@ -282,7 +282,6 @@ variant :: fn(name: string) string {
 }
 
 ## Hand-written overrides.
-skip :: [ "StringName" ]
 hand :: [ "Object" "RefCounted" ]
 scalars :: [ "Nil" "bool" "int" "float" ]
 

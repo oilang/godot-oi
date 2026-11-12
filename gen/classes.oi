@@ -86,9 +86,6 @@ resolve :: fn(t: string, meta: string) ?Typ {
 		"Variant" => {
 			return Typ.{ "variant", "Variant", 0, t }
 		},
-		"StringName" => {
-			return Typ.{ "string_name", "StringName", 8, t }
-		},
 	}
 
 	match {
@@ -279,9 +276,6 @@ params :: fn(args: []Arg, recv: string, tail := "") string {
 
 ## A string param as the engine type it stands for.
 strarg :: fn(a: Arg, i: int) string {
-	if a.typ.kind == "string_name" {
-		return "\t\tsa_{i} := gd.string_name({a.name}.cstr())\n"
-	}
 	"\t\tsa_{i} := {a.typ.name}.({a.name})\n"
 }
 
@@ -291,7 +285,7 @@ put :: fn(a: Arg, i: int, store: string) string {
 	cell :: "unsafe ptr.(blk.0 + {8 * i}).write("
 	pre := if a.typ.sig == "string" do strarg(a, i)
 
-	if a.typ.kind in ["variant", "string_name"] && !a.opt {
+	if a.typ.kind == "variant" && !a.opt {
 		return pre + "\t\t{cell}{value(a, i)}.at)\n"
 	}
 	if a.typ.kind == "variant" {
@@ -332,7 +326,6 @@ get :: fn(rt: Typ, ropt: bool, roff: int) string {
 		"ptr" => "rv := {read}[ptr]()",
 		"enum" => "rv := {rt.sig}.from({read}[i64]()) or .{enum_first[rt.name]}",
 		"builtin" => "rv := {read}[{rt.sig}]()",
-		"string_name" => "rv := StringName.{{ at }}",
 		"object" => object_return(rt, ropt, "{read}[ptr]()"),
 		"refobj" => object_return(rt, ropt, "gd.ref_get_object(ptr.(blk.0 + {roff}))"),
 		_ => "",
@@ -351,14 +344,8 @@ vararg :: fn(bind: string, this: string, args: []Arg, rt: Typ) s: string {
 			s += strarg(a, i)
 		}
 		s += "\t\tva_{i} := gd.variant()\n"
-		if a.typ.kind == "string_name" {
-			s += "\t\tgd.from_type(.string_name, va_{i}, {value(a, i)}.at)\n"
-			drops += "\t\tsa_{i}.destroy()\n"
-		} else {
-			store := "ptr.(blk.0 + {8 * i})"
-			vt := vtype(a.typ.name)
-			s += "\t\tunsafe {store}.write({value(a, i)})\n\t\tgd.from_type(.{vt}, va_{i}, {store})\n"
-		}
+		store := "ptr.(blk.0 + {8 * i})"
+		s += "\t\tunsafe {store}.write({value(a, i)})\n\t\tgd.from_type(.{vtype(a.typ.name)}, va_{i}, {store})\n"
 		s += "\t\tall << va_{i}\n"
 		drops += "\t\tva_{i}.drop()\n"
 	}
@@ -408,14 +395,14 @@ ptrcall_body :: fn(args: []Arg, rt: Typ, ropt: bool, c: Call) s: string {
 	offs: []int
 	loop a in args {
 		offs << cursor
-		if a.typ.kind in [ "variant", "string_name" ] {
+		if a.typ.kind == "variant" {
 			continue
 		}
 		cursor += round8(a.typ.size)
 	}
 
 	roff := cursor
-	if !(rt.kind in ["void", "variant", "string_name"]) {
+	if !(rt.kind in ["void", "variant"]) {
 		cursor += round8(rt.size)
 	}
 	if cursor > 0 {
@@ -427,16 +414,12 @@ ptrcall_body :: fn(args: []Arg, rt: Typ, ropt: bool, c: Call) s: string {
 
 	rptr := match {
 		rt.kind == "variant" => { "rv.at" },
-		rt.kind == "string_name" => { "at" },
 		rt.kind == "void" => { "ptr.(0)" },
 		_ => { "ptr.(blk.0 + {roff})" }
 	}
 
 	if rt.kind == "variant" {
 		s += "\t\trv := gd.variant()\n"
-	}
-	if rt.kind == "string_name" {
-		s += "\t\tat := unsafe calloc(1, StringName.size)\n"
 	}
 	argp := if args.len() > 0 do "blk" else do "ptr.(0)"
 	s += "\t\t{c.bind}\n\t\t{invoke(c, argp, rptr, args.len())}\n"
@@ -449,9 +432,6 @@ ptrcall_body :: fn(args: []Arg, rt: Typ, ropt: bool, c: Call) s: string {
 	loop a, i in args {
 		if a.typ.kind == "variant" && a.opt {
 			s += "\t\tif {a.name} == none {{ va_{i}.drop() }}\n"
-		}
-		if a.typ.kind == "string_name" {
-			s += "\t\tsa_{i}.destroy()\n"
 		}
 	}
 
@@ -580,8 +560,8 @@ body :: fn(c: Class) s: string {
 	if c.is_instantiable && !("new" in names) {
 		lines << "\tpub new :: fn() {name} {{"
 		lines << "\t\tname := gd.string_name(\"{name}\")"
-		lines << "\t\tp_ := gd.construct_object(name.at)"
-		lines << "\t\tname.destroy()"
+		lines << "\t\tp_ := gd.construct_object(name)"
+		lines << "\t\tgd.free_name(name)"
 		lines << "\t\tn_ := {name}.from_ptr(p_)"
 		lines << "\t\tn_.notification(0)"
 		lines << "\t\tn_"
@@ -655,7 +635,6 @@ classes :: fn(api: Api) string {
 	n := 0
 	loop c in items {
 		name := c.name
-		if name in skip do continue
 
 		s := ""
 		if name in hand {
@@ -698,8 +677,8 @@ singletons :: fn(api: Api) string {
 		lines << "\t\tp_ := unsafe cell.read[ptr]()"
 		lines << "\t\tif p_.is_null() {{"
 		lines << "\t\t\tname := gd.string_name(\"{name}\")"
-		lines << "\t\t\tunsafe cell.write(gd.get_singleton(name.at))"
-		lines << "\t\t\tname.destroy()"
+		lines << "\t\t\tunsafe cell.write(gd.get_singleton(name))"
+		lines << "\t\t\tgd.free_name(name)"
 		lines << "\t\t}}"
 		lines << "\t\t{typ}.from_ptr(unsafe cell.read[ptr]())"
 		lines << "\t}}"
