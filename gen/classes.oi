@@ -609,6 +609,25 @@ conv :: fn(name: string, vt: string, size: int, obj: bool, refc: bool) []string 
 	return [ to, from ]
 }
 
+## Size after which to split files.
+part_size :: 2**16
+
+## The fill of `name`, cut into one fill per `part_size` of members.
+fill_parts :: fn(name: string, ms: []string) parts: []string {
+	cur: []string
+	size := 0
+	loop m in ms {
+		if size > part_size {
+			parts << "{name} :< {{\n{cur.join(nl)}\n}}"
+			cur = []
+			size = 0
+		}
+		cur << m
+		size += m.len()
+	}
+	parts << "{name} :< {{\n{cur.join(nl)}\n}}"
+}
+
 classes :: fn(api: Api) string {
 	items := api.classes
 	loop c in items {
@@ -624,9 +643,12 @@ classes :: fn(api: Api) string {
 					}}
 				"""
 		}
-		ms << loop k in c.constants or [] do doc(k, "\t## ") + "\tpub {k.name} :: {lit(k.value)}"
+		ms << loop k in c.constants {
+			doc(k, "\t## ") + "\tpub {k.name} :: {lit(k.value)}"
+		}
 		ms << members(c)
-		fill := "{name} :< {{\n{ms.join(nl)}\n}}"
+		fills := fill_parts(name, ms)
+		fill := fills[0]
 
 		blocks := if name in hand {
 			[ "## The rest of `{name}`, the struct is hand-written in `godot/`.\n{fill}" ]
@@ -635,6 +657,10 @@ classes :: fn(api: Api) string {
 		}
 		blocks << conv(name, "object", 8, true, refcounted[name])
 		emit("{out}/api_class_{snake(name)}.oi", source(blocks))
+
+		loop i in 1..fills.len() {
+			emit("{out}/api_class_{snake(name)}_{i}.oi", source([ fills[i] ]))
+		}
 	}
 	"{items.len()} classes, {slot} methods, {accs} accessors, {skipped} skipped"
 }
