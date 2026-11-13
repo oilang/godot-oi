@@ -33,6 +33,7 @@ enum_block :: fn(label, name, owner: string; values: []Const, bitfield: bool) []
 
 	seen: []string
 	variants: []string
+	bits: []string
 	aliases: []string
 	combos: []Const
 	loop v in values {
@@ -53,11 +54,22 @@ enum_block :: fn(label, name, owner: string; values: []Const, bitfield: bool) []
 		bit := 0
 		loop bitfield && 1 << bit < m do bit += 1
 		discriminant := if bitfield do "{bit}" else do n
-		variants << doc(v, "\t# ") + "\t{vn} = {discriminant}"
+		line := doc(v, "\t# ") + "\t{vn} = {discriminant}"
+		if bitfield {
+			loop bits.len() <= bit do bits << ""
+			bits[bit] = line
+		} else {
+			variants << line
+		}
 		if !(name in enum_first.keys) {
 			enum_first[name] = vn
 		}
 		enum_values[key] = vn
+	}
+
+	# declaration position is the bit, so unnamed bits get placeholders
+	variants << loop i in ..bits.len() {
+		if bits[i] == "" do "\tbit_{i} = {i}" else do bits[i]
 	}
 	aliases << loop v in combos {
 		vn := variant(v.name[pre.len()..v.name.len()])
@@ -90,8 +102,8 @@ bits_lit :: fn(name: string, mask: int) string {
 owner_enums[T] :: fn(items: []T) blocks: []string {
 	loop c in items {
 		pre := snake(c.name).upper() + "_"
-		loop e in c.enums or [] {
-			blocks << enum_block("{c.name}.{e.name}", c.name + e.name, pre, e.values, e.is_bitfield or false)
+		loop e in c.enums {
+			blocks << enum_block("{c.name}.{e.name}", c.name + e.name, pre, e.values, e.is_bitfield)
 		}
 	}
 	blocks
@@ -100,7 +112,7 @@ owner_enums[T] :: fn(items: []T) blocks: []string {
 enums :: fn(api: Api) string {
 	blocks: []string
 	loop e in api.global_enums {
-		blocks << enum_block(e.name, enum_name(e.name), "", e.values, e.is_bitfield or false)
+		blocks << enum_block(e.name, enum_name(e.name), "", e.values, e.is_bitfield)
 	}
 	blocks << owner_enums(api.builtin_classes) << owner_enums(api.classes)
 	emit("{out}/api_enums.oi", source(blocks))
@@ -185,7 +197,7 @@ member_type :: fn(meta: string) string {
 
 builtins :: fn(api: Api) string {
 	items := api.builtin_classes
-	offsets := config(api.builtin_class_member_offsets).classes or []
+	offsets := config(api.builtin_class_member_offsets).classes
 	opaques: []string = []
 	loop b in items {
 		if layout(offsets, b.name).len() == 0 && !(b.name in scalars) {
@@ -198,16 +210,16 @@ builtins :: fn(api: Api) string {
 		name := b.name
 		if name in scalars do continue
 
-		ms := loop m in b.methods or [] do builtin_method(name, m) or do continue
+		ms := loop m in b.methods do builtin_method(name, m) or do continue
 		fields := layout(offsets, name)
 		blocks := if fields.len() > 0 {
-			math(name, sizes[name], fields, b.constants or [], ms)
+			math(name, sizes[name], fields, b.constants, ms)
 		} else {
 			opaque(name, sizes[name], b.has_destructor, b.constructors, opaques, ms)
 		}
 		d := doc(b, "## ")
 		blocks[0] = "## {name}\n{d}{blocks[0]}"
-		blocks << collection(name, b.methods or []) << conv(name, vtype(name), sizes[name], false, false)
+		blocks << collection(name, b.methods) << conv(name, vtype(name), sizes[name], false, false)
 		emit("{out}/api_builtin_{snake(name)}.oi", source(blocks))
 		n += 1
 	}
@@ -218,19 +230,19 @@ builtins :: fn(api: Api) string {
 index :: fn(api: Api) {
 	root: Obj = []
 	loop c in api.classes {
-		virtuals: Arr = loop m in c.methods or [] {
-			if !(m.is_virtual or false) do continue
-			args: Arr = loop a in m.arguments or [] do Json.(a.type)
+		virtuals: Arr = loop m in c.methods {
+			if !m.is_virtual do continue
+			args: Arr = loop a in m.arguments do Json.(a.type)
 			ret := if r := m.return_value do r.type else do "void"
 			Json.(Obj.[
 				"name" = m.name,
 				"hash" = float.(m.hash),
-				"required" = m.is_required or false,
+				"required" = m.is_required,
 				"args" = args,
 				"ret" = ret,
 			])
 		}
-		nested: Arr = loop e in c.enums or [] do Json.(e.name)
+		nested: Arr = loop e in c.enums do Json.(e.name)
 		root[c.name] = Obj.[ "parent" = c.inherits or "", "virtuals" = virtuals, "enums" = nested ]
 	}
 	emit("{out}/api_index.json", Json.(root).str() + nl)

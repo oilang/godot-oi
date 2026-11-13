@@ -92,7 +92,7 @@ Variant :< {
 		defer unsafe free(buf)
 
 		gd.to_type(.bool, self, buf)
-		unsafe buf.read[u8]() != 0
+		unsafe buf.read[bool]()
 	}
 
 	pub int :: fn(self) i64 {

@@ -36,7 +36,7 @@ enum_name :: fn(raw: string) string {
 }
 
 prepare :: fn(api: Api) {
-	loop s in config(api.builtin_class_sizes).sizes or [] {
+	loop s in config(api.builtin_class_sizes).sizes {
 		sizes[s.name] = s.size
 	}
 	all_classes = api.classes
@@ -49,7 +49,7 @@ prepare :: fn(api: Api) {
 	loop b in api.builtin_classes {
 		hooked[b.name] = b.has_destructor
 	}
-	loop c in config(api.builtin_class_member_offsets).classes or [] {
+	loop c in config(api.builtin_class_member_offsets).classes {
 		member_metas[c.name] = (loop m in c.members do m.meta).join(",")
 	}
 }
@@ -250,7 +250,7 @@ args_of :: fn(raw: []Param) ?[]Arg {
 
 ## Args and return signatures.
 sig :: fn(m: Method) ?Sig {
-	args := args_of(m.arguments or []) or do return none
+	args := args_of(m.arguments) or do return none
 
 	rt := Typ.{ "void", "", 0, "" }
 	ropt := false
@@ -312,7 +312,7 @@ get :: fn(rt: Typ, ropt: bool, roff: int) []string {
 	rv := match rt.kind {
 		"int" => if rt.sig == "i32" do "i32.({read}[i64]())" else do "{read}[i64]()",
 		"float" => if rt.sig == "f32" do "f32.({read}[f64]())" else do "{read}[f64]()",
-		"bool" => "{read}[u8]() != 0",
+		"bool" => "{read}[bool]()",
 		"bitfield" => "{read}[i64]()",
 		"flags" => "bits_of[{rt.name}]({read}[i64]())",
 		"ptr" => "{read}[ptr]()",
@@ -440,7 +440,7 @@ method :: fn(cname: string, m: Method) ?string {
 		skipped += 1
 		return none
 	}
-	static := m.is_static or false
+	static := m.is_static
 	this := if static do "ptr.(0)" else do "self.object"
 	recv := if static do "" else do "self"
 	tail := if m.is_vararg do "varargs: []Variant" else do ""
@@ -472,9 +472,9 @@ member :: fn(cname: string, name: string) ?Method {
 	n := cname
 	loop n != "" {
 		if !(n in class_at.keys) do break
-		loop m in all_classes[class_at[n]].methods or [] {
+		loop m in all_classes[class_at[n]].methods {
 			if m.name != name do continue
-			if m.is_virtual or false do continue
+			if m.is_virtual do continue
 			return m
 		}
 		n = parents[n]
@@ -486,7 +486,7 @@ member :: fn(cname: string, name: string) ?Method {
 accessors :: fn(c: Class, used: []string) fns: []string {
 	cname := c.name
 	names := used
-	loop p in c.properties or [] {
+	loop p in c.properties {
 		raw := p.name
 		pname := safe(raw, [])
 		gname := p.getter
@@ -545,7 +545,7 @@ members :: fn(c: Class) fns: []string {
 			"""
 	}
 
-	names :: loop m in c.methods or [] do m.name
+	names :: loop m in c.methods do m.name
 
 	if c.is_instantiable && !("new" in names) {
 		fns << """
@@ -561,17 +561,17 @@ members :: fn(c: Class) fns: []string {
 	}
 
 	used: []string = [ "cast", "new", "from_ptr" ]
-	used << loop m in c.methods or [] do safe(m.name, hooks)
+	used << loop m in c.methods do safe(m.name, hooks)
 
-	loop sg in c.signals or [] {
+	loop sg in c.signals {
 		raw := sg.name
 		fname := safe(snake(raw), [ "cast", "new", "from_ptr" ])
 		used << fname
 		fns << doc(sg, "\t## ") + """\tpub {fname} :: fn(self) Signal {{ Signal.of(self.object, "{raw}") }}"""
 	}
 
-	fns << loop m in c.methods or [] {
-		if m.is_virtual or false do continue
+	fns << loop m in c.methods {
+		if m.is_virtual do continue
 		method(name, m) or do continue
 	}
 

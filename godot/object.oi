@@ -27,8 +27,9 @@ Bits[E] :< {
 pub bits_of[E: Ordinal] :: fn(m: i64) out: Bits[E] {
 	loop i in ..E.count {
 		e := E.from_index(i) or continue
-		if m & 1 << ord(e) != 0 do out[e] = ()
+		if m & 1 << i != 0 do out[e] = ()
 	}
+	if m >> E.count != 0 do warn("bits_of: bits above the last flag dropped")
 	out
 }
 

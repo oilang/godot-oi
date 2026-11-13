@@ -18,8 +18,8 @@ Api :: struct {
 
 Config :: struct {
 	build_configuration: string,
-	sizes: ?[]Size,
-	classes: ?[]Layout,
+	sizes: []Size,
+	classes: []Layout,
 }
 Size :: struct {
 	name: string,
@@ -44,7 +44,7 @@ Const :: struct {
 }
 Enum :: struct {
 	name: string,
-	is_bitfield: ?bool,
+	is_bitfield: bool,
 	values: []Const,
 }
 Singleton :: struct {
@@ -60,14 +60,14 @@ Builtin :: struct {
 	name: string,
 	has_destructor: bool,
 	constructors: []Ctor,
-	constants: ?[]Value,
-	enums: ?[]Enum,
-	methods: ?[]Method,
-	operators: ?[]Operator,
+	constants: []Value,
+	enums: []Enum,
+	methods: []Method,
+	operators: []Operator,
 	brief_description: ?string,
 	description: ?string,
 }
-Ctor :: struct { index: int, arguments: ?[]Param }
+Ctor :: struct { index: int, arguments: []Param }
 
 ## Binary and unary operators.
 Operator :: struct {
@@ -87,11 +87,11 @@ Class :: struct {
 	inherits: ?string,
 	is_refcounted: bool,
 	is_instantiable: bool,
-	constants: ?[]Const,
-	enums: ?[]Enum,
-	methods: ?[]Method,
-	properties: ?[]Property,
-	signals: ?[]Signal,
+	constants: []Const,
+	enums: []Enum,
+	methods: []Method,
+	properties: []Property,
+	signals: []Signal,
 	brief_description: ?string,
 	description: ?string,
 }
@@ -114,12 +114,12 @@ Signal :: struct {
 Method :: struct {
 	name: string,
 	hash: int,
-	is_const: ?bool,
-	is_static: ?bool,
+	is_const: bool,
+	is_static: bool,
 	is_vararg: bool,
-	is_virtual: ?bool,
-	is_required: ?bool,
-	arguments: ?[]Param,
+	is_virtual: bool,
+	is_required: bool,
+	arguments: []Param,
 	return_value: ?Ret,
 	return_type: ?string,
 	brief_description: ?string,

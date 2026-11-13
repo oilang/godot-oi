@@ -67,7 +67,7 @@ claim :: fn(lhs: string, spec: Operator) ?string {
 
 ## `float : Mul[Vector2]` and the rest with a scalar on the left are orphan claims outside core, so left out.
 operators :: fn(api: Api) string {
-	claims := loop builtin in api.builtin_classes; spec in builtin.operators or [] {
+	claims := loop builtin in api.builtin_classes; spec in builtin.operators {
 		if builtin.name in scalars do continue
 		claim(builtin.name, spec) or do continue
 	}

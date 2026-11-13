@@ -9,9 +9,7 @@ Member :: struct {
 }
 
 ## `bytes` / `from_bytes` / `set_bytes`.
-movers :: fn(name: string, size: int, ms: []Member) string {
-	writes := loop m in ms do "unsafe b.offset({m.off}).write(self.{m.name})"
-	reads := loop m in ms do "self.{m.name} = unsafe b.offset({m.off}).read[{m.typ}]()"
+movers :: fn(name: string, size: int, writes, reads: []string) string {
 	"""
 			## A malloc'd copy of the bytes for the ptr fns, which free it.
 			pub bytes :: fn(self) ptr {{
@@ -43,7 +41,9 @@ math :: fn(name: string, size: int, members: []Field, consts: []Value, methods: 
 		f := fill(name, k.value, metas) or do continue
 		"\tpub {k.name} :: {f}"
 	}
-	body := [ movers(name, size, ms), ..fills, ..methods ].join(nl)
+	writes := loop m in ms do "unsafe b.offset({m.off}).write(self.{m.name})"
+	reads := loop m in ms do "self.{m.name} = unsafe b.offset({m.off}).read[{m.typ}]()"
+	body := [ movers(name, size, writes, reads), ..fills, ..methods ].join(nl)
 	decl := """
 		@c pub {name} :: struct {{
 			{fields.join(nl1)}
@@ -52,7 +52,7 @@ math :: fn(name: string, size: int, members: []Field, consts: []Value, methods: 
 	return [ decl, "{name} :< {{\n{body}\n}}" ]
 }
 
-## An opaque builtin, sized in `u64` words because a fixed array field comes back garbage.
+## An opaque builtin, one `[N]u64` field sized to the engine's.
 opaque :: fn(
 	name: string,
 	size: int,
@@ -62,11 +62,10 @@ opaque :: fn(
 	methods: []string
 ) []string {
 	t := vtype(name)
-	ms := loop i in ..(size + 7) / 8 do Member.{ "w{i}", "u64", 8 * i }
-	decls := (loop m in ms do "{m.name}: u64").join(", ")
+	words := (size + 7) / 8
 
 	froms := loop c in ctors {
-		args := c.arguments or []
+		args := c.arguments
 		if args.len() != 1 do continue
 
 		at := args[0].type
@@ -80,10 +79,15 @@ opaque :: fn(
 			"""
 	}
 	new := "\tpub new :: fn() {name} {{ {name}.from_bytes(construct(.{t}, {size}, 0, [])) }}"
-	fixed := [ movers(name, size, ms), new, ..froms ].join(para)
+	writes := [ "unsafe b.write(self)" ]
+	reads := [ "self.w = (unsafe b.read[{name}]()).w" ]
+	fixed := [ movers(name, size, writes, reads), new, ..froms ].join(para)
 	body := [ fixed, ..methods ].join(nl)
 
-	blocks := [ "@c pub {name} :: struct {{ {decls} }}", "{name} :< {{\n{body}\n}}" ]
+	blocks := [
+		"@c pub {name} :: struct {{ w: [{words}]u64 }}",
+		"{name} :< {{\n{body}\n}}",
+	]
 	if destructor {
 		blocks << "{name} : Drop < {{ drop :: fn(mut self) {{ destroy(.{t}, self.bytes()) }} }}"
 		blocks << """
@@ -185,9 +189,9 @@ builtin_method :: fn(bname: string, m: Method) ?string {
 	fname := safe(name, own)
 	d := doc(m, "\t## ")
 
-	static := m.is_static or false
+	static := m.is_static
 	if m.is_vararg {
-		if static || !(m.is_const or false) || g.rt.kind in [ "object", "refobj" ] {
+		if static || !m.is_const || g.rt.kind in [ "object" "refobj" ] {
 			skipped += 1
 			return none
 		}
@@ -200,7 +204,7 @@ builtin_method :: fn(bname: string, m: Method) ?string {
 	# static vs. const vs. non-const
 	recv := match {
 		static => "",
-		m.is_const or false => "self",
+		m.is_const => "self",
 		else => "mut self",
 	}
 

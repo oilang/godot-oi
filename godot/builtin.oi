@@ -141,7 +141,7 @@ pub equal :: fn(type: Type, left: ptr, right: ptr) bool {
 	defer unsafe free(right)
 
 	eval(left, right, out)
-	unsafe out.read[u8]() != 0
+	unsafe out.read[bool]()
 }
 
 ## An oi fn behind a custom `Callable`.
