@@ -29,12 +29,10 @@ OiNode :< {
 		v.set_string("hi")
 		s := v.string()
 		t := v.type()
-		v.drop()
 		print("oi: variant {i} {f} {b} {s} {t}")
 
 		name := gd.call(self.object, gd.bind(0, "Object", "get_class", 201670096), [])
 		class := name.string()
-		name.drop()
 		print("oi: class {class}")
 
 		hi: String = "hi there"
@@ -67,9 +65,7 @@ OiNode :< {
 		up := hi.to_upper()
 		v2 := Vector2.{ 3.0, 4.0 }
 		list := Array.new()
-		seven := Variant.(7)
-		list.push_back(seven)
-		seven.drop()
+		list.push_back(Variant.(7))
 		print("oi: builtin {hi.length()} {up} {v2.length()} {list.size()}")
 
 		ints: PackedInt32Array = .[1 2 3]

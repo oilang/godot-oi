@@ -18,9 +18,15 @@ VARIANT_SIZE :: 24
 ## String in extension_api.json builtin_class_sizes
 STRING_SIZE :: 8
 
-## GDExtensionVariantPtr.
-## Wraps the bytes Godot hands us as a call arg or return slot.
-@c pub Variant :: struct { pub at: ptr }
+## GDExtensionVariantPtr, owning the heap bytes behind `at`.
+## Not `@c`, so `Variant.(cell)` views a slot Godot owns, read from the cell holding its address, without owning it.
+pub Variant :: struct { pub at: ptr }
+
+Variant : Drop, Copy < {
+	drop :: fn(mut self) { gd.release(self.at) }
+
+	copy :: fn(mut self) { self.at = gd.dup(self.at) }
+}
 
 Godot :< {
 	## A fresh nil `Variant` on the heap.
@@ -44,6 +50,19 @@ Godot :< {
 	pub to_type :: fn(self; t: Type, v: Variant, out: ptr) {
 		ctor := unsafe ToType.(self.variant_to_type(i32.(t)))
 		ctor(out, v.at)
+	}
+
+	## A raw copy of the `Variant` at `at`.
+	dup :: fn(self; at: ptr) ptr {
+		d := unsafe malloc(usize.(VARIANT_SIZE))
+		self.variant_copy(d, at)
+		d
+	}
+
+	## Destroy and free a raw `Variant`.
+	release :: fn(self; at: ptr) {
+		self.variant_destroy(at)
+		unsafe free(at)
 	}
 }
 
@@ -78,6 +97,7 @@ pub unbox[T] :: fn(v: Variant) T {
 		bool => v.bool(),
 		i64 => v.int(),
 		f64 => v.float(),
+		Variant => v,
 		_ => T.from(v),
 	}
 }
@@ -167,24 +187,5 @@ Variant :< {
 		defer gd.drop_string(str)
 
 		gd.from_type(.string, self, str)
-	}
-
-	## Move a Variant in over a nil slot, freeing it without clearing it.
-	pub take :: fn(self; v: Variant) {
-		loop i in ..3 {
-			unsafe self.at.offset(8 * i).write(v.at.offset(8 * i).read[u64]())
-		}
-		unsafe free(v.at)
-	}
-
-	## Release the held value.
-	pub clear :: fn(self) {
-		gd.variant_destroy(self.at)
-	}
-
-	## Clear and free.
-	pub drop :: fn(self) {
-		self.clear()
-		unsafe free(self.at)
 	}
 }

@@ -47,10 +47,10 @@ pub class! :: fn(input: Ast) Ast {
 			hint := if range == "" do `.nil` else do `.range`
 			props << `godot.property(%fname, %t, fn(%{..params}) {
 				%x := %n.from_payload(inst)
-				godot.ret(ret).take(godot.Variant.(%x.%fd))
+				godot.ret(ret, godot.Variant.(%x.%fd))
 			}, fn(%{..params}) {
 				%x := %n.from_payload(inst)
-				%v := godot.unbox[%ty](godot.arg(args, 0))
+				%v := godot.arg[%ty](args, 0)
 				%put
 				unsafe godot.payload(inst).write(%x)
 			}, true, %hint, %range)`
@@ -124,7 +124,7 @@ pub class! :: fn(input: Ast) Ast {
 					if wired do pre << `%on(inst)`
 				} else {
 					slots << `godot.slot("delta", .float)`
-					argv << `godot.arg(args, 0).float()`
+					argv << `godot.arg[f64](args, 0)`
 				}
 				done << vname
 			} else {
@@ -138,16 +138,15 @@ pub class! :: fn(input: Ast) Ast {
 						"int" => `.int`,
 						_ => `.bool`
 					}
-					g := ident(if k == "" do "bool" else do k)
-					argv << `godot.arg(args, %i).%g()`
+					g := ident(match k { "float" => "f64", "int" => "i64", _ => "bool" })
+					argv << `godot.arg[%g](args, %i)`
 					slots << `godot.slot(%aname, %ty)`
 				}
 			}
 
 			call := `%x.%m(%{..argv})`
 			k := kind(it.typ)
-			set := ident("set_" + k)
-			body := if k == "" do call else do `godot.ret(ret).%set(%call)`
+			body := if k == "" do call else do `godot.ret(ret, godot.Variant.(%call))`
 			cb := `fn(%{..params}) {
 				%{..pre}
 				%x := %rd(inst)

@@ -41,35 +41,30 @@ OiNode2D :< {
 		vo := Variant.(Node2D.from_ptr(o.object))
 		back := Node2D.(vo)
 		print("oi: from {vv.type()} {w.x} {vo.type()} {back.get_child_count()}")
-		vv.drop()
-		vo.drop()
-		ov := Variant.(o)
-		c := godot.Callable.create(ov, "add")
-		ov.drop()
+		c := godot.Callable.create(Variant.(o), "add")
 		one := Variant.(1)
 		two := Variant.(2)
 		nine := Variant.(9)
 		r := c.call([one, two])
 		b := c.bind([nine])
 		print("oi: callable {r.int()} {b.get_bound_arguments_count()}")
-		loop v in [one, two, nine, r] {
-			v.drop()
-		}
 
 		# rc testing
 		rc := godot.RefCounted.new()
 		rc_before := rc.get_reference_count()
-		vrc := Variant.(rc)
-		rc_boxed := rc.get_reference_count()
-		vrc.drop()
+		rc_boxed := {
+			_v := Variant.(rc)
+			rc.get_reference_count()
+		}
 		rc_after := rc.get_reference_count()
 		print("oi: refcount variant {rc_before} {rc_boxed} {rc_after}")
 		rc2 := godot.RefCounted.new()
 		rc2_before := rc2.get_reference_count()
 		raw := godot.Object.from_ptr(rc2.object)
-		vraw := Variant.(raw)
-		rc2_boxed := rc2.get_reference_count()
-		vraw.drop()
+		rc2_boxed := {
+			_v := Variant.(raw)
+			rc2.get_reference_count()
+		}
 		rc2_after := rc2.get_reference_count()
 		print("oi: refcount object {rc2_before} {rc2_boxed} {rc2_after}")
 		ex := godot.Expression.new()
@@ -90,6 +85,5 @@ OiNode2D :< {
 		print("oi: has_signal {known}")
 		sg := godot.Signal.of(self.object, "hit")
 		sg.emit([v])
-		v.drop()
 	}
 }

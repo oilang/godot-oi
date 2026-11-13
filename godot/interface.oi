@@ -35,6 +35,9 @@ VariantGetType :: @c fn(variant: ptr) i32
 ## GDExtensionInterfaceVariantDestroy
 VariantDestroy :: @c fn(variant: ptr)
 
+## GDExtensionInterfaceVariantNewCopy
+VariantNewCopy :: @c fn(dest: ptr, src: ptr)
+
 ## GDExtensionInterfaceVariantCanConvertStrict
 CanConvert :: @c fn(from: i32, to: i32) b8
 

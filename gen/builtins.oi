@@ -141,7 +141,6 @@ variant_call :: fn(bname: string, name: string, fname: string, g: Sig) string {
 	lines := [ "base := self.bytes()", "sv := gd.variant()", "gd.from_type(.{vtype(bname)}, sv, base)", "unsafe free(base)" ]
 
 	all := "varargs"
-	drops: []string = []
 	if g.args.len() > 0 {
 		all = "all"
 		lines << "blk := unsafe calloc(1, usize.({8 * g.args.len()}))" << "all: []Variant = []"
@@ -151,21 +150,18 @@ variant_call :: fn(bname: string, name: string, fname: string, g: Sig) string {
 			lines << "unsafe {store}.write({value(a, i)})"
 			lines << "gd.from_type(.{vtype(a.typ.name)}, va_{i}, {store})"
 			lines << "all << va_{i}"
-			drops << "va_{i}.drop()"
 		}
 		lines << "all << varargs"
-		drops << "unsafe free(blk)"
 	}
 
 	lines << """mn := gd.string_name("{name}")""" << "rv := gd.variant_call(sv, mn, {all})" << "gd.free_name(mn)"
-	lines << drops << "sv.drop()"
+	if g.args.len() > 0 do lines << "unsafe free(blk)"
 	lines << match g.rt.kind {
-		"void" => [ "rv.drop()" ],
+		"void" => []string.[],
 		"variant" => [ "rv" ],
 		else => [
 			"out := unsafe malloc(usize.({g.rt.size}))",
 			"gd.to_type(.{vtype(g.rt.name)}, rv, out)",
-			"rv.drop()",
 			"{g.rt.sig}.from_bytes(out)",
 		],
 	}

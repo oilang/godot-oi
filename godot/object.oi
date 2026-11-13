@@ -56,8 +56,9 @@ Godot :< {
 		packed := unsafe malloc(ptr.size * usize.(args.len()))
 		defer unsafe free(packed)
 
-		loop a, i in args {
-			unsafe ptr.(packed.0 + ptr.size * usize.(i)).write(a.at)
+		# indexed, since a loop binding would be a copy
+		loop i in ..args.len() {
+			unsafe ptr.(packed.0 + ptr.size * usize.(i)).write(args[i].at)
 		}
 
 		out := self.variant()

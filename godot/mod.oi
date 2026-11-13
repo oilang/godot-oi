@@ -26,6 +26,7 @@ pub Level :: enum { core, servers, scene, editor }
 	variant_to_type: GetToType,
 	variant_type: VariantGetType,
 	variant_destroy: VariantDestroy,
+	variant_copy: VariantNewCopy,
 	variant_can_convert: CanConvert,
 	variant_stringify: VariantStringify,
 	register_class: RegisterClass,
@@ -62,6 +63,7 @@ pub setup :: fn(get_proc: GetProc, library: ptr, out: ptr, initialize: Callback,
 	variant_to_type :: unsafe GetToType.(get_proc("get_variant_to_type_constructor"))
 	variant_type :: unsafe VariantGetType.(get_proc("variant_get_type"))
 	variant_destroy :: unsafe VariantDestroy.(get_proc("variant_destroy"))
+	variant_copy :: unsafe VariantNewCopy.(get_proc("variant_new_copy"))
 	variant_can_convert :: unsafe CanConvert.(get_proc("variant_can_convert_strict"))
 	variant_stringify :: unsafe VariantStringify.(get_proc("variant_stringify"))
 	register_class :: unsafe RegisterClass.(get_proc("classdb_register_extension_class6"))
@@ -85,7 +87,7 @@ pub setup :: fn(get_proc: GetProc, library: ptr, out: ptr, initialize: Callback,
 	gd = Godot.{
 		get_proc, library, get_version, new_string_name, drop_string_name,
 		new_string, string_utf8, drop_string, variant_from_type, variant_to_type, variant_type,
-		variant_destroy, variant_can_convert, variant_stringify,
+		variant_destroy, variant_copy, variant_can_convert, variant_stringify,
 		register_class, unregister_class, register_method, register_property, register_signal,
 		construct_object, set_instance,
 		get_method_bind, method_bind_call, classes, binds, method_bind_ptrcall, get_singleton, ref_get_object,

@@ -306,6 +306,11 @@ object_return :: fn(rt: Typ, opt: bool, p: string) []string {
 	]
 }
 
+## What an enum code the enum lacks reads as, a failure for `GodotError` and the first variant otherwise.
+lacking :: fn(rt: Typ) string {
+	if rt.sig == "GodotError" do "failed" else do enum_first[rt.name]
+}
+
 ## Read the return out of the ptrcall storage.
 get :: fn(rt: Typ, ropt: bool, roff: int) []string {
 	read :: "unsafe ptr.(blk.0 + {roff}).read"
@@ -316,7 +321,7 @@ get :: fn(rt: Typ, ropt: bool, roff: int) []string {
 		"bitfield" => "{read}[i64]()",
 		"flags" => "bits_of[{rt.name}]({read}[i64]())",
 		"ptr" => "{read}[ptr]()",
-		"enum" => "{rt.sig}.from({read}[i64]()) or .{enum_first[rt.name]}",
+		"enum" => "{rt.sig}.from({read}[i64]()) or .{lacking(rt)}",
 		"builtin" => "{read}[{rt.sig}]()",
 		"object" => return object_return(rt, ropt, "{read}[ptr]()"),
 		"refobj" => return object_return(rt, ropt, "gd.ref_get_object(ptr.(blk.0 + {roff}))"),
@@ -342,12 +347,11 @@ vararg :: fn(bind: string, this: string, args: []Arg, rt: Typ) lines: []string {
 		lines << "all << va_{i}"
 	}
 	lines << "all << varargs" << bind << "rv := gd.call({this}, mb, all)"
-	lines << loop i in ..args.len() do "va_{i}.drop()"
 	if args.len() > 0 {
 		lines << "unsafe free(blk)"
 	}
 	if rt.kind != "enum" do return lines << "rv"
-	lines << "code := {rt.sig}.from(rv.int()) or .{enum_first[rt.name]}" << "rv.drop()" << "if code != .ok do return error(code)"
+	lines << "code := {rt.sig}.from(rv.int()) or .{lacking(rt)}" << "if code != .ok do return error(code)"
 }
 
 ## The engine fn a wrapper wraps, what it is called on, and how it disposes of the receiver.
@@ -415,12 +419,6 @@ ptrcall_body :: fn(args: []Arg, rt: Typ, ropt: bool, c: Call) lines: []string {
 	lines << c.bind << invoke(c, argp, rptr, args.len()) << get(rt, ropt, roff)
 	if c.after != "" {
 		lines << c.after
-	}
-
-	loop a, i in args {
-		if a.typ.kind == "variant" && a.opt {
-			lines << "if {a.name} == none {{ va_{i}.drop() }}"
-		}
 	}
 
 	if cursor > 0 {

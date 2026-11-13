@@ -154,13 +154,20 @@ pub property :: fn(
 	Property.{ name, t, get, set, exported, hint, hint_string, default }
 }
 
-## The nth `Variant` of a method's `args`.
-pub arg :: fn(args: ptr, n: int) Variant {
-	Variant.{ unsafe ptr.(args.0 + ptr.size * usize.(n)).read[ptr]() }
+## The cell of `args` holding the nth slot's address.
+cell :: fn(args: ptr, n: int) ptr {
+	ptr.(args.0 + ptr.size * usize.(n))
 }
 
-## A method's `ret` slot as a `Variant`.
-pub ret :: fn(at: ptr) Variant { Variant.{ at } }
+## The nth of a method's `args` as `T`, read from the slot Godot owns.
+pub arg[T] :: fn(args: ptr, n: int) T {
+	unsafe unbox[T](Variant.(cell(args, n)))
+}
+
+## Copy `v` into a method's nil `ret` slot.
+pub ret :: fn(at: ptr, v: Variant) {
+	gd.variant_copy(at, v.at)
+}
 
 ## A `Method` once registered.
 @c Bound :: struct {
@@ -246,8 +253,10 @@ Godot :< {
 
 		vt := self.table(virtuals)
 		mt := self.table(methods)
+		# the setter's `Bound` owns a raw copy of the default until `unbind`
 		loop p, i in props {
-			unsafe bound(mt, own.len() + 2 * i + 1).write((p.default or Variant.{ ptr.(0) }).at)
+			d := p.default or continue
+			unsafe bound(mt, own.len() + 2 * i + 1).write(self.dup(d.at))
 		}
 
 		class := unsafe malloc(Class.size)
@@ -376,9 +385,7 @@ Godot :< {
 			b := unsafe bound(table, i).read[Bound]()
 			self.free_name(b.name)
 			unsafe free(b.types)
-			if !b.default.is_null() {
-				Variant.{ b.default }.drop()
-			}
+			if !b.default.is_null() do self.release(b.default)
 		}
 		unsafe free(table)
 	}
@@ -454,7 +461,7 @@ call_method :: fn(userdata: ptr, inst: ptr, args: ptr, argc: i64, ret: ptr, err:
 	}
 	loop i in ..int.(b.argc) {
 		t := type_at(b.types, i)
-		if t != .nil && !gd.variant_can_convert(i32.(arg(args, i).type()), i32.(t)) {
+		if t != .nil && !gd.variant_can_convert(i32.(unsafe Variant.(cell(args, i)).type()), i32.(t)) {
 			unsafe err.write(CallError.{
 				i32.(INVALID_ARG),
 				i32.(i),
@@ -468,30 +475,23 @@ call_method :: fn(userdata: ptr, inst: ptr, args: ptr, argc: i64, ret: ptr, err:
 }
 
 ## The typed call path.
+## Godot's raw values are boxed into temporary `Variant`s, raw in `boxed`, the args then the return.
 ptrcall_method :: fn(userdata: ptr, inst: ptr, args: ptr, ret: ptr) {
 	b := unsafe userdata.read[Bound]()
 	n := int.(b.argc)
-	boxed := unsafe malloc(ptr.size * usize.(n))
-	loop i in ..n {
-		t := type_at(b.types, i)
-		v := if t == .nil { arg(args, i) } else { gd.variant() }
-		if t != .nil {
-			gd.from_type(t, v, arg(args, i).at)
-		}
-		unsafe ptr.(boxed.0 + ptr.size * usize.(i)).write(v.at)
+	types := loop i in ..n do type_at(b.types, i)
+	types << (Type.from(b.ret) or .nil)
+	boxed := unsafe malloc(ptr.size * usize.(n + 1))
+	loop t, i in types {
+		raw := if i < n { unsafe cell(args, i).read[ptr]() } else { ret }
+		unsafe cell(boxed, i).write(if t == .nil { raw } else { unsafe calloc(1, usize.(VARIANT_SIZE)) })
+		if t != .nil && i < n do gd.from_type(t, unsafe Variant.(cell(boxed, i)), raw)
 	}
-	rt := Type.from(b.ret) or .nil
-	out := if rt == .nil { Variant.{ ret } } else { gd.variant() }
 	on_method := unsafe OnMethod.(b.call)
-	on_method(inst, boxed, out.at)
-	if rt != .nil {
-		gd.to_type(rt, out, ret)
-		out.drop()
-	}
-	loop i in ..n {
-		if type_at(b.types, i) != .nil {
-			arg(boxed, i).drop()
-		}
+	on_method(inst, boxed, unsafe cell(boxed, n).read[ptr]())
+	if types[n] != .nil do gd.to_type(types[n], unsafe Variant.(cell(boxed, n)), ret)
+	loop t, i in types {
+		if t != .nil do gd.release(unsafe cell(boxed, i).read[ptr]())
 	}
 	unsafe free(boxed)
 }
