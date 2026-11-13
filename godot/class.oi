@@ -191,6 +191,7 @@ pub ret :: fn(at: ptr, v: Variant) {
 	nmethods: int,
 	init: OnInit,
 	onready: OnInit,
+	dispose: OnInit,
 	next: ptr,
 }
 
@@ -205,10 +206,13 @@ pub object :: fn(inst: ptr) ptr {
 	unsafe inst.read[Instance]().object
 }
 
-## The game's struct behind `inst`.
+## The game's struct behind `inst`, reached through the `T.(payload(inst))` view.
 pub payload :: fn(inst: ptr) ptr {
 	ptr.(inst.0 + Instance.size)
 }
+
+## Drop a payload's fields in place, handed its `T.(payload(inst))` view.
+pub dispose[T] :: fn(move x: T) {}
 
 ## Resolve `path` against the object, for `@godot.onready` fields.
 ## Nil when it does not resolve.
@@ -237,7 +241,7 @@ type_at :: fn(table: ptr, n: int) Type {
 Godot :< {
 	pub register :: fn(
 		self; name: cstr, parent: cstr, state: usize, virtuals: []Method, own: []Method, props: []Property,
-		signals: []Sig, init: OnInit, onready: OnInit,
+		signals: []Sig, init: OnInit, onready: OnInit, dispose: OnInit,
 	) {
 		methods: []Method
 		methods << own
@@ -262,7 +266,7 @@ Godot :< {
 		class := unsafe malloc(Class.size)
 		unsafe class.write(Class.{
 			self.string_name(name), self.string_name(parent), state,
-			vt, virtuals.len(), mt, methods.len(), init, onready, self.classes.read[ptr](),
+			vt, virtuals.len(), mt, methods.len(), init, onready, dispose, self.classes.read[ptr](),
 		})
 		unsafe self.classes.write(class)
 		c := unsafe class.read[Class]()
@@ -418,6 +422,8 @@ create_instance :: fn(class: ptr, notify: u8) ptr {
 }
 
 free_instance :: fn(class: ptr, inst: ptr) {
+	c := unsafe class.read[Class]()
+	c.dispose(inst)
 	unsafe free(inst)
 }
 

@@ -1,5 +1,5 @@
 use godot
-use godot.{ Node2D, Vector2, Variant }
+use godot.{ Node2D, Vector2, Variant, String }
 
 @godot.class!
 OiNode2D :: struct {
@@ -7,6 +7,7 @@ OiNode2D :: struct {
 	sprite: godot.Sprite2D @godot.onready.{ "../Sprite" },
 	hp: i64 = 3 @godot.export,
 	aim: Vector2 = Vector2.{ 1.0, 2.0 } @godot.export,
+	label: String = "hi" @godot.export,
 }
 
 @godot.class!
@@ -73,6 +74,9 @@ OiNode2D :< {
 
 	@godot.func
 	add :: fn(self; a, b: i64) i64 { a + b }
+
+	@godot.func
+	doubled :: fn(self; v: Vector2) Vector2 { v + v }
 
 	@godot.signal
 	hit :: fn(self; damage: i64) {}

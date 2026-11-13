@@ -18,6 +18,7 @@ func _ready() -> void:
 			print("gd: hint ", p.hint, " ", p.hint_string)
 	$OiNode.speed = 1.5
 	print("gd: speed ", $OiNode.speed)
+	print("gd: frames ", $OiNode.frames)
 	print("gd: has_method tag ", ClassDB.class_has_method("OiNode", "tag"))
 	print("gd: has_signal ", ClassDB.class_has_signal("OiNode2D", "hit"))
 
@@ -29,3 +30,10 @@ func _ready() -> void:
 
 	$OiNode2D.aim += Vector2(1, 1)
 	print("gd: aim ", $OiNode2D.aim)
+
+	var before = $OiNode2D.label
+	$OiNode2D.label += " there"
+	print("gd: label ", before, " ", $OiNode2D.label)
+
+	var m: OiNode2D = $OiNode2D
+	print("gd: doubled ", $OiNode2D.doubled(Vector2(1, 2)), " ", m.doubled(Vector2(3, 4)))

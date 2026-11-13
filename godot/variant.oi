@@ -91,12 +91,24 @@ Variant : From[f64] < {
 	}
 }
 
+## The sized ints and `f32` box as Godot's `int` and `float`, `u64` wrapping past `i64`.
+Variant : From[i32] < { from :: fn(n: i32) Variant do Variant.(i64.(n)) }
+Variant : From[i16] < { from :: fn(n: i16) Variant do Variant.(i64.(n)) }
+Variant : From[i8] < { from :: fn(n: i8) Variant do Variant.(i64.(n)) }
+Variant : From[u64] < { from :: fn(n: u64) Variant do Variant.(i64.(n)) }
+Variant : From[u32] < { from :: fn(n: u32) Variant do Variant.(i64.(n)) }
+Variant : From[u16] < { from :: fn(n: u16) Variant do Variant.(i64.(n)) }
+Variant : From[u8] < { from :: fn(n: u8) Variant do Variant.(i64.(n)) }
+Variant : From[f32] < { from :: fn(f: f32) Variant do Variant.(f64.(f)) }
+
 ## Unbox a Varaint as `T`.
 pub unbox[T] :: fn(v: Variant) T {
 	comp match T {
 		bool => v.bool(),
 		i64 => v.int(),
 		f64 => v.float(),
+		i32, i16, i8, u64, u32, u16, u8 => T.(v.int()),
+		f32 => f32.(v.float()),
 		Variant => v,
 		_ => T.from(v),
 	}

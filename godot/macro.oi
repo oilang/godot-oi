@@ -10,15 +10,13 @@ pub class! :: fn(input: Ast) Ast {
 	if parent != "" {
 		reg := ident(name + "_register")
 		on := ident(name + "_onready")
-		x := ident("x")
-		v := ident("v")
+		edit := gensym("edit")
 		props: []Ast
 		ons: []Ast
 
 		loop f in items {
 			fd := f.name
 			fname := fd.str()
-			put := parse("x.{fname} = v")
 			ty := f.typ
 			path := ""
 			loop a in f.notes {
@@ -28,10 +26,9 @@ pub class! :: fn(input: Ast) Ast {
 				}
 			}
 			if path != "" {
-				ons << `{
-					%v := %ty.from_ptr(godot.node_at(inst, %path))
-					%put
-				}`
+				ons << `unsafe %n.(godot.payload(inst)).%edit(fn(mut x: %n) () {
+					x.%fd = %ty.from_ptr(godot.node_at(inst, %path))
+				})`
 			}
 			if !noted(f, "export") do continue
 
@@ -46,40 +43,34 @@ pub class! :: fn(input: Ast) Ast {
 
 			hint := if range == "" do `.nil` else do `.range`
 			props << `godot.property(%fname, %t, fn(%{..params}) {
-				%x := %n.from_payload(inst)
-				godot.ret(ret, godot.Variant.(%x.%fd))
+				godot.ret(ret, godot.Variant.(unsafe %n.(godot.payload(inst)).%fd))
 			}, fn(%{..params}) {
-				%x := %n.from_payload(inst)
-				%v := godot.arg[%ty](args, 0)
-				%put
-				unsafe godot.payload(inst).write(%x)
+				unsafe %n.(godot.payload(inst)).%edit(fn(mut x: %n) () { x.%fd = godot.arg[%ty](args, 0) })
 			}, true, %hint, %range)`
 		}
 
-		`@c @class %input
+		size := parse("{16 * items.len()}")
+		`@class %input
 		%n :< {
-			pub from_payload :: fn(inst: ptr) %n {
-				unsafe godot.payload(inst).read[Self]()
-			}
+			## Run `f` on the payload in place, since a field write through the view does not parse.
+			%edit :: fn(mut self; f: fn(mut x: %n)) { f(mut self) }
 		}
 		%on :: fn(inst: ptr) {
-			%x := %n.from_payload(inst)
 			%{..ons}
-			unsafe godot.payload(inst).write(%x)
 		}
 		%reg :: fn(virtuals: []godot.Method, methods: []godot.Method, signals: []godot.Sig) {
-			godot.gd.register(%name, %parent, %n.size, virtuals, methods, [%{..props}], signals, fn(%{params[0]}) {
+			godot.gd.register(%name, %parent, %size, virtuals, methods, [%{..props}], signals, fn(%{params[0]}) {
 				p := godot.payload(inst)
 				unsafe p.write(%n.{})
-				unsafe p.write(godot.object(inst))
-			}, %on)
+				unsafe %n.(p).%edit(fn(mut x: %n) () { x.object = godot.object(inst) })
+			}, %on, fn(%{params[0]}) {
+				godot.dispose(unsafe %n.(godot.payload(inst)))
+			})
 		}`
 	} else {
 		cls := ident(name + "_class")
 		reg := ident(name + "_register")
-		rd := ident(name + ".from_payload")
 		on := ident(name + "_onready")
-		x := ident("x")
 		fields := def(n).items
 		up := parent_of(fields)
 		wired := false
@@ -98,11 +89,7 @@ pub class! :: fn(input: Ast) Ast {
 				sslots := loop j in 1..it.items.len() {
 					a := it.items[j]
 					aname := a.name.str()
-					ty := match kind(a.typ) {
-						"float" => `.float`,
-						"int" => `.int`,
-						_ => `.bool`
-					}
+					ty := parse("." + vtype(a.typ))
 					`godot.slot(%aname, %ty)`
 				}
 				signals << `godot.sig(%fname, [%{..sslots}])`
@@ -132,36 +119,24 @@ pub class! :: fn(input: Ast) Ast {
 					a := it.items[j]
 					aname := a.name.str()
 					i := j - 1
-					k := kind(a.typ)
-					ty := match k {
-						"float" => `.float`,
-						"int" => `.int`,
-						_ => `.bool`
-					}
-					g := ident(match k { "float" => "f64", "int" => "i64", _ => "bool" })
-					argv << `godot.arg[%g](args, %i)`
+					at := a.typ
+					ty := parse("." + vtype(at))
+					argv << `godot.arg[%at](args, %i)`
 					slots << `godot.slot(%aname, %ty)`
 				}
 			}
 
-			call := `%x.%m(%{..argv})`
-			k := kind(it.typ)
-			body := if k == "" do call else do `godot.ret(ret, godot.Variant.(%call))`
+			call := `unsafe %n.(godot.payload(inst)).%m(%{..argv})`
+			void := it.typ.kind == "tuple"
+			body := if void do call else do `godot.ret(ret, godot.Variant.(%call))`
 			cb := `fn(%{..params}) {
 				%{..pre}
-				%x := %rd(inst)
 				%body
-				unsafe godot.payload(inst).write(%x)
 			}`
 			if virtual {
 				virtuals << `godot.virtual(%vname, %cb, [%{..slots}], none, %h)`
 			} else {
-				rt := match k {
-					"float" => `.float`,
-					"int" => `.int`,
-					"bool" => `.bool`,
-					_ => `none`
-				}
+				rt := if void do `none` else do parse("." + vtype(it.typ))
 				methods << `godot.method(%fname, %cb, [%{..slots}], %rt)`
 			}
 		}

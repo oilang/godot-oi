@@ -17,19 +17,13 @@ pub export :: struct { range: string = "" }
 ## Marks a field as a scene-relative node path, resolved by `get_node`.
 pub onready :: struct { path: string = "" }
 
-pub kind :: fn(t: Ast) string {
-	if t == "f64" do return "float"
-	if t == "bool" do return "bool"
-	if t == "i64" || t == "int" || t == "u64" do return "int"
-	""
-}
-
 ## The `Type` variant a field boxes as.
 ## `f64` -> `float`, `godot.PackedInt32Array` -> `packed_int32_array`
 pub vtype :: fn(t: Ast) out: string {
-	k := kind(t)
-	if k != "" do return k
-	parts := t.str().split(".")
+	s := t.str()
+	if s == "f64" || s == "f32" do return "float"
+	if s in [ "int", "i64", "i32", "i16", "i8", "u64", "u32", "u16", "u8" ] do return "int"
+	parts := s.split(".")
 	n := parts[parts.len() - 1]
 	low := fn(j: int) bool { j < n.len() && n[j] >= 'a' && n[j] <= 'z' }
 	loop i in ..n.len() {
