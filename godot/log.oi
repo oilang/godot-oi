@@ -3,13 +3,13 @@ module godot
 ## Wrap the print family.
 
 pub printl :: fn(s: string) {
-	print([ gd.string(s) ])
+	print([ Variant.(s) ])
 }
 
 pub warn :: fn(s: string) {
-	push_warning([ gd.string(s) ])
+	push_warning([ Variant.(s) ])
 }
 
 pub err :: fn(s: string) {
-	push_error([ gd.string(s) ])
+	push_error([ Variant.(s) ])
 }

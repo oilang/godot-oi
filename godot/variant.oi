@@ -34,13 +34,6 @@ Godot :< {
 		Variant.{ unsafe calloc(1, usize.(VARIANT_SIZE)) }
 	}
 
-	## A fresh `Variant` holding `s`.
-	pub string :: fn(self; s: string) Variant {
-		v := self.variant()
-		v.set_string(s)
-		v
-	}
-
 	## Build Variant from raw typed storage, and write Variant back out as that type.
 	pub from_type :: fn(self; t: Type, v: Variant, value: ptr) {
 		ctor := unsafe FromType.(self.variant_from_type(i32.(t)))
@@ -91,6 +84,14 @@ Variant : From[f64] < {
 	}
 }
 
+Variant : From[string] < {
+	from :: fn(s: string) Variant {
+		v := gd.variant()
+		v.set_string(s)
+		v
+	}
+}
+
 ## The sized ints and `f32` box as Godot's `int` and `float`, `u64` wrapping past `i64`.
 Variant : From[i32] < { from :: fn(n: i32) Variant do Variant.(i64.(n)) }
 Variant : From[i16] < { from :: fn(n: i16) Variant do Variant.(i64.(n)) }
@@ -110,6 +111,7 @@ pub unbox[T] :: fn(v: Variant) T {
 		i32, i16, i8, u64, u32, u16, u8 => T.(v.int()),
 		f32 => f32.(v.float()),
 		Variant => v,
+		string => v.string(),
 		_ => T.from(v),
 	}
 }

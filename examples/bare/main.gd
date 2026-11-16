@@ -37,3 +37,5 @@ func _ready() -> void:
 
 	var m: OiNode2D = $OiNode2D
 	print("gd: doubled ", $OiNode2D.doubled(Vector2(1, 2)), " ", m.doubled(Vector2(3, 4)))
+	print("gd: greet ", $OiNode2D.greet("dyn"), " ", m.greet("typed"))
+	print("gd: echo ", $OiNode2D.echo([1, "a"]), " ", m.echo(Vector2(1, 2)), " ", m.echo(null))

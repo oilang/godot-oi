@@ -78,6 +78,12 @@ OiNode2D :< {
 	@godot.func
 	doubled :: fn(self; v: Vector2) Vector2 { v + v }
 
+	@godot.func
+	greet :: fn(self; name: string) string do "hi {name}"
+
+	@godot.func
+	echo :: fn(self; v: Variant) Variant do v
+
 	@godot.signal
 	hit :: fn(self; damage: i64) {}
 

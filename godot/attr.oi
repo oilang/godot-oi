@@ -25,6 +25,7 @@ pub vtype :: fn(t: Ast) out: string {
 	if s in [ "int", "i64", "i32", "i16", "i8", "u64", "u32", "u16", "u8" ] do return "int"
 	parts := s.split(".")
 	n := parts[parts.len() - 1]
+	if n == "Variant" do return "nil"
 	low := fn(j: int) bool { j < n.len() && n[j] >= 'a' && n[j] <= 'z' }
 	loop i in ..n.len() {
 		up := n[i] >= 'A' && n[i] <= 'Z'
@@ -47,13 +48,10 @@ pub parent_of :: fn(fields: []Ast) string {
 	""
 }
 
-cached: []Obj = []
+## `godot/api_index.json`, parsed once into plain structs
+index :: comp load_index()
 
-## `godot/api_index.json`, parsed once
-## TODO: move to comp
-index :: fn() Obj {
-	if cached.len() > 0 do return cached[0]
-
+load_index :: fn() out: []Entry {
 	home := os.env("OI_HOME") or {
 		(os.env("HOME") or "") + "/.oi"
 	}
@@ -68,23 +66,31 @@ index :: fn() Obj {
 		is Obj => v,
 		_ => []
 	}
-
-	cached << root
-	root
+	loop c in root.keys {
+		e := from_json[Entry](root[c]) or panic!("godot: api_index.json {c}: {$.message()}")
+		e.name = c
+		out << e
+	}
+	return
 }
 
-## A class's `api_index.json` entry.
-Entry :: struct { pub parent: string, pub virtuals: []Virtual }
+## A class's `api_index.json` entry, keyed by `name`.
+Entry :: struct { pub name: string = "", pub parent: string, pub virtuals: []Virtual }
 Virtual :: struct { pub name: string, pub hash: int, pub required: bool }
 
 ## Every virtual class and its ancestors declare, nearest first.
 inherited :: fn(class: string) out: []Virtual {
-	root := index()
 	c := class
-	loop c != "" && c in root.keys {
-		e :: from_json[Entry](root[c]) or panic!("godot: api_index.json {c}: {$.message()}")
-		out << e.virtuals
-		c = e.parent
+	loop c != "" {
+		next := ""
+		loop e in index {
+			if e.name == c {
+				out << e.virtuals
+				next = e.parent
+				break
+			}
+		}
+		c = next
 	}
 	return
 }

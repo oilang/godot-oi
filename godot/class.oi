@@ -435,7 +435,11 @@ recreate_instance :: fn(class: ptr, object: ptr) ptr {
 	unsafe inst.write(Instance.{ class, object })
 	c.init(inst)
 	fill_defaults(inst, c)
-	c.onready(inst)
+
+	# a node not yet ready resolves its onready fields at `ready`
+	n := Node.cast(Object.from_ptr(object)) or return inst
+
+	if n.is_node_ready() do c.onready(inst)
 	inst
 }
 
