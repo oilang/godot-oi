@@ -50,6 +50,11 @@ pub class! :: fn(input: Ast) Ast {
 		}
 
 		size := parse("{16 * items.len()}")
+
+		# Godot names the class bare, while a submodule keys it as `module::Name`.
+		path := name.split("::")
+		class_name := path[path.len() - 1]
+
 		`@class %input
 		%n :< {
 			## Run `f` on the payload in place, since a field write through the view does not parse.
@@ -59,7 +64,7 @@ pub class! :: fn(input: Ast) Ast {
 			%{..ons}
 		}
 		%reg :: fn(virtuals: []godot.Method, methods: []godot.Method, signals: []godot.Sig) {
-			godot.gd.register(%name, %parent, %size, virtuals, methods, [%{..props}], signals, fn(%{params[0]}) {
+			godot.gd.register(%class_name, %parent, %size, virtuals, methods, [%{..props}], signals, fn(%{params[0]}) {
 				p := godot.payload(inst)
 				unsafe p.write(%n.{})
 				unsafe %n.(p).%edit(fn(mut x: %n) () { x.object = godot.object(inst) })
