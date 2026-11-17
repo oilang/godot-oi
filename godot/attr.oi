@@ -35,16 +35,34 @@ pub vtype :: fn(t: Ast) out: string {
 	out
 }
 
+## The last segment of a path, `gd.export` -> `export`.
+pub leaf :: fn(s: string) string {
+	parts := s.split(".")
+	parts[parts.len() - 1]
+}
+
 pub noted :: fn(item: Ast, name: string) bool {
 	loop a in item.notes {
-		if a.name.str() == "godot." + name do return true
+		if leaf(a.name.str()) == name do return true
 	}
 	false
 }
 
-## The parent class a struct's first field embeds.
+## The entries of an item's `@godot.<name>.{ .. }` note.
+pub note :: fn(item: Ast, name: string) []Ast {
+	loop a in item.notes {
+		if leaf(a.name.str()) == name && a.kind.str() == "structlit" {
+			return a.items
+		}
+	}
+	[]
+}
+
+## The parent class a struct's first field embeds, bare or module-qualified.
 pub parent_of :: fn(fields: []Ast) string {
-	if fields.len() > 0 && fields[0].typ == fields[0].name.str() do return fields[0].typ.str()
+	if fields.len() == 0 || fields[0].typ.kind.str() != "ident" do return ""
+	name := fields[0].name.str()
+	if leaf(fields[0].typ.str()) == name do return name
 	""
 }
 

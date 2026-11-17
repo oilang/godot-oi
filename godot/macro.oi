@@ -19,11 +19,8 @@ pub class! :: fn(input: Ast) Ast {
 			fname := fd.str()
 			ty := f.typ
 			path := ""
-			loop a in f.notes {
-				path = match a {
-					`godot.onready.{ %p }` => p.str(),
-					_ => path
-				}
+			loop p in note(f, "onready") {
+				path = p.str()
 			}
 			if path != "" {
 				ons << `unsafe %n.(godot.payload(inst)).%edit(fn(mut x: %n) () {
@@ -34,9 +31,9 @@ pub class! :: fn(input: Ast) Ast {
 
 			t := parse("." + vtype(ty))
 			range := ""
-			loop a in f.notes {
-				range = match a {
-					`godot.export.{ range = %r }` => r.str(),
+			loop e in note(f, "export") {
+				range = match e {
+					`range = %r` => r.str(),
 					_ => range
 				}
 			}

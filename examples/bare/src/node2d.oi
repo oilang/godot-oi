@@ -1,99 +1,98 @@
-use godot
-use godot.{ Node2D, Vector2, Variant, String }
+gd :: use godot
 
-@godot.class!
+@gd.class!
 OiNode2D :: struct {
-	Node2D,
-	sprite: godot.Sprite2D @godot.onready.{ "../Sprite" },
-	hp: i64 = 3 @godot.export,
-	aim: Vector2 = Vector2.{ 1.0, 2.0 } @godot.export,
-	label: String = "hi" @godot.export,
+	gd.Node2D,
+	sprite: gd.Sprite2D @gd.onready.{ "../Sprite" },
+	hp: i64 = 3 @gd.export,
+	aim: gd.Vector2 = gd.Vector2.{ 1.0, 2.0 } @gd.export,
+	label: gd.String = "hi" @gd.export,
 }
 
-@godot.class!
+@gd.class!
 OiNode2D :< {
 	ready :: fn(mut self) {
 		print("oi: ready 2d")
 		sp := self.sprite.get_position()
 		print("oi: onready {self.sprite.get_name()} {sp.x} {sp.y}")
-		o := godot.Object.from_ptr(self.object)
-		v := Vector2.{ 1.0, 2.0 }
+		o := gd.Object.from_ptr(self.object)
+		v := gd.Vector2.{ 1.0, 2.0 }
 		self.set_position(v)
 		p := self.get_position()
 		print("oi: position {p.x} {p.y}")
-		print("oi: physics ticks {godot.Engine.singleton().get_physics_ticks_per_second()}")
+		print("oi: physics ticks {gd.Engine.singleton().get_physics_ticks_per_second()}")
 		same := o.is_a("Node2D")
-		yes := Node2D.cast(o) != none
-		no := godot.Node3D.cast(o) == none
-		static := godot.PortableCompressedTexture2D.is_keeping_all_compressed_buffers()
+		yes := gd.Node2D.cast(o) != none
+		no := gd.Node3D.cast(o) == none
+		static := gd.PortableCompressedTexture2D.is_keeping_all_compressed_buffers()
 		print("oi: is_a {same} cast {yes} {no} static {static}")
 		entered := self.child_entered_tree()
-		_ := entered.connect(godot.Callable.of(fn(args: []Variant) {
-			who := godot.Node.(args[0])
+		_ := entered.connect(gd.Callable.of(fn(args: []gd.Variant) {
+			who := gd.Node.(args[0])
 			print("oi: entered {who.get_name()}")
 		}))
-		kid := godot.Node.new()
+		kid := gd.Node.new()
 		kid.set_name("Kid")
 		self.add_child(kid)
 		print("oi: children {self.get_child_count()}")
-		pt := Vector2.{ 3.0, 4.0 }
-		vv := Variant.(pt)
-		w := Vector2.(vv)
-		vo := Variant.(Node2D.from_ptr(o.object))
-		back := Node2D.(vo)
+		pt := gd.Vector2.{ 3.0, 4.0 }
+		vv := gd.Variant.(pt)
+		w := gd.Vector2.(vv)
+		vo := gd.Variant.(gd.Node2D.from_ptr(o.object))
+		back := gd.Node2D.(vo)
 		print("oi: from {vv.type()} {w.x} {vo.type()} {back.get_child_count()}")
-		c := godot.Callable.create(Variant.(o), "add")
-		one := Variant.(1)
-		two := Variant.(2)
-		nine := Variant.(9)
+		c := gd.Callable.create(gd.Variant.(o), "add")
+		one := gd.Variant.(1)
+		two := gd.Variant.(2)
+		nine := gd.Variant.(9)
 		r := c.call([one, two])
 		b := c.bind([nine])
 		print("oi: callable {r.int()} {b.get_bound_arguments_count()}")
 
 		# rc testing
-		rc := godot.RefCounted.new()
+		rc := gd.RefCounted.new()
 		rc_before := rc.get_reference_count()
 		rc_boxed := {
-			_v := Variant.(rc)
+			_v := gd.Variant.(rc)
 			rc.get_reference_count()
 		}
 		rc_after := rc.get_reference_count()
 		print("oi: refcount variant {rc_before} {rc_boxed} {rc_after}")
-		rc2 := godot.RefCounted.new()
+		rc2 := gd.RefCounted.new()
 		rc2_before := rc2.get_reference_count()
-		raw := godot.Object.from_ptr(rc2.object)
+		raw := gd.Object.from_ptr(rc2.object)
 		rc2_boxed := {
-			_v := Variant.(raw)
+			_v := gd.Variant.(raw)
 			rc2.get_reference_count()
 		}
 		rc2_after := rc2.get_reference_count()
 		print("oi: refcount object {rc2_before} {rc2_boxed} {rc2_after}")
-		ex := godot.Expression.new()
+		ex := gd.Expression.new()
 		print("oi: refcount new {ex.get_reference_count()}")
 	}
 
-	@godot.func
+	@gd.func
 	add :: fn(self; a, b: i64) i64 { a + b }
 
-	@godot.func
-	doubled :: fn(self; v: Vector2) Vector2 { v + v }
+	@gd.func
+	doubled :: fn(self; v: gd.Vector2) gd.Vector2 { v + v }
 
-	@godot.func
+	@gd.func
 	greet :: fn(self; name: string) string do "hi {name}"
 
-	@godot.func
-	echo :: fn(self; v: Variant) Variant do v
+	@gd.func
+	echo :: fn(self; v: gd.Variant) gd.Variant do v
 
-	@godot.signal
+	@gd.signal
 	hit :: fn(self; damage: i64) {}
 
-	@godot.func
+	@gd.func
 	fire :: fn(self; damage: i64) {
-		o := godot.Object.from_ptr(self.object)
-		v := Variant.(damage)
+		o := gd.Object.from_ptr(self.object)
+		v := gd.Variant.(damage)
 		known := o.has_signal("hit")
 		print("oi: has_signal {known}")
-		sg := godot.Signal.of(self.object, "hit")
+		sg := gd.Signal.of(self.object, "hit")
 		sg.emit([v])
 	}
 }
