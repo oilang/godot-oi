@@ -166,7 +166,7 @@ variant_call :: fn(bname: string, name: string, fname: string, g: Sig) string {
 		],
 	}
 
-	ps := params(g.args, "self", "varargs: []Variant")
+	ps := params(g.args, "self", "varargs: ..Variant")
 	"""
 			pub {fname} :: fn({ps}){ret_sig(g.rt, g.ropt)} {{
 				{lines.join(nl2)}

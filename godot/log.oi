@@ -1,15 +1,11 @@
 module godot
 
-## Wrap the print family.
+## Short names for the warning and error utilities.
 
-pub printl :: fn(s: string) {
-	print([ Variant.(s) ])
+pub warn :: fn(args: ..Variant) {
+	push_warning(..args)
 }
 
-pub warn :: fn(s: string) {
-	push_warning([ Variant.(s) ])
-}
-
-pub err :: fn(s: string) {
-	push_error([ Variant.(s) ])
+pub err :: fn(args: ..Variant) {
+	push_error(..args)
 }

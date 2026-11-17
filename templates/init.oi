@@ -1,6 +1,6 @@
 ## Entrypoint for Godot.
 ## Point the .gdextension path to the libraries `oi build --lib` makes from this.
 
-use godot
+with use godot
 
-godot.init!()
+init!()

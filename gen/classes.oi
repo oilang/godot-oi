@@ -441,7 +441,7 @@ method :: fn(cname: string, m: Method) ?string {
 	static := m.is_static
 	this := if static do "ptr.(0)" else do "self.object"
 	recv := if static do "" else do "self"
-	tail := if m.is_vararg do "varargs: []Variant" else do ""
+	tail := if m.is_vararg do "varargs: ..Variant" else do ""
 	ps := params(g.args, recv, tail)
 	bind := """mb := gd.bind({slot}, "{cname}", "{m.name}", {m.hash})"""
 	slot += 1

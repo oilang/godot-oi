@@ -42,11 +42,8 @@ OiNode2D :< {
 		back := gd.Node2D.(vo)
 		print("oi: from {vv.type()} {w.x} {vo.type()} {back.get_child_count()}")
 		c := gd.Callable.create(gd.Variant.(o), "add")
-		one := gd.Variant.(1)
-		two := gd.Variant.(2)
-		nine := gd.Variant.(9)
-		r := c.call([one, two])
-		b := c.bind([nine])
+		r := c.call(1, 2)
+		b := c.bind(9)
 		print("oi: callable {r.int()} {b.get_bound_arguments_count()}")
 
 		# rc testing
@@ -89,10 +86,9 @@ OiNode2D :< {
 	@gd.func
 	fire :: fn(self; damage: i64) {
 		o := gd.Object.from_ptr(self.object)
-		v := gd.Variant.(damage)
 		known := o.has_signal("hit")
 		print("oi: has_signal {known}")
 		sg := gd.Signal.of(self.object, "hit")
-		sg.emit([v])
+		sg.emit(damage)
 	}
 }

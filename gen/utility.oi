@@ -20,7 +20,7 @@ utility_vararg :: fn(fname: string, bind: string, rt: Typ) string {
 	if back != "" do lines << back
 
 	"""
-		pub {fname} :: fn(varargs: []Variant){ret_sig(rt, false)} {{
+		pub {fname} :: fn(varargs: ..Variant){ret_sig(rt, false)} {{
 			{lines.join(nl1)}
 		}}
 		"""
