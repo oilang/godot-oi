@@ -66,7 +66,10 @@ pub class! :: fn(input: Ast) Ast {
 				unsafe p.write(%n.{})
 				unsafe %n.(p).%edit(fn(mut x: %n) () { x.object = godot.object(inst) })
 			}, %on, fn(%{params[0]}) {
-				godot.dispose(unsafe %n.(godot.payload(inst)))
+				p := godot.payload(inst)
+				# the parent handle is borrowed, so a RefCounted one must not unreference itself mid-free
+				unsafe %n.(p).%edit(fn(mut x: %n) () { x.object = ptr.(0) })
+				godot.dispose(unsafe %n.(p))
 			})
 		}`
 	} else {
