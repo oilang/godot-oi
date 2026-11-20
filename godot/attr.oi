@@ -12,16 +12,18 @@ pub signal :: ()
 ## Marks a fn in a fill as a private helper: neither a virtual nor a method.
 pub hidden :: ()
 
-pub export :: struct { range: string = "" }
+## `flat` exports a plain struct field's own fields instead, each as a property.
+pub export :: struct { range: string, flat: bool }
 
 ## Marks a field as a scene-relative node path, resolved by `get_node`.
-pub onready :: struct { path: string = "" }
+pub onready :: struct { path: string }
 
-## The `Type` variant a field boxes as.
-## `f64` -> `float`, `godot.PackedInt32Array` -> `packed_int32_array`
+## The `Type` variant a field boxes as, `object` for any class.
+## `f64` -> `float`, `godot.PackedInt32Array` -> `packed_int32_array`, `[]string` -> `packed_string_array`
 pub vtype :: fn(t: Ast) out: string {
+	if t.kind.str() == "array" && t.typ.str() == "string" do return "packed_string_array"
 	s := t.str()
-	if s == "f64" || s == "f32" do return "float"
+	if s == "float" || s == "f64" || s == "f32" do return "float"
 	if s in [ "int", "i64", "i32", "i16", "i8", "u64", "u32", "u16", "u8" ] do return "int"
 	parts := s.split(".")
 	n := parts[parts.len() - 1]
@@ -32,7 +34,8 @@ pub vtype :: fn(t: Ast) out: string {
 		if i > 0 && up && (low(i - 1) || low(i + 1)) do out += "_"
 		out += n[i..i + 1].lower()
 	}
-	out
+	known := def(Type).items.any { $.str() == out }
+	if known do out else do "object"
 }
 
 ## The last segment of a path, `gd.export` -> `export`.

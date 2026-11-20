@@ -16,7 +16,6 @@ pub class! :: fn(input: Ast) Ast {
 
 		loop f in items {
 			fd := f.name
-			fname := fd.str()
 			ty := f.typ
 			path := ""
 			loop p in note(f, "onready") {
@@ -29,21 +28,37 @@ pub class! :: fn(input: Ast) Ast {
 			}
 			if !noted(f, "export") do continue
 
-			t := parse("." + vtype(ty))
-			range := ""
-			loop e in note(f, "export") {
-				range = match e {
-					`range = %r` => r.str(),
-					_ => range
+			flat := note(f, "export").any { $.str() == "flat = true" }
+			loop sub in if flat do def(ty).items else do [f] {
+				range := ""
+				loop e in note(sub, "export") {
+					range = match e {
+						`range = %r` => r.str(),
+						_ => range
+					}
 				}
-			}
 
-			hint := if range == "" do `.nil` else do `.range`
-			props << `godot.property(%fname, %t, fn(%{..params}) {
-				godot.ret(ret, godot.Variant.(unsafe %n.(godot.payload(inst)).%fd))
-			}, fn(%{..params}) {
-				unsafe %n.(godot.payload(inst)).%edit(fn(mut x: %n) () { x.%fd = godot.arg[%ty](args, 0) })
-			}, true, %hint, %range)`
+				hint := if range == "" do `.nil` else do `.range`
+				sd := sub.name
+				sname := sd.str()
+				st := sub.typ
+				t := parse("." + vtype(st))
+
+				# `%x.%f = v` does not parse, so the write is spelled out per shape
+				view := `unsafe %n.(godot.payload(inst))`
+				get := if flat do `%view.%fd.%sd` else do `%view.%fd`
+				set := if flat {
+					`fn(mut x: %n) () { x.%fd.%sd = godot.arg[%st](args, 0) }`
+				} else {
+					`fn(mut x: %n) () { x.%fd = godot.arg[%st](args, 0) }`
+				}
+
+				props << `godot.property(%sname, %t, fn(%{..params}) {
+					godot.ret(ret, godot.Variant.(%get))
+				}, fn(%{..params}) {
+					unsafe %n.(godot.payload(inst)).%edit(%set)
+				}, true, %hint, %range)`
+			}
 		}
 
 		size := parse("{16 * items.len()}")
@@ -57,9 +72,13 @@ pub class! :: fn(input: Ast) Ast {
 			## Run `f` on the payload in place, since a field write through the view does not parse.
 			%edit :: fn(mut self; f: fn(mut x: %n)) { f(mut self) }
 		}
+
+		## A copy of the payload behind a class arg.
+		%n : From[godot.Variant] < { from :: fn(v: godot.Variant) %n do unsafe %n.(godot.payload(godot.instance(v))) }
 		%on :: fn(inst: ptr) {
 			%{..ons}
 		}
+
 		%reg :: fn(virtuals: []godot.Method, methods: []godot.Method, signals: []godot.Sig) {
 			godot.gd.register(%class_name, %parent, %size, virtuals, methods, [%{..props}], signals, fn(%{params[0]}) {
 				p := godot.payload(inst)

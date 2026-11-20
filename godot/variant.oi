@@ -101,6 +101,7 @@ Variant : From[u32] < { from :: fn(n: u32) Variant do Variant.(i64.(n)) }
 Variant : From[u16] < { from :: fn(n: u16) Variant do Variant.(i64.(n)) }
 Variant : From[u8] < { from :: fn(n: u8) Variant do Variant.(i64.(n)) }
 Variant : From[f32] < { from :: fn(f: f32) Variant do Variant.(f64.(f)) }
+Variant : From[[]string] < { from :: fn(xs: []string) Variant do Variant.(PackedStringArray.(xs)) }
 
 ## Unbox a Varaint as `T`.
 pub unbox[T] :: fn(v: Variant) T {
@@ -112,6 +113,10 @@ pub unbox[T] :: fn(v: Variant) T {
 		f32 => f32.(v.float()),
 		Variant => v,
 		string => v.string(),
+		[]string => {
+			p := PackedStringArray.(v)
+			loop i in ..p.size() do p.get(i).str()
+		},
 		_ => T.from(v),
 	}
 }

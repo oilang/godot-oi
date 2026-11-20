@@ -71,6 +71,15 @@ ConstructObject :: @c fn(name: ptr) ptr
 ## GDExtensionInterfaceObjectSetInstance
 SetInstance :: @c fn(object: ptr, name: ptr, instance: ptr)
 
+## GDExtensionInterfaceObjectSetInstanceBinding
+SetBinding :: @c fn(object, token, binding, callbacks: ptr)
+
+## GDExtensionInterfaceObjectGetInstanceBinding
+GetBinding :: @c fn(object, token, callbacks: ptr) ptr
+
+## GDExtensionInterfaceObjectFreeInstanceBinding
+FreeBinding :: @c fn(object, token: ptr)
+
 ## GDExtensionInterfaceClassdbGetMethodBind
 GetMethodBind :: @c fn(class: ptr, method: ptr, hash: i64) ptr
 

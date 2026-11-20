@@ -206,6 +206,23 @@ pub object :: fn(inst: ptr) ptr {
 	unsafe inst.read[Instance]().object
 }
 
+## The instance behind a `Variant` holding an object of a registered class.
+pub instance :: fn(v: Variant) ptr {
+	get := unsafe GetBinding.(gd.proc("object_get_instance_binding"))
+	inst := get(Object.(v).object, gd.library, ptr.(0))
+	if inst.is_null() do panic!("godot: not an oi class instance")
+	inst
+}
+
+## Bind `inst` to `object` for `instance`, replacing any binding a hot reload left behind.
+bind_instance :: fn(object: ptr, inst: ptr) {
+	unsafe FreeBinding.(gd.proc("object_free_instance_binding"))(object, gd.library)
+	# GDExtensionInstanceBindingCallbacks, all null, copied out by Godot
+	callbacks := unsafe calloc(3, ptr.size)
+	unsafe SetBinding.(gd.proc("object_set_instance_binding"))(object, gd.library, inst, callbacks)
+	unsafe free(callbacks)
+}
+
 ## The game's struct behind `inst`, reached through the `T.(payload(inst))` view.
 pub payload :: fn(inst: ptr) ptr {
 	ptr.(inst.0 + Instance.size)
@@ -412,6 +429,7 @@ create_instance :: fn(class: ptr, notify: u8) ptr {
 	inst := unsafe calloc(1, Instance.size + c.state)
 	unsafe inst.write(Instance.{ class, object })
 	gd.set_instance(object, c.name, inst)
+	bind_instance(object, inst)
 	init := c.init
 	init(inst)
 	if notify != 0 {
@@ -433,6 +451,7 @@ recreate_instance :: fn(class: ptr, object: ptr) ptr {
 	c := unsafe class.read[Class]()
 	inst := unsafe calloc(1, Instance.size + c.state)
 	unsafe inst.write(Instance.{ class, object })
+	bind_instance(object, inst)
 	c.init(inst)
 	fill_defaults(inst, c)
 

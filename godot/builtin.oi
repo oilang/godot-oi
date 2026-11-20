@@ -155,11 +155,7 @@ registry := Registry.{}
 box :: fn(f: Fn) int {
 	fns := registry.fns
 	loop i in ..fns.len() {
-		spare := match fns[i] {
-			.none => true,
-			_ => false
-		}
-		if spare {
+		if fns[i] is .none {
 			fns[i] = f
 			registry.fns = fns
 			return i

@@ -39,3 +39,6 @@ func _ready() -> void:
 	print("gd: doubled ", $OiNode2D.doubled(Vector2(1, 2)), " ", m.doubled(Vector2(3, 4)))
 	print("gd: greet ", $OiNode2D.greet("dyn"), " ", m.greet("typed"))
 	print("gd: echo ", $OiNode2D.echo([1, "a"]), " ", m.echo(Vector2(1, 2)), " ", m.echo(null))
+
+	$OiNode2D.armor += 1
+	print("gd: flat ", $OiNode2D.armor, " ", $OiNode2D.reach, " ", m.shout(["a", "b"]), " ", m.hp_of($OiNode2D))

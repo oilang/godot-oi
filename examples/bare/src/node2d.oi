@@ -7,7 +7,10 @@ OiNode2D :: struct {
 	hp: i64 = 3 @gd.export,
 	aim: gd.Vector2 = gd.Vector2.{ 1.0, 2.0 } @gd.export,
 	label: gd.String = "hi" @gd.export,
+	stats: Stats @gd.export.{ flat = true },
 }
+
+Stats :: struct { armor: i64 = 2, reach: float = 1.5 }
 
 @gd.class!
 OiNode2D :< {
@@ -79,6 +82,12 @@ OiNode2D :< {
 
 	@gd.func
 	echo :: fn(self; v: gd.Variant) gd.Variant do v
+
+	@gd.func
+	shout :: fn(self; xs: []string) []string do loop x in xs do x + "!"
+
+	@gd.func
+	hp_of :: fn(self; other: OiNode2D) i64 do other.hp
 
 	@gd.signal
 	hit :: fn(self; damage: i64) {}
