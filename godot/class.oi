@@ -114,16 +114,13 @@ pub Method :: struct {
 	hash: u32
 }
 
-## PropertyHint, the few we use until generated.
-pub Hint :: enum { nil, range, options, file = 13 }
-
 pub Property :: struct {
 	name: cstr,
 	type: Type,
 	get: OnMethod,
 	set: OnMethod,
 	exported: bool,
-	hint: Hint,
+	hint: PropertyHint,
 	hint_string: string,
 	default: ?Variant,
 }
@@ -149,7 +146,7 @@ pub virtual :: fn(name: cstr, cb: OnMethod, args: []Slot, ret: ?Type, hash: int)
 
 pub property :: fn(
 	name: cstr, t: Type, get: OnMethod, set: OnMethod, exported: bool,
-	hint: Hint = .nil, hint_string: string = "", default: ?Variant = none,
+	hint: PropertyHint = .none_, hint_string: string = "", default: ?Variant = none,
 ) Property {
 	Property.{ name, t, get, set, exported, hint, hint_string, default }
 }
@@ -380,7 +377,7 @@ Godot :< {
 		t
 	}
 
-	slot_info :: fn(self; s: Slot, hint: Hint = .nil, hint_string: string = "") PropertyInfo {
+	slot_info :: fn(self; s: Slot, hint: PropertyHint = .none_, hint_string: string = "") PropertyInfo {
 		hs := unsafe malloc(usize.(STRING_SIZE))
 		self.new_string(hs, hint_string.ptr, i64.(hint_string.len()))
 		usage := if s.type == .nil { USAGE_VARIANT } else { USAGE_DEFAULT }

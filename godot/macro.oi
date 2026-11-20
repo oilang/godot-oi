@@ -30,19 +30,16 @@ pub class! :: fn(input: Ast) Ast {
 
 			flat := note(f, "export").any { $.str() == "flat = true" }
 			loop sub in if flat do def(ty).items else do [f] {
-				range := ""
-				loop e in note(sub, "export") {
-					range = match e {
-						`range = %r` => r.str(),
-						_ => range
-					}
-				}
-
-				hint := if range == "" do `.nil` else do `.range`
 				sd := sub.name
 				sname := sd.str()
 				st := sub.typ
 				t := parse("." + vtype(st))
+				hint := note(sub, "export")
+				c := leaf(st.str())
+
+				# only Node declares `_ready` and only Resource `_setup_local_to_scene`
+				if hint.len() == 0 && virtual_hash(c, "_ready") >= 0 do hint = [`.node_type`, `%c`]
+				if hint.len() == 0 && virtual_hash(c, "_setup_local_to_scene") >= 0 do hint = [`.resource_type`, `%c`]
 
 				# `%x.%f = v` does not parse, so the write is spelled out per shape
 				view := `unsafe %n.(godot.payload(inst))`
@@ -57,7 +54,7 @@ pub class! :: fn(input: Ast) Ast {
 					godot.ret(ret, godot.Variant.(%get))
 				}, fn(%{..params}) {
 					unsafe %n.(godot.payload(inst)).%edit(%set)
-				}, true, %hint, %range)`
+				}, true, %{..hint})`
 			}
 		}
 

@@ -14,7 +14,7 @@ func _ready() -> void:
 	print("gd: default speed ", ClassDB.class_get_property_default_value("OiNode", "speed"))
 
 	for p in ClassDB.class_get_property_list("OiNode", true):
-		if p.name == "speed":
+		if p.name in ["speed", "scene"]:
 			print("gd: hint ", p.hint, " ", p.hint_string)
 	$OiNode.speed = 1.5
 	print("gd: speed ", $OiNode.speed)

@@ -6,7 +6,8 @@ init!()
 OiNode :: struct {
 	Node,
 	frames: u64 @godot.export,
-	speed: f64 = 1.0 @godot.export.{ range = "0,10,0.5" },
+	speed: f64 = 1.0 @godot.export.{ .range, "0,10,0.5" },
+	scene: PackedScene @godot.export,
 }
 
 @class!
