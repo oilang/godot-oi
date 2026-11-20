@@ -28,39 +28,31 @@ pub class! :: fn(input: Ast) Ast {
 			}
 			if !noted(f, "export") do continue
 
-			flat := note(f, "export").any { $.str() == "flat = true" }
-			loop sub in if flat do def(ty).items else do [f] {
+			# an exported embed, like the parent class, exports its promoted fields
+			embed := ty.kind.str() == "ident" && leaf(ty.str()) == fd.str()
+			loop sub in if embed do def(ty).items else do [f] {
 				sd := sub.name
 				sname := sd.str()
 				st := sub.typ
 				t := parse("." + vtype(st))
 				hint := note(sub, "export")
 
-				# a flat field hints its own fields by name, `@gd.export.{ .file, "*.tscn", field = "scene" }`
-				if flat do loop a in f.notes {
+				# an embed hints its own fields by name, `game.Level @gd.export.{ .file, "*.tscn", field = "scene" }`
+				if embed do loop a in f.notes {
 					field := "field = \"" + sname + "\""
 					named := leaf(a.name.str()) == "export" && a.items.any { $.str() == field }
 					if named do hint = a.items.filter { $.str() != field }
 				}
-				c :=if st.kind.str() == "array" do "" else do leaf(st.str())
+				c := if st.kind.str() == "array" do "" else do leaf(st.str())
 
 				# only Node declares `_ready` and only Resource `_setup_local_to_scene`
 				if hint.len() == 0 && virtual_hash(c, "_ready") >= 0 do hint = [`.node_type`, `%c`]
 				if hint.len() == 0 && virtual_hash(c, "_setup_local_to_scene") >= 0 do hint = [`.resource_type`, `%c`]
 
-				# `%x.%f = v` does not parse, so the write is spelled out per shape
-				view := `unsafe %n.(godot.payload(inst))`
-				get := if flat do `%view.%fd.%sd` else do `%view.%fd`
-				set := if flat {
-					`fn(mut x: %n) () { x.%fd.%sd = godot.arg[%st](args, 0) }`
-				} else {
-					`fn(mut x: %n) () { x.%fd = godot.arg[%st](args, 0) }`
-				}
-
 				props << `godot.property(%sname, %t, fn(%{..params}) {
-					godot.ret(ret, godot.Variant.(%get))
+					godot.ret(ret, godot.Variant.(unsafe %n.(godot.payload(inst)).%sd))
 				}, fn(%{..params}) {
-					unsafe %n.(godot.payload(inst)).%edit(%set)
+					unsafe %n.(godot.payload(inst)).%edit(fn(mut x: %n) () { x.%sd = godot.arg[%st](args, 0) })
 				}, true, %{..hint})`
 			}
 		}
