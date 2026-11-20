@@ -35,7 +35,14 @@ pub class! :: fn(input: Ast) Ast {
 				st := sub.typ
 				t := parse("." + vtype(st))
 				hint := note(sub, "export")
-				c := leaf(st.str())
+
+				# a flat field hints its own fields by name, `@gd.export.{ .file, "*.tscn", field = "scene" }`
+				if flat do loop a in f.notes {
+					field := "field = \"" + sname + "\""
+					named := leaf(a.name.str()) == "export" && a.items.any { $.str() == field }
+					if named do hint = a.items.filter { $.str() != field }
+				}
+				c :=if st.kind.str() == "array" do "" else do leaf(st.str())
 
 				# only Node declares `_ready` and only Resource `_setup_local_to_scene`
 				if hint.len() == 0 && virtual_hash(c, "_ready") >= 0 do hint = [`.node_type`, `%c`]

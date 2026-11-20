@@ -12,8 +12,8 @@ pub signal :: ()
 ## Marks a fn in a fill as a private helper: neither a virtual nor a method.
 pub hidden :: ()
 
-## A `PropertyHint` and its string (`.{ .range, "0,10,0.5" }`), or `flat` to export a plain struct field's own fields.
-pub export :: struct { hint: PropertyHint, hint_string: string, flat: bool }
+## A `PropertyHint` and its string (`.{ .range, "0,10,0.5" }`), or `flat` to export a plain struct field's own fields,
+pub export :: struct { hint: PropertyHint, hint_string: string, flat: bool, field: string }
 
 ## Marks a field as a scene-relative node path, resolved by `get_node`.
 pub onready :: struct { path: string }
