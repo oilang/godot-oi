@@ -8,7 +8,7 @@ utility_vararg :: fn(fname: string, bind: string, rt: Typ) string {
 	rptr, made, back := match rt.kind {
 		"void" => ("ptr.(0)", "", ""),
 		"variant" => ("rv.at", "rv := gd.variant()", "rv"),
-		else => ("out", "out := unsafe calloc(1, usize.({rt.size}))", "{rt.sig}.from_bytes(out)"),
+		_ => ("out", "out := unsafe calloc(1, usize.({rt.size}))", "{rt.sig}.from_bytes(out)"),
 	}
 
 	lines := [

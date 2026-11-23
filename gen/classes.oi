@@ -293,7 +293,7 @@ put :: fn(a: Arg, i: int, store: string) []string {
 			"{cell}({store})",
 			"match {n} {{ .some.(b_) => unsafe {store}.write(b_), .none => {{}} }}",
 		],
-		else => [ ..pre, "{cell}({store})", "unsafe {store}.write({value(a, i)})" ],
+		_ => [ ..pre, "{cell}({store})", "unsafe {store}.write({value(a, i)})" ],
 	}
 }
 
@@ -325,7 +325,7 @@ get :: fn(rt: Typ, ropt: bool, roff: int) []string {
 		"builtin" => "{read}[{rt.sig}]()",
 		"object" => return object_return(rt, ropt, "{read}[ptr]()"),
 		"refobj" => return object_return(rt, ropt, "gd.ref_get_object(ptr.(blk.0 + {roff}))"),
-		else => return [],
+		_ => return [],
 	}
 	return [ "rv := {rv}" ]
 }
@@ -409,7 +409,7 @@ ptrcall_body :: fn(args: []Arg, rt: Typ, ropt: bool, c: Call) lines: []string {
 	rptr := match {
 		rt.kind == "variant" => "rv.at",
 		rt.kind == "void" => "ptr.(0)",
-		else => "ptr.(blk.0 + {roff})",
+		_ => "ptr.(blk.0 + {roff})",
 	}
 
 	if rt.kind == "variant" {
@@ -454,7 +454,7 @@ method :: fn(cname: string, m: Method) ?string {
 	rs := match {
 		!m.is_vararg => ret_sig(g.rt, g.ropt),
 		g.rt.kind == "enum" => " !()",
-		else => " Variant",
+		_ => " Variant",
 	}
 	doc(m, "\t## ") + """
 			pub {safe(m.name, hooks)} :: fn({ps}){rs} {{
@@ -582,7 +582,7 @@ conv :: fn(name: string, vt: string, size: int, obj: bool, refc: bool) []string 
 	unbox := match {
 		!obj => [ "{name}.from_bytes(out)" ],
 		refc => [ "p_ := unsafe out.read[ptr]()", "unsafe free(out)", "r_ := {name}.from_ptr(p_)", "_ := r_.init_ref()", "r_" ],
-		else => [ "p_ := unsafe out.read[ptr]()", "unsafe free(out)", "{name}.from_ptr(p_)" ],
+		_ => [ "p_ := unsafe out.read[ptr]()", "unsafe free(out)", "{name}.from_ptr(p_)" ],
 	}
 	to := """
 		Variant : From[{name}] < {{

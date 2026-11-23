@@ -159,7 +159,7 @@ variant_call :: fn(bname: string, name: string, fname: string, g: Sig) string {
 	lines << match g.rt.kind {
 		"void" => []string.[],
 		"variant" => [ "rv" ],
-		else => [
+		_ => [
 			"out := unsafe malloc(usize.({g.rt.size}))",
 			"gd.to_type(.{vtype(g.rt.name)}, rv, out)",
 			"{g.rt.sig}.from_bytes(out)",
@@ -201,14 +201,14 @@ builtin_method :: fn(bname: string, m: Method) ?string {
 	recv := match {
 		static => "",
 		m.is_const => "self",
-		else => "mut self",
+		_ => "mut self",
 	}
 
 	# a const method just frees its copy of the base, a mutating one reads it back
 	after := match {
 		static => "",
 		recv == "self" => "unsafe free(base)",
-		else => "self.set_bytes(base)",
+		_ => "self.set_bytes(base)",
 	}
 
 	c := Call.{ "builtin", if static do "ptr.(0)" else do "base", bind, after }
