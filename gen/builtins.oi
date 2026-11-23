@@ -113,11 +113,29 @@ collection :: fn(name: string, methods: []Method) []string {
 			"size" => "{name} : Length < {{ len :: fn(self) int {{ int.(self.size()) }} }}",
 			"has" => "{name} : Contains[{a}] < {{ contains :: fn(self; v: {a}) bool {{ self.has(v) }} }}",
 			"get" => "{name} : Index[{a}, {r}] < {{ index :: fn(self; i: {a}) {r} {{ self.get(i) }} }}",
-			"push_back" => """
+			"push_back" => {
+				# packed arrays resize once and write in place
+				elem := match name {
+					"PackedByteArray" => "u8",
+					"PackedInt32Array" => "i32",
+					"PackedFloat32Array" => "f32",
+					"PackedStringArray" => "String",
+					_ => a,
+				}
+
+				fill := if name == "Array" do "loop x in xs do s.push_back(x)" else do [
+					"_ := s.resize(i64.(xs.len()))",
+					"base := s.bytes()",
+					"""at := unsafe OperatorIndex.(gd.proc("{vtype(name)}_operator_index"))""",
+					"loop x, i in xs do unsafe at(base, i64.(i)).write({elem}.(x))",
+					"unsafe free(base)",
+				].join(nl2)
+
+				"""
 				{name} : From[[]{a}] < {{
 					from :: fn(xs: []{a}) {name} {{
 						s := {name}.new()
-						loop x in xs do s.push_back(x)
+						{fill}
 						s
 					}}
 				}}
@@ -129,7 +147,8 @@ collection :: fn(name: string, methods: []Method) []string {
 						(self.get(i), i)
 					}}
 				}}
-				""",
+				"""
+			},
 			_ => continue,
 		}
 	}
