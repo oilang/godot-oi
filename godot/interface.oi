@@ -121,3 +121,6 @@ CallableCustomFree :: @c fn(userdata: ptr)
 	to_string_func: ptr,
 	get_argument_count_func: ptr,
 }
+
+## GDExtensionInterfaceEditorHelpLoadXmlFromUtf8CharsAndLen
+EditorHelp :: @c fn(data: ptr, size: i64)

@@ -11,7 +11,9 @@ pub class! :: fn(input: Ast) Ast {
 		reg := ident(name + "_register")
 		on := ident(name + "_onready")
 		edit := gensym("edit")
+		xml := ident("{name}_xml")
 		props: []Ast
+		members := ""
 		ons: []Ast
 
 		loop f in items {
@@ -39,8 +41,9 @@ pub class! :: fn(input: Ast) Ast {
 
 				# an embed hints its own fields by name, `game.Level @gd.export.{ .file, "*.tscn", field = "scene" }`
 				if embed do loop a in f.notes {
-					field := "field = \"" + sname + "\""
-					named := leaf(a.name.str()) == "export" && a.items.any { $.str() == field }
+					field := """field = "{sname}\""""
+					lit := leaf(a.name.str()) == "export" && a.kind.str() == "structlit"
+					named := lit && a.items.any { $.str() == field }
 					if named do hint = a.items.filter { $.str() != field }
 				}
 				c := if st.kind.str() == "array" do "" else do leaf(st.str())
@@ -48,6 +51,10 @@ pub class! :: fn(input: Ast) Ast {
 				# only Node declares `_ready` and only Resource `_setup_local_to_scene`
 				if hint.len() == 0 && virtual_hash(c, "_ready") >= 0 do hint = [`.node_type`, `%c`]
 				if hint.len() == 0 && virtual_hash(c, "_setup_local_to_scene") >= 0 do hint = [`.resource_type`, `%c`]
+
+				gt := gtype(st)
+				sdoc := doc(sub)
+				members += """<member name="{sname}" type="{gt}" setter="set_{sname}" getter="get_{sname}">{sdoc}</member>"""
 
 				props << `godot.property(%sname, %t, fn(%{..params}) {
 					godot.ret(ret, godot.Variant.(unsafe %n.(godot.payload(inst)).%sd))
@@ -62,8 +69,14 @@ pub class! :: fn(input: Ast) Ast {
 		# Godot names the class bare, while a submodule keys it as `module::Name`.
 		path := name.split("::")
 		class_name := path[path.len() - 1]
+		cdoc := doc(input)
+		head := """<class name="{class_name}" inherits="{parent}"><brief_description></brief_description>"""
+		head += "<description>{cdoc}</description><members>{members}</members>"
 
 		`@class %input
+		## The class's doc XML up to its methods, which the fill's `_help` appends.
+		%xml :: fn() string do %head
+
 		%n :< {
 			## Run `f` on the payload in place, since a field write through the view does not parse.
 			%edit :: fn(mut self; f: fn(mut x: %n)) { f(mut self) }
@@ -88,9 +101,13 @@ pub class! :: fn(input: Ast) Ast {
 			})
 		}`
 	} else {
-		cls := ident(name + "_class")
-		reg := ident(name + "_register")
-		on := ident(name + "_onready")
+		cls := ident("{name}_class")
+		reg := ident("{name}_register")
+		on := ident("{name}_onready")
+		xml := ident("{name}_xml")
+		help := ident("{name}_help")
+		mdocs := ""
+		sdocs := ""
 		fields := def(n).items
 		up := parent_of(fields)
 		wired := false
@@ -113,6 +130,9 @@ pub class! :: fn(input: Ast) Ast {
 					`godot.slot(%aname, %ty)`
 				}
 				signals << `godot.sig(%fname, [%{..sslots}])`
+				ps := params_xml(it)
+				sd := doc(it)
+				sdocs += """<signal name="{fname}">{ps}<description>{sd}</description></signal>"""
 				continue
 			}
 			virtual := !noted(it, "func")
@@ -158,6 +178,10 @@ pub class! :: fn(input: Ast) Ast {
 			} else {
 				rt := if void do `none` else do parse("." + vtype(it.typ))
 				methods << `godot.method(%fname, %cb, [%{..slots}], %rt)`
+				gt := if void do "void" else do gtype(it.typ)
+				ps := params_xml(it)
+				md := doc(it)
+				mdocs += """<method name="{fname}"><return type="{gt}" />{ps}<description>{md}</description></method>"""
 			}
 		}
 		rh := virtual_hash(up, "_ready")
@@ -167,15 +191,21 @@ pub class! :: fn(input: Ast) Ast {
 		}
 		require_all(name, up, done)
 
+		tail := "<methods>{mdocs}</methods><signals>{sdocs}</signals></class>"
+
 		`%input
 		%cls :: fn() {
 			%reg([%{..virtuals}], [%{..methods}], [%{..signals}])
+		}
+		%help :: fn() {
+			godot.help(%xml() + %tail)
 		}`
 	}
 }
 
 pub init! :: fn() Ast {
 	calls := loop c in defs(class) do `%{ident(c.name.str() + "_class")}()`
+	helps := loop c in defs(class) do `%{ident(c.name.str() + "_help")}()`
 
 	`@export.{"godot_oi_init"}
 	godot_oi_init :: fn(get_proc: godot.GetProc, library: ptr, out: ptr) bool {
@@ -185,6 +215,9 @@ pub init! :: fn() Ast {
 	godot_oi_initialize :: fn(userdata: ptr, level: i32) {
 		if godot.level(level) == .scene {
 			%{..calls}
+		}
+		if godot.level(level) == .editor {
+			%{..helps}
 		}
 	}
 

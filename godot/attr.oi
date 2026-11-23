@@ -38,6 +38,30 @@ pub vtype :: fn(t: Ast) out: string {
 	if known do out else do "object"
 }
 
+## The type name a field or arg shows in the editor help.
+## `f64` -> `float`, `[]string` -> `PackedStringArray`, `gd.Sprite2D` -> `Sprite2D`
+pub gtype :: fn(t: Ast) string {
+	v := vtype(t)
+	if v in [ "int", "float", "bool" ] do return v
+	if v == "packed_string_array" do return "PackedStringArray"
+	if v == "string" do return "String"
+	leaf(t.str())
+}
+
+## An item's `##` doc as editor help text.
+pub doc :: fn(item: Ast) string do ""
+
+## The `<param>` entries of a method or signal, skipping `self`.
+pub params_xml :: fn(f: Ast) out: string {
+	loop j in 1..f.items.len() {
+		a := f.items[j]
+		name := a.name.str()
+		ty := gtype(a.typ)
+		out += """<param index="{j - 1}" name="{name}" type="{ty}" />"""
+	}
+	return
+}
+
 ## The last segment of a path, `gd.export` -> `export`.
 pub leaf :: fn(s: string) string {
 	parts := s.split(".")

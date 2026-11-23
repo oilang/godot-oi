@@ -1,0 +1,6 @@
+module godot
+
+## Load class doc XML into the editor help, from the `.editor` init level on.
+pub help :: fn(xml: string) {
+	unsafe EditorHelp.(gd.proc("editor_help_load_xml_from_utf8_chars_and_len"))(xml.ptr, i64.(xml.len()))
+}
