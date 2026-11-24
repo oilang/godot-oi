@@ -47,9 +47,54 @@ pub gtype :: fn(t: Ast) string {
 	leaf(t.str())
 }
 
-## An item's `##` doc as editor help text, escaped for the XML.
+## An item's `##` markdown as editor help BBCode, escaped for the XML, like gdext's.
 pub doc :: fn(item: Ast) string {
-	item.doc.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+	paras: []string = []
+	cur := ""
+	fence := false
+
+	loop line in item.doc.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").split("\n") {
+		t := line.trim()
+		mark := t.starts_with("```")
+		if fence && !mark {
+			cur += "\n" + line
+		} else if fence || mark || t == "" || t.starts_with("# ") {
+			if fence do paras << "[codeblock]{cur}\n[/codeblock]" else if cur != "" do paras << spans(cur.trim())
+			if t.starts_with("# ") do paras << "[b]{spans(t[2..])}[/b]"
+			cur = ""
+			fence = !fence && mark
+		} else if t.starts_with("- ") || t.starts_with("* ") {
+			cur += "\n• " + t[2..]
+		} else {
+			cur += " " + t
+		}
+	}
+
+	if cur != "" do paras << spans(cur.trim())
+	paras.join("\n\n")
+}
+
+## `code`, and outside it [text](url), **bold**, and *italic*. A bare `[Node]` is already a class link.
+spans :: fn(s: string) string {
+	tag(s, "`", "code", fn(text: string) string { tag(tag(links(text), "**", "b"), "*", "i") })
+}
+
+## Every other `mark`-delimited run as `[name]run[/name]`, the rest through `rest`. An unpaired mark stays text.
+tag :: fn(s, mark, name: string, rest: fn(string) string = fn(s: string) string { s }) out: string {
+	parts := s.split(mark)
+	if parts.len() % 2 == 0 do return rest(s)
+	loop part, i in parts do out += if i % 2 == 1 do "[{name}]{part}[/{name}]" else do rest(part)
+	return
+}
+
+links :: fn(s: string) out: string {
+	loop part, i in s.split("[") {
+		link := part.split("](")
+		url := link[1..].join("](").split(")")
+		rest := url[1..].join(")")
+		out += if i == 0 do part else if url.len() < 2 do "[" + part else do "[url={url[0]}]{link[0]}[/url]{rest}"
+	}
+	return
 }
 
 ## The `<param>` entries of a method or signal, skipping `self`.

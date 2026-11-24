@@ -4,7 +4,7 @@ init!()
 
 ## A node driven from Oi.
 ##
-## Counts its frames and exports a speed.
+## Counts its **frames** and exports a `speed`, see [the docs](https://docs.godotengine.org).
 @class!
 OiNode :: struct {
 	Node,
