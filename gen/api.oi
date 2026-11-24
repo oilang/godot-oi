@@ -213,7 +213,7 @@ builtins :: fn(api: Api) string {
 		ms := loop m in b.methods do builtin_method(name, m) or do continue
 		fields := layout(offsets, name)
 		blocks := if fields.len() > 0 {
-			checks << """if {name}.size != {sizes[name]} do warn("{name} is {{{name}.size}} bytes, Godot's is {sizes[name]}")"""
+			checks << """if gd.{name}.size != {sizes[name]} do panic!("{name} is {{gd.{name}.size}} bytes, Godot's is {sizes[name]}")"""
 			math(name, sizes[name], fields, b.constants, ms)
 		} else {
 			opaque(name, sizes[name], b.has_destructor, b.constructors, opaques, ms)
@@ -226,12 +226,14 @@ builtins :: fn(api: Api) string {
 	}
 
 	sized := """
-		## Warns when a `@c` builtin drifts from `builtin_class_sizes`, checked as the scene level loads.
-		pub check_sizes :: fn() {{
+		## Fails `just api` when a `@c` builtin drifts from `builtin_class_sizes`.
+		gd :: use godot
+
+		main :: fn() {{
 			{checks.join(nl1)}
 		}}
 		"""
-	emit("{out}/api_sizes.oi", source([sized]))
+	emit("{out}/api_sizes.check", sized + nl)
 	"{n} builtins, {slot - nm} methods"
 }
 

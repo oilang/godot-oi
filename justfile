@@ -5,6 +5,7 @@ oi := env("OI", "oi")
 api mode="":
 	cd godot && godot --headless --dump-extension-api{{ if mode == "docs" { "-with-docs" } else { "" } }}
 	{{oi}} run gen
+	{{oi}} exec < godot/api_sizes.check
 
 # build an example's extension into its lib/
 build name:

@@ -216,7 +216,6 @@ pub init! :: fn() Ast {
 
 	godot_oi_initialize :: fn(userdata: ptr, level: i32) {
 		if godot.level(level) == .scene {
-			godot.check_sizes()
 			%{..calls}
 		}
 		if godot.level(level) == .editor {
