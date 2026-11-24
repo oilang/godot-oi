@@ -1,0 +1,5 @@
+name = "bare"
+root = "src"
+
+[deps]
+godot = { path = "../.." }

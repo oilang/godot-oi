@@ -6,13 +6,6 @@ Oi bindings for Godot.
 - `templates/` has files meant to be symlinked/copied into your project
 - `examples/` are Godot projects
 
-# setup
-
-```sh
-# installs godot module into `$OI_HOME/lib`
-just install
-```
-
 # run
 
 ```sh

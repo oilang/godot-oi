@@ -1,7 +1,6 @@
 module godot
 
 use fs
-use os
 use json.{ Obj, parse, from_json }
 
 ## Marks a struct `class!` registered, for `init!` to find.
@@ -97,10 +96,8 @@ pub parent_of :: fn(fields: []Ast) string {
 index :: comp load_index()
 
 load_index :: fn() out: []Entry {
-	home := os.env("OI_HOME") or {
-		(os.env("HOME") or "") + "/.oi"
-	}
-	path := "{home}/lib/godot/api_index.json"
+	dir := fs.Path.(src!().file).parent() or do fs.Path.(".")
+	path := dir / "api_index.json"
 	src := fs.read(path) or {
 		panic!("godot: cannot read {path}, run `just api`")
 	}
