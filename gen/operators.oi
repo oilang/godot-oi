@@ -25,10 +25,17 @@ op_of :: fn(name: string) ?Op {
 ## Types `godot/math.oi` claims inline, Self-ops and scaling by their own scalar.
 inline :: ["Vector2" "Vector2i" "Vector3" "Vector3i" "Vector4" "Vector4i" "Color"]
 
-## Whether `math.oi` already claims `lhs` with `spec`, an int promoting to its `f32`.
+## Whether `math.oi` already claims `lhs` with `spec`, an int promoting to its `f32`, or a scalar scaling on the left.
 inlined :: fn(lhs: string, spec: Operator) bool {
-	if !(lhs in inline) || !(spec.name in ["+" "-" "*" "/" "unary-"]) do return false
 	rhs := spec.right_type or { lhs }
+
+	if lhs in scalars {
+		return spec.name == "*" && rhs in inline && (lhs == "int") == rhs.ends_with("i")
+	}
+	if !(lhs in inline) || !(spec.name in ["+" "-" "*" "/" "unary-"]) {
+		return false
+	}
+
 	rhs == lhs || (spec.name in ["*" "/"] && (rhs == "int" || (rhs == "float" && !lhs.ends_with("i"))))
 }
 
@@ -37,6 +44,8 @@ claim :: fn(lhs: string, spec: Operator) ?string {
 	info := op_of(spec.name) or do return none
 	if inlined(lhs, spec) do return none
 	ret := resolve(spec.return_type, "") or do return none
+	self_t := resolve(lhs, "") or do return none
+	scalar := lhs in scalars
 
 	args: []Arg = []
 	claimed := info.name
@@ -44,20 +53,28 @@ claim :: fn(lhs: string, spec: Operator) ?string {
 	if rhs := spec.right_type {
 		# a `Variant` rhs is Godot's NIL, not a boxed Variant
 		if rhs == "Variant" do return none
+
+		# scalar with scalar is core's
+		if scalar && rhs in scalars do return none
 		typ := resolve(rhs, "") or do return none
+
 		args << Arg.{ "other", typ, false, "" }
 		right_vt = vtype(rhs)
 		if rhs != lhs do claimed = "{info.name}[{typ.sig}]"
 	}
+	if scalar && args.len() == 0 do return none
 
 	bind := "mb := gd.op_bind({slot}, .{info.op}, .{vtype(lhs)}, .{right_vt})"
 	slot += 1
+
 	call := Call.{ "operator", "base", bind, "unsafe free(base)" }
-	lines := [ "base := self.bytes()", ..ptrcall_body(args, ret, false, call) ]
-	mixed := if ret.sig == lhs do "" else do "\n\tOut :: {ret.sig}"
+	base := if scalar do [ "base := unsafe malloc(8)", "unsafe base.write(self)" ] else do [ "base := self.bytes()" ]
+	lines := [ ..base, ..ptrcall_body(args, ret, false, call) ]
+	mixed := if ret.sig == self_t.sig do "" else do "\n\tOut :: {ret.sig}"
 	ps := params(args, "self")
+
 	"""
-		{lhs} : {claimed} < {{{mixed}
+		{self_t.sig} : {claimed} < {{{mixed}
 			{info.method} :: fn({ps}) {ret.sig} {{
 				{lines.join(nl2)}
 			}}
@@ -65,10 +82,8 @@ claim :: fn(lhs: string, spec: Operator) ?string {
 		"""
 }
 
-## `float : Mul[Vector2]` and the rest with a scalar on the left are orphan claims outside core, so left out.
 operators :: fn(api: Api) string {
 	claims := loop builtin in api.builtin_classes; spec in builtin.operators {
-		if builtin.name in scalars do continue
 		claim(builtin.name, spec) or do continue
 	}
 	emit("{out}/api_operators.oi", source(claims))

@@ -115,3 +115,40 @@ Color : Mul[f32] < {
 Color : Div[f32] < {
 	div :: fn(self; other: f32) Self { .{ self.r / other, self.g / other, self.b / other, self.a / other } }
 }
+
+## Scalar scaling.
+
+f64 : Mul[Vector2] < {
+	Out :: Vector2
+	mul :: fn(self; other: Vector2) Vector2 { other * f32.(self) }
+}
+
+i64 : Mul[Vector2i] < {
+	Out :: Vector2i
+	mul :: fn(self; other: Vector2i) Vector2i { other * i32.(self) }
+}
+
+f64 : Mul[Vector3] < {
+	Out :: Vector3
+	mul :: fn(self; other: Vector3) Vector3 { other * f32.(self) }
+}
+
+i64 : Mul[Vector3i] < {
+	Out :: Vector3i
+	mul :: fn(self; other: Vector3i) Vector3i { other * i32.(self) }
+}
+
+f64 : Mul[Vector4] < {
+	Out :: Vector4
+	mul :: fn(self; other: Vector4) Vector4 { other * f32.(self) }
+}
+
+i64 : Mul[Vector4i] < {
+	Out :: Vector4i
+	mul :: fn(self; other: Vector4i) Vector4i { other * i32.(self) }
+}
+
+f64 : Mul[Color] < {
+	Out :: Color
+	mul :: fn(self; other: Color) Color { other * f32.(self) }
+}

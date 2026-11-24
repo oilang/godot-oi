@@ -63,7 +63,9 @@ OiNode :< {
 
 		mixed := Vector2i.{ 1, 2 } * 2.5
 		moved := Transform2D.{ Vector2.{ 2.0, 0.0 }, Vector2.{ 0.0, 2.0 }, Vector2.{ 1.0, 1.0 } } * p
-		print("oi: ops {mixed.y} {moved.x} {moved.y}")
+		lhs := 2.0 * p
+		thrice := 3 * p
+		print("oi: ops {mixed.y} {moved.x} {moved.y} {lhs.y} {thrice.x}")
 
 		up := hi.to_upper()
 		v2 := Vector2.{ 3.0, 4.0 }
