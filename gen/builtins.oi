@@ -34,11 +34,10 @@ movers :: fn(name: string, size: int, writes, reads: []string) string {
 
 ## A math builtin as a `@c` struct with real fields, its constants as fills.
 math :: fn(name: string, size: int, members: []Field, consts: []Value, methods: []string) []string {
-	metas := loop m in members do m.meta
 	ms := loop m in members do Member.{ m.member, member_type(m.meta), m.offset }
 	fields := loop m in ms do "pub {m.name}: {m.typ}"
 	fills := loop k in consts {
-		f := fill(name, k.value, metas) or do continue
+		f := fill(name, k.value) or do continue
 		"\tpub {k.name} :: {f}"
 	}
 	writes := loop m in ms do "unsafe b.offset({m.off}).write(self.{m.name})"
@@ -49,7 +48,7 @@ math :: fn(name: string, size: int, members: []Field, consts: []Value, methods: 
 			{fields.join(nl1)}
 		}}
 		"""
-	return [ decl, "{name} :< {{\n{body}\n}}" ]
+	[ decl, "{name} :< {{\n{body}\n}}" ]
 }
 
 ## An opaque builtin, one `[N]u64` field sized to the engine's.
@@ -241,27 +240,39 @@ builtin_method :: fn(bname: string, m: Method) ?string {
 		"""
 }
 
-## Fill a struct.
-fill :: fn(name: string, value: string, metas: []string) ?string {
+## A builtin literal from a Godot constructor string like `Transform2D(1, 0, ..)`, builtins named with `pre`.
+fill :: fn(name: string, value: string, pre := "") ?string {
 	open := value.split("(")
 	if open.len() != 2 do return none
+	nest(name, open[1].split(")")[0].split(", "), pre)
+}
 
+## How many of a constructor string's flat numbers a builtin's literal takes.
+width :: fn(name: string) int {
+	if !(name in member_metas.keys) do return 1
+	n := 0
+	loop meta in member_metas[name].split(",") do n += width(meta)
+	n
+}
+
+## `name`'s literal over flat numbers, a builtin member taking its own `width` of them.
+nest :: fn(name: string, toks: []string, pre: string) ?string {
+	if !(name in member_metas.keys) || toks.len() != width(name) do return none
 	parts: []string = []
-	toks := open[1].split(")")[0].split(", ")
-	if toks.len() != metas.len() do return none
-
-	loop tok in toks, meta in metas {
-		match meta {
-			"float" => {
-				parts << match {
-					tok == "inf" => { "1e400" },
-					tok.contains(".") => { tok },
-					_ => { "{tok}.0" }
-				}
+	at := 0
+	loop meta in member_metas[name].split(",") {
+		n := width(meta)
+		tok := toks[at]
+		parts << match meta {
+			"float" => match {
+				tok == "inf" => "1e400",
+				tok.contains(".") => tok,
+				_ => "{tok}.0",
 			},
-			"int32" => { parts << tok },
-			_ => { return none },
+			"int32" => tok,
+			_ => nest(meta, toks[at..at + n], pre) or do return none,
 		}
+		at += n
 	}
-	"{name}.{{ " + parts.join(", ") + " }}"
+	"{pre}{name}.{{ " + parts.join(", ") + " }}"
 }

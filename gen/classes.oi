@@ -166,7 +166,7 @@ default :: fn(typ: Typ, d: string) string {
 		"builtin" => match {
 			hooked[typ.name] => "godot.{typ.sig}.new()",
 			typ.name in member_metas.keys => {
-				if f := fill(typ.name, d, member_metas[typ.name].split(",")) do "godot.{f}" else do ""
+				fill(typ.name, d, "godot.") or ""
 			},
 			zeroish(d) => "none",
 			_ => ""
@@ -299,7 +299,7 @@ put :: fn(a: Arg, i: int, store: string) []string {
 
 object_return :: fn(rt: Typ, opt: bool, p: string) []string {
 	if !opt do return [ "rv := {rt.sig}.from_ptr({p})" ]
-	return [
+	[
 		"p_ := {p}",
 		"r_ := {rt.sig}.from_ptr(p_)",
 		"rv := if p_.is_null() {{ ?{rt.sig}.(none) }} else {{ ?{rt.sig}.(r_) }}",
@@ -327,7 +327,7 @@ get :: fn(rt: Typ, ropt: bool, roff: int) []string {
 		"refobj" => return object_return(rt, ropt, "gd.ref_get_object(ptr.(blk.0 + {roff}))"),
 		_ => return [],
 	}
-	return [ "rv := {rv}" ]
+	[ "rv := {rv}" ]
 }
 
 ## Fixed args boxed into `Variant`s, then `Godot.call` with the trailing `varargs`.
@@ -612,7 +612,7 @@ conv :: fn(name: string, vt: string, size: int, obj: bool, refc: bool) []string 
 			}}
 		}}
 		"""
-	return [ to, from ]
+	[ to, from ]
 }
 
 ## Size after which to split files.

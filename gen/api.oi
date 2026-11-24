@@ -83,7 +83,7 @@ enum_block :: fn(label, name, owner: string; values: []Const, bitfield: bool) []
 		}}
 		"""
 	if aliases.len() == 0 do return [ decl ]
-	return [ decl, "{name} :< {{\n{aliases.join(nl)}\n}}" ]
+	[ decl, "{name} :< {{\n{aliases.join(nl)}\n}}" ]
 }
 
 ## A mask as a `Bits` literal over the flags of `name`.
@@ -144,8 +144,8 @@ ctype :: fn(t: string) string {
 	}
 }
 
-## A native struct as a `@c` struct, none when a field has no C layout in Oi.
-struct_block :: fn(s: Native) ?string {
+## A native struct as a `@c` struct.
+struct_block :: fn(s: Native) string {
 	fields := loop field in s.format.split(";") {
 		parts := field.split(" = ")[0].split(" ")
 		typ := ctype(parts[0])
@@ -155,7 +155,6 @@ struct_block :: fn(s: Native) ?string {
 			fname = fname[1..fname.len()]
 		}
 		if fname.contains("[") {
-			if !(typ in [ "i32", "i64", "u8", "u16", "u32", "u64", "f32", "f64", "bool", "ptr" ]) do return none
 			halves := fname.split("[")
 			count := halves[1].split("]")[0]
 			fname = halves[0]
@@ -172,7 +171,7 @@ struct_block :: fn(s: Native) ?string {
 }
 
 structs :: fn(api: Api) string {
-	blocks := loop item in api.native_structures do struct_block(item) or do continue
+	blocks := loop item in api.native_structures do struct_block(item)
 	emit("{out}/api_structs.oi", source(blocks))
 	"{blocks.len()} structs"
 }

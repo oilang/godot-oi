@@ -46,7 +46,8 @@ OiNode :< {
 
 		z := Vector2.ZERO
 		w := Color.WHITE
-		print("oi: const {z.x} {z.y} {w.r} {w.g} {w.b} {w.a}")
+		flip := Transform3D.FLIP_X
+		print("oi: const {z.x} {z.y} {w.r} {w.g} {w.b} {w.a} {flip.basis.x.x}")
 		print("oi: enum alias {InlineAlignment.top() == InlineAlignment.to_top()}")
 
 		p := Vector2.{ 1.0, 2.0 }
