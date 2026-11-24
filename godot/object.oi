@@ -12,6 +12,24 @@ Object :< {
 	pub is_a :: fn(self; class: string) bool { self.is_class(class) }
 }
 
+## An engine class, which `T.(v)` unboxes from a `Variant`.
+pub GodotClass :: trait {
+	from_ptr: fn(p: ptr) Self
+
+	## A handle on an object Godot lent, a refcounted one taking its own reference.
+	adopt :: fn(p: ptr) Self do Self.from_ptr(p)
+}
+
+[T: GodotClass] T : From[Variant] < {
+	from :: fn(v: Variant) T {
+		out := unsafe malloc(8)
+		gd.to_type(.object, v, out)
+		p := unsafe out.read[ptr]()
+		unsafe free(out)
+		T.adopt(p)
+	}
+}
+
 GodotError :< Error
 
 ## A bitfield crosses as the bitmask.

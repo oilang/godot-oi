@@ -576,14 +576,9 @@ members :: fn(c: Class) fns: []string {
 	fns << accessors(c, used)
 }
 
-## `Variant` to and from a builtin or class.
+## `Variant` to and from a builtin or class, a class unboxing through the `GodotClass` blanket.
 conv :: fn(name: string, vt: string, size: int, obj: bool, refc: bool) []string {
 	box := if obj do [ "b := unsafe malloc(8)", "unsafe b.write(v.object)" ] else do [ "b := v.bytes()" ]
-	unbox := match {
-		!obj => [ "{name}.from_bytes(out)" ],
-		refc => [ "p_ := unsafe out.read[ptr]()", "unsafe free(out)", "r_ := {name}.from_ptr(p_)", "_ := r_.init_ref()", "r_" ],
-		_ => [ "p_ := unsafe out.read[ptr]()", "unsafe free(out)", "{name}.from_ptr(p_)" ],
-	}
 	to := """
 		Variant : From[{name}] < {{
 			from :: fn(v: {name}) Variant {{
@@ -595,12 +590,25 @@ conv :: fn(name: string, vt: string, size: int, obj: bool, refc: bool) []string 
 			}}
 		}}
 		"""
+
+	if refc do return [ to, """
+		{name} : GodotClass < {{
+			adopt :: fn(p: ptr) {name} {{
+				r_ := {name}.from_ptr(p)
+				_ := r_.init_ref()
+				r_
+			}}
+		}}
+		""" ]
+
+	if obj do return [ to, "{name} : GodotClass < {{}}" ]
+
 	from := """
 		{name} : From[Variant] < {{
 			from :: fn(v: Variant) {name} {{
 				out := unsafe malloc({size})
 				gd.to_type(.{vt}, v, out)
-				{unbox.join(nl2)}
+				{name}.from_bytes(out)
 			}}
 		}}
 		"""
