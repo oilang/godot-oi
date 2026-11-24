@@ -2,9 +2,13 @@ with use godot
 
 init!()
 
+## A node driven from Oi.
+##
+## Counts its frames and exports a speed.
 @class!
 OiNode :: struct {
 	Node,
+	## Frames processed so far.
 	frames: u64 @export,
 	speed: f64 = 1.0 @export.{ .range, "0,10,0.5" },
 	scene: PackedScene @export,
@@ -112,6 +116,7 @@ OiNode :< {
 		print("oi: hello")
 	}
 
+	## Adds `a` and `b`.
 	@func
 	add :: fn(self; a, b: i64) i64 { a + b }
 

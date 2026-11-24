@@ -47,8 +47,10 @@ pub gtype :: fn(t: Ast) string {
 	leaf(t.str())
 }
 
-## An item's `##` doc as editor help text.
-pub doc :: fn(item: Ast) string do ""
+## An item's `##` doc as editor help text, escaped for the XML.
+pub doc :: fn(item: Ast) string {
+	item.doc.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+}
 
 ## The `<param>` entries of a method or signal, skipping `self`.
 pub params_xml :: fn(f: Ast) out: string {

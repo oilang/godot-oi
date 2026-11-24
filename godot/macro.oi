@@ -67,9 +67,13 @@ pub class! :: fn(input: Ast) Ast {
 		# Godot names the class bare, while a submodule keys it as `module::Name`.
 		path := name.split("::")
 		class_name := path[path.len() - 1]
-		cdoc := doc(input)
-		head := """<class name="{class_name}" inherits="{parent}"><brief_description></brief_description>"""
-		head += "<description>{cdoc}</description><members>{members}</members>"
+
+		# the first paragraph is the brief
+		paras := doc(input).split("\n\n")
+		brief := paras[0]
+		rest := paras[1..].join("\n\n")
+		head := """<class name="{class_name}" inherits="{parent}"><brief_description>{brief}</brief_description>"""
+		head += "<description>{rest}</description><members>{members}</members>"
 
 		`@class %input
 		## The class's doc XML up to its methods, which the fill's `_help` appends.
