@@ -7,6 +7,7 @@ OiNode2D :: struct {
 	hp: i64 = 3 @gd.export,
 	aim: gd.Vector2 = gd.Vector2.{ 1.0, 2.0 } @gd.export,
 	label: gd.String = "hi" @gd.export,
+	loot: gd.Variant @gd.export,
 	Stats @gd.export,
 }
 

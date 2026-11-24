@@ -122,6 +122,7 @@ collection :: fn(name: string, methods: []Method) []string {
 					_ => a,
 				}
 
+				got := if elem == "String" do "self.get(i).str()" else do "self.get(i)"
 				fill := if name == "Array" do "loop x in xs do s.push_back(x)" else do [
 					"_ := s.resize(i64.(xs.len()))",
 					"base := s.bytes()",
@@ -143,7 +144,7 @@ collection :: fn(name: string, methods: []Method) []string {
 					pairs :: fn(self; after: ?i64) ?({a}, i64) {{
 						i := (after or -1) + 1
 						if i >= self.size() do return none
-						(self.get(i), i)
+						({got}, i)
 					}}
 				}}
 				"""

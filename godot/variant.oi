@@ -18,9 +18,9 @@ VARIANT_SIZE :: 24
 ## String in extension_api.json builtin_class_sizes
 STRING_SIZE :: 8
 
-## GDExtensionVariantPtr, owning the heap bytes behind `at`.
+## GDExtensionVariantPtr, owning the heap bytes behind `at`, a nil one by default.
 ## Not `@c`, so `Variant.(cell)` views a slot Godot owns, read from the cell holding its address, without owning it.
-pub Variant :: struct { pub at: ptr }
+pub Variant :: struct { pub at: ptr = unsafe calloc(1, usize.(VARIANT_SIZE)) }
 
 Variant : Drop, Copy < {
 	drop :: fn(mut self) { gd.release(self.at) }
@@ -31,7 +31,7 @@ Variant : Drop, Copy < {
 Godot :< {
 	## A fresh nil `Variant` on the heap.
 	pub variant :: fn(self) Variant {
-		Variant.{ unsafe calloc(1, usize.(VARIANT_SIZE)) }
+		Variant.{}
 	}
 
 	## Build Variant from raw typed storage, and write Variant back out as that type.

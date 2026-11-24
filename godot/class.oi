@@ -322,7 +322,7 @@ Godot :< {
 		pinfo := unsafe malloc(PropertyInfo.size)
 		loop p, i in props {
 			info := self.slot_info(Slot.{ p.name, p.type }, p.hint, p.hint_string)
-			info.usage = u32.(if p.exported { USAGE_DEFAULT } else { 0 })
+			if !p.exported do info.usage = 0
 			unsafe pinfo.write(info)
 			get := unsafe bound(mt, own.len() + 2 * i).read[Bound]().name
 			set := unsafe bound(mt, own.len() + 2 * i + 1).read[Bound]().name

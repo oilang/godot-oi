@@ -35,6 +35,11 @@ func _ready() -> void:
 	$OiNode2D.label += " there"
 	print("gd: label ", before, " ", $OiNode2D.label)
 
+	var empty = $OiNode2D.loot
+	$OiNode2D.loot = "gold"
+	var loot = ClassDB.class_get_property_list("OiNode2D", true).filter(func(p): return p.name == "loot")[0]
+	print("gd: loot ", empty, " ", $OiNode2D.loot, " ", loot.usage & PROPERTY_USAGE_NIL_IS_VARIANT != 0)
+
 	var m: OiNode2D = $OiNode2D
 	print("gd: doubled ", $OiNode2D.doubled(Vector2(1, 2)), " ", m.doubled(Vector2(3, 4)))
 	print("gd: greet ", $OiNode2D.greet("dyn"), " ", m.greet("typed"))
