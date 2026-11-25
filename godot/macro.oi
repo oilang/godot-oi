@@ -209,7 +209,7 @@ pub init! :: fn() Ast {
 	calls := loop c in defs(class) do `%{ident(c.name.str() + "_class")}()`
 	helps := loop c in defs(class) do `%{ident(c.name.str() + "_help")}()`
 
-	`@export.{"godot_oi_init"}
+	`@core.export.{"godot_oi_init"}
 	godot_oi_init :: fn(get_proc: godot.GetProc, library: ptr, out: ptr) bool {
 		godot.setup(get_proc, library, out, godot_oi_initialize, godot_oi_deinitialize)
 	}
