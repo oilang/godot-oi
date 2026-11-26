@@ -52,3 +52,4 @@ gd: doubled (2.0, 4.0) (6.0, 8.0)
 gd: greet hi dyn hi typed
 gd: echo [1, "a"] (1.0, 2.0) <null>
 gd: flat 3 1.5 ["a!", "b!"] 5
+gd: editor true <null> pong

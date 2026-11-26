@@ -1,0 +1,12 @@
+gd :: use godot
+
+## Runs in the editor too, where a plain class is a placeholder.
+@gd.class!
+@gd.tool
+OiTool :: struct { gd.Node }
+
+@gd.class!
+OiTool :< {
+	@gd.func
+	ping :: fn(self) string do "pong"
+}

@@ -14,6 +14,7 @@ pub class! :: fn(input: Ast) Ast {
 		reg := ident(name + "_register")
 		on := ident(name + "_onready")
 		edit := gensym("edit")
+		tool := noted(input, "tool")
 		xml := ident("{name}_xml")
 		props: []Ast
 		members := ""
@@ -94,7 +95,8 @@ pub class! :: fn(input: Ast) Ast {
 		}
 
 		%reg :: fn(virtuals: []godot.Method, methods: []godot.Method, signals: []godot.Sig) {
-			godot.gd.register(%class_name, %parent, %n.size, virtuals, methods, [%{..props}], signals, fn(%{params[0]}) {
+			props: []godot.Property = [%{..props}]
+			godot.gd.register(%class_name, %parent, %n.size, %tool, virtuals, methods, props, signals, fn(%{params[0]}) {
 				p := godot.payload(inst)
 				unsafe p.write(%n.{})
 				unsafe %n.(p).%edit(fn(mut x: %n) () { x.object = godot.object(inst) })
@@ -240,6 +242,9 @@ pub signal :: ()
 
 ## Marks a fn in a fill as a private helper: neither a virtual nor a method.
 pub hidden :: ()
+
+## Marks a class struct as a tool, run in the editor too, like GDScript's `@tool`.
+pub tool :: ()
 
 ## A `PropertyHint` and its string (`.{ .range, "0,10,0.5" }`), on the field or, on an embedded struct, its own `field`.
 pub export :: struct { hint: PropertyHint, hint_string: string, field: string }

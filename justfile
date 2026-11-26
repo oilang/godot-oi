@@ -25,7 +25,8 @@ import name: (build name)
 edit name: (build name)
 	godot --editor --path examples/{{name}}
 
-# diff an example's smoke output against its expected.txt
+# diff an example's smoke output, then editor.gd's stdout under the editor, against its expected.txt
 test name:
-	just run {{name}} 2>&1 | grep -E '^(oi|gd|WARNING): ' | grep -v '^oi: process ' \
+	{ just run {{name}}; godot --headless --editor --path examples/{{name}} -s res://editor.gd 2>/dev/null; } 2>&1 \
+		| grep -E '^(oi|gd|WARNING): ' | grep -v '^oi: process ' \
 		| sed -E 's/Godot [0-9]+\.[0-9]+\.[0-9]+.*/Godot x.y.z/' | diff -u examples/{{name}}/expected.txt -
