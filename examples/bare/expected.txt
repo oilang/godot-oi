@@ -55,4 +55,5 @@ gd: echo [1, "a"] (1.0, 2.0) <null>
 gd: flat 3 1.5 ["a!", "b!"] 5
 oi: notification 9001
 gd: to_string OiNode2D hp 5
+gd: groups Combat hp aim label loot Stats armor Range:re reach
 gd: editor true <null> pong

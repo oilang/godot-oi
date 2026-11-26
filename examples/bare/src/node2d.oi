@@ -4,17 +4,17 @@ gd :: use godot
 OiNode2D :: struct {
 	gd.Node2D,
 	sprite: gd.Sprite2D @gd.onready.{ "../Sprite" },
-	hp: i64 = 3 @gd.export,
+	hp: i64 = 3 @gd.export @gd.group.{ "Combat" },
 	aim: gd.Vector2 = gd.Vector2.{ 1.0, 2.0 } @gd.export,
 	label: gd.String = "hi" @gd.export,
 	loot: gd.Variant @gd.export,
-	Stats @gd.export,
+	Stats @gd.export @gd.group.{ "Stats" },
 }
 
 @gd.constant.{ "OiNode2D", bitfield = true }
 Layers :: enum { ground, air, water }
 
-Stats :: struct { armor: i64 = 2, reach: float = 1.5 }
+Stats :: struct { armor: i64 = 2, reach: float = 1.5 @gd.subgroup.{ "Range", "re" } }
 
 @gd.class!
 OiNode2D :< {

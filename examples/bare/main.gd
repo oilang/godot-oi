@@ -64,3 +64,6 @@ func _ready() -> void:
 
 	$OiNode2D.notification(9001)
 	print("gd: to_string ", $OiNode2D)
+	var order = ClassDB.class_get_property_list("OiNode2D", true).map(func(p):
+		return p.name + (":" + p.hint_string if p.usage & PROPERTY_USAGE_SUBGROUP else ""))
+	print("gd: groups ", " ".join(PackedStringArray(order)))

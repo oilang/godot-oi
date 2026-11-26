@@ -129,7 +129,11 @@ pub Property :: struct {
 	hint: PropertyHint,
 	hint_string: string,
 	default: ?Variant,
+	groups: []Group,
 }
+
+## An inspector group or subgroup.
+pub Group :: struct { pub name: string, pub prefix: string, pub sub: bool }
 
 ## A signal a class declares.
 pub Sig :: struct { name: cstr, args: []Slot }
@@ -152,9 +156,9 @@ pub virtual :: fn(name: cstr, cb: OnMethod, args: []Slot, ret: ?Type, hash: int)
 
 pub property :: fn(
 	name: cstr, t: Type, get: OnMethod, set: OnMethod, exported: bool,
-	hint: PropertyHint = .none_, hint_string: string = "", default: ?Variant = none,
+	hint: PropertyHint = .none_, hint_string: string = "", default: ?Variant = none, groups: []Group = [],
 ) Property {
-	Property.{ name, t, get, set, exported, hint, hint_string, default }
+	Property.{ name, t, get, set, exported, hint, hint_string, default, groups }
 }
 
 ## The cell of `args` holding the nth slot's address.
@@ -338,6 +342,10 @@ Godot :< {
 		loop p, i in props {
 			info := self.slot_info(Slot.{ p.name, p.type }, p.hint, p.hint_string)
 			if !p.exported do info.usage = 0
+
+			# Godot files each property under the group opened last
+			loop g in p.groups do self.group(c.name, g)
+
 			unsafe pinfo.write(info)
 			get := unsafe bound(mt, own.len() + 2 * i).read[Bound]().name
 			set := unsafe bound(mt, own.len() + 2 * i + 1).read[Bound]().name
@@ -367,6 +375,22 @@ Godot :< {
 		on := unsafe RegisterConstant.(self.proc("classdb_register_extension_class_integer_constant"))
 		on(self.library, names[0], names[1], names[2], value, bitfield)
 		loop n in names do self.free_name(n)
+	}
+
+	## Open `g` on `class` for the properties registered after it.
+	group :: fn(self; class: ptr, g: Group) {
+		at := loop s in [g.name, g.prefix] {
+			str := unsafe malloc(usize.(STRING_SIZE))
+			self.new_string(str, s.ptr, i64.(s.len()))
+			str
+		}
+		sub := if g.sub do "sub" else do ""
+		proc := "classdb_register_extension_class_property_{sub}group"
+		unsafe RegisterGroup.(self.proc(proc.cstr()))(self.library, class, at[0], at[1])
+		loop str in at {
+			self.drop_string(str)
+			unsafe free(str)
+		}
 	}
 
 	## Unregister every class, newest first.
