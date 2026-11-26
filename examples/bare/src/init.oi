@@ -133,4 +133,7 @@ OiNode :< {
 	## Takes no `self`, so scripts call it on the class, `OiNode.twice(4)`.
 	@func
 	twice :: fn(x: i64) i64 { x * 2 }
+
+	@func
+	scaled :: fn(self; x: i64, by: i64 = 10) i64 { x * by }
 }

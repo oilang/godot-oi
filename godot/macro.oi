@@ -197,7 +197,12 @@ pub class! :: fn(input: Ast) Ast {
 					at := a.typ
 					ty := parse("." + vtype(at))
 					argv << `godot.arg[%at](args, %i)`
-					slots << `godot.slot(%aname, %ty)`
+
+					dflt := loop d in a.items do `godot.Variant.({
+						x: %at = %d
+						x
+					})`
+					slots << `godot.slot(%aname, %ty, %{..dflt})`
 				}
 			}
 

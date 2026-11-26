@@ -112,7 +112,7 @@ TOO_MANY :: 3
 TOO_FEW :: 4
 
 ## A method arg. `.nil` is an untyped `Variant`.
-pub Slot :: struct { name: cstr, type: Type }
+pub Slot :: struct { name: cstr, type: Type, default: ptr = ptr.(0) }
 
 ## A method scripts can call, or a virtual the engine calls.
 pub Method :: struct {
@@ -142,8 +142,9 @@ pub Group :: struct { pub name: string, pub prefix: string, pub sub: bool }
 ## A signal a class declares.
 pub Sig :: struct { name: cstr, args: []Slot }
 
-pub slot :: fn(name: cstr, t: Type) Slot {
-	Slot.{ name, t }
+pub slot :: fn(name: cstr, t: Type, default: ?Variant = none) Slot {
+	d := default or return Slot.{ name, t }
+	Slot.{ name, t, gd.dup(d.at) }
 }
 pub sig :: fn(name: cstr, args: []Slot) Sig {
 	Sig.{ name, args }
@@ -189,7 +190,9 @@ pub ret :: fn(at: ptr, v: Variant) {
 	argc: i32,
 	types: ptr,
 	ret: i32,
-	hash: u32
+	hash: u32,
+	ndefaults: i32,
+	defaults: ptr,
 }
 
 ## Per-class state, handed to Godot as `class_userdata`. Classes chain through `next`.
@@ -320,23 +323,41 @@ Godot :< {
 
 		minfo := unsafe malloc(MethodInfo.size)
 		loop m, i in methods {
-			b := bound(mt, i)
+			at := bound(mt, i)
+			b := unsafe at.read[Bound]()
 			args := unsafe malloc(PropertyInfo.size * usize.(m.args.len()))
 			meta := unsafe calloc(usize.(m.args.len()), 4)
 			loop a, j in m.args {
 				unsafe prop(args, j).write(self.slot_info(a))
 			}
+
 			ret := unsafe malloc(PropertyInfo.size)
 			unsafe ret.write(self.slot_info(Slot.{ "", m.ret or .nil }))
+
 			unsafe minfo.write(MethodInfo.{
-				b.read[Bound]().name, b, call_method, ptrcall_method, u32.(if m.static { METHOD_STATIC } else { METHOD_DEFAULT }),
-				m.ret != none, ret, 0, u32.(m.args.len()), args, meta,
+				name = b.name,
+				userdata = at,
+				call = call_method,
+				ptrcall = ptrcall_method,
+				flags = u32.(if m.static { METHOD_STATIC } else { METHOD_DEFAULT }),
+				has_return = m.ret != none,
+				return_info = ret,
+				return_metadata = 0,
+				argument_count = u32.(m.args.len()),
+				arguments_info = args,
+				arguments_metadata = meta,
+				default_argument_count = u32.(b.ndefaults),
+				default_arguments = b.defaults,
 			})
+
 			self.register_method(self.library, c.name, minfo)
+
 			loop j in ..m.args.len() {
 				self.drop_slot(unsafe prop(args, j).read[PropertyInfo]())
 			}
+
 			self.drop_slot(unsafe ret.read[PropertyInfo]())
+
 			unsafe free(args)
 			unsafe free(meta)
 			unsafe free(ret)
@@ -419,11 +440,26 @@ Godot :< {
 		t := unsafe malloc(Bound.size * usize.(methods.len()))
 		loop m, i in methods {
 			types := unsafe malloc(usize.(4 * m.args.len()))
+			defaults := unsafe malloc(ptr.size * usize.(m.args.len()))
+			nd := 0
 			loop a, j in m.args {
 				unsafe ptr.(types.0 + usize.(4 * j)).write(i32.(a.type))
+				if a.default.is_null() do continue
+
+				unsafe cell(defaults, nd).write(a.default)
+				nd += 1
 			}
+
 			unsafe bound(t, i).write(Bound.{
-				ptr.(0), self.string_name(m.name), ptr.(m.call), i32.(m.args.len()), types, i32.(m.ret or .nil), m.hash
+				default = ptr.(0),
+				name = self.string_name(m.name),
+				call = ptr.(m.call),
+				argc = i32.(m.args.len()),
+				types = types,
+				ret = i32.(m.ret or .nil),
+				hash = m.hash,
+				ndefaults = i32.(nd),
+				defaults = defaults,
 			})
 		}
 		t
@@ -455,7 +491,13 @@ Godot :< {
 			b := unsafe bound(table, i).read[Bound]()
 			self.free_name(b.name)
 			unsafe free(b.types)
+
 			if !b.default.is_null() do self.release(b.default)
+			loop j in ..int.(b.ndefaults) {
+				self.release(unsafe cell(b.defaults, j).read[ptr]())
+			}
+
+			unsafe free(b.defaults)
 		}
 		unsafe free(table)
 	}
@@ -527,17 +569,25 @@ call_virtual_with_data :: fn(inst: ptr, name: ptr, data: ptr, args: ptr, ret: pt
 }
 
 ## The `Variant` call path.
-call_method :: fn(userdata: ptr, inst: ptr, args: ptr, argc: i64, ret: ptr, err: ptr) {
+## A short call is padded with the trailing defaults.
+call_method :: fn(userdata: ptr, inst: ptr, given: ptr, argc: i64, ret: ptr, err: ptr) {
 	b := unsafe userdata.read[Bound]()
-	if argc != i64.(b.argc) {
+	lo := i64.(b.argc - b.ndefaults)
+	want := if argc < lo { lo } else { i64.(b.argc) }
+	if argc < lo || argc > want {
 		unsafe err.write(CallError.{
-			i32.(if argc > i64.(b.argc) { TOO_MANY } else { TOO_FEW }),
+			i32.(if argc < lo { TOO_FEW } else { TOO_MANY }),
 			0,
-			b.argc
+			i32.(want)
 		})
 		return
 	}
+
+	args := unsafe malloc(ptr.size * usize.(b.argc))
+	defer unsafe free(args)
 	loop i in ..int.(b.argc) {
+		src := if i64.(i) < argc { cell(given, i) } else { cell(b.defaults, i - int.(lo)) }
+		unsafe cell(args, i).write(unsafe src.read[ptr]())
 		t := type_at(b.types, i)
 		if t != .nil && !gd.variant_can_convert(i32.(unsafe Variant.(cell(args, i)).type()), i32.(t)) {
 			unsafe err.write(CallError.{
