@@ -237,7 +237,7 @@ builtins :: fn(api: Api) string {
 	"{n} builtins, {slot - nm} methods"
 }
 
-## Write index.json, the parents, virtuals, and enums `godot/attr.oi` reads at comptime.
+## Write index.json, the parents, virtuals, and enums `godot/macro.oi` reads at comptime.
 index :: fn(api: Api) {
 	root: Obj = []
 	loop c in api.classes {
