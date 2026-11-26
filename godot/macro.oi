@@ -145,8 +145,7 @@ pub class! :: fn(input: Ast) Ast {
 			if noted(it, "hidden") do continue
 			fname := it.name.str()
 			if noted(it, "signal") {
-				sslots := loop j in 1..it.items.len() {
-					a := it.items[j]
+				sslots := loop a in args_of(it) {
 					aname := a.name.str()
 					ty := parse("." + vtype(a.typ))
 					`godot.slot(%aname, %ty)`
@@ -193,10 +192,8 @@ pub class! :: fn(input: Ast) Ast {
 				}
 				done << vname
 			} else {
-				loop j in 1..it.items.len() {
-					a := it.items[j]
+				loop a, i in args_of(it) {
 					aname := a.name.str()
-					i := j - 1
 					at := a.typ
 					ty := parse("." + vtype(at))
 					argv << `godot.arg[%at](args, %i)`
@@ -204,7 +201,8 @@ pub class! :: fn(input: Ast) Ast {
 				}
 			}
 
-			call := `unsafe %n.(godot.payload(inst)).%m(%{..argv})`
+			static := args_of(it).len() == it.items.len()
+			call := if static do `%n.%m(%{..argv})` else do `unsafe %n.(godot.payload(inst)).%m(%{..argv})`
 			void := it.typ.kind == "tuple"
 			body := if void do call else do `godot.ret(ret, godot.Variant.(%call))`
 			cb := `fn(%{..params}) {
@@ -215,11 +213,12 @@ pub class! :: fn(input: Ast) Ast {
 				virtuals << `godot.virtual(%vname, %cb, [%{..slots}], none, %h)`
 			} else {
 				rt := if void do `none` else do parse("." + vtype(it.typ))
-				methods << `godot.method(%fname, %cb, [%{..slots}], %rt)`
+				methods << `godot.method(%fname, %cb, [%{..slots}], %rt, %static)`
 				gt := if void do "void" else do gtype(it.typ)
 				ps := params_xml(it)
 				md := doc(it)
-				mdocs += """<method name="{fname}"><return type="{gt}" />{ps}<description>{md}</description></method>"""
+				q := if static do """ qualifiers="static\"""" else do ""
+				mdocs += """<method name="{fname}"{q}><return type="{gt}" />{ps}<description>{md}</description></method>"""
 			}
 		}
 		rh := virtual_hash(up, "_ready")
@@ -387,15 +386,21 @@ links :: fn(s: string) out: string {
 	return
 }
 
-## The `<param>` entries of a method or signal, skipping `self`.
+## The `<param>` entries of a method or signal.
 pub params_xml :: fn(f: Ast) out: string {
-	loop j in 1..f.items.len() {
-		a := f.items[j]
+	loop a, i in args_of(f) {
 		name := a.name.str()
 		ty := gtype(a.typ)
-		out += """<param index="{j - 1}" name="{name}" type="{ty}" />"""
+		out += """<param index="{i}" name="{name}" type="{ty}" />"""
 	}
 	return
+}
+
+## A fn's params past its `self`, all of them for a static one.
+pub args_of :: fn(f: Ast) []Ast {
+	if f.items.len() > 0 && f.items[0].name.str() == "self" {
+		f.items[1..]
+	} else do f.items
 }
 
 ## The last segment of a path, `gd.export` -> `export`.

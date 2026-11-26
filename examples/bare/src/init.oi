@@ -129,4 +129,8 @@ OiNode :< {
 
 	@func
 	add4 :: fn(self; a, b, c, d: i64) i64 { a + b + c + d }
+
+	## Takes no `self`, so scripts call it on the class, `OiNode.twice(4)`.
+	@func
+	twice :: fn(x: i64) i64 { x * 2 }
 }

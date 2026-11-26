@@ -16,6 +16,7 @@ func _ready() -> void:
 	var n: OiNode = $OiNode
 	print("gd: typed add ", n.add(3, 4))
 	print("gd: add4 ", $OiNode.add4(1, 2, 3, 4), " ", n.add4(5, 6, 7, 8))
+	print("gd: static ", ClassDB.class_call_static("OiNode", "twice", 5), " ", OiNode.twice(4))
 	print("gd: default speed ", ClassDB.class_get_property_default_value("OiNode", "speed"))
 
 	for p in ClassDB.class_get_property_list("OiNode", true):

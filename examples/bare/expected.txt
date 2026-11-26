@@ -35,6 +35,7 @@ oi: hello
 gd: add 3
 gd: typed add 7
 gd: add4 10 26
+gd: static 10 8
 gd: default speed 1.0
 gd: hint 1 0,10,0.5
 gd: hint 17 PackedScene
