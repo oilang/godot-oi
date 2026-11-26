@@ -361,6 +361,14 @@ Godot :< {
 		}
 	}
 
+	## Register an integer constant of `class`, a value of enum `group` unless that is empty.
+	pub constant :: fn(self; class, group, name: cstr, value: i64, bitfield: bool) {
+		names := [self.string_name(class), self.string_name(group), self.string_name(name)]
+		on := unsafe RegisterConstant.(self.proc("classdb_register_extension_class_integer_constant"))
+		on(self.library, names[0], names[1], names[2], value, bitfield)
+		loop n in names do self.free_name(n)
+	}
+
 	## Unregister every class, newest first.
 	pub unregister_all :: fn(self) {
 		class := unsafe self.classes.read[ptr]()

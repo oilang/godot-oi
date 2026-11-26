@@ -65,6 +65,9 @@ RegisterProperty :: @c fn(library: ptr, name: ptr, info: ptr, setter: ptr, gette
 ## GDExtensionInterfaceClassdbRegisterExtensionClassSignal
 RegisterSignal :: @c fn(library: ptr, name: ptr, signal: ptr, args: ptr, argc: i64)
 
+## GDExtensionInterfaceClassdbRegisterExtensionClassIntegerConstant
+RegisterConstant :: @c fn(library, class, enum_name, name: ptr, value: i64, bitfield: b8)
+
 ## GDExtensionInterfaceClassdbConstructObject3
 ConstructObject :: @c fn(name: ptr) ptr
 

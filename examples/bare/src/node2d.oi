@@ -11,6 +11,9 @@ OiNode2D :: struct {
 	Stats @gd.export,
 }
 
+@gd.constant.{ "OiNode2D", bitfield = true }
+Layers :: enum { ground, air, water }
+
 Stats :: struct { armor: i64 = 2, reach: float = 1.5 }
 
 @gd.class!

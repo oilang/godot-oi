@@ -2,7 +2,12 @@ extends Node
 
 
 func _ready() -> void:
-	print("gd: can_instantiate ", ClassDB.can_instantiate("OiNode"), " is_node ", ClassDB.is_parent_class("OiNode", "Node"))
+	print(
+		"gd: can_instantiate ",
+		ClassDB.can_instantiate("OiNode"),
+		" is_node ",
+		ClassDB.is_parent_class("OiNode", "Node"),
+	)
 	print("gd: is_node2d ", ClassDB.is_parent_class("OiNode2D", "Node2D"))
 
 	$OiNode.hello()
@@ -20,9 +25,15 @@ func _ready() -> void:
 	print("gd: speed ", $OiNode.speed)
 	print("gd: frames ", $OiNode.frames)
 	print("gd: has_method tag ", ClassDB.class_has_method("OiNode", "tag"))
+
+	var bits = ClassDB.is_class_enum_bitfield("OiNode2D", "Layers")
+	print("gd: enum ", OiNode.Mode.FAST, " ", OiNode.SLOW, " ", OiNode2D.Layers.WATER, " ", bits)
 	print("gd: has_signal ", ClassDB.class_has_signal("OiNode2D", "hit"))
 
-	$OiNode2D.hit.connect(func(damage): print("gd: hit ", damage))
+	$OiNode2D.hit.connect(
+		func(damage):
+			print("gd: hit ", damage),
+	)
 	$OiNode2D.fire(7)
 
 	$OiNode2D.hp += 2
@@ -37,7 +48,10 @@ func _ready() -> void:
 
 	var empty = $OiNode2D.loot
 	$OiNode2D.loot = "gold"
-	var loot = ClassDB.class_get_property_list("OiNode2D", true).filter(func(p): return p.name == "loot")[0]
+	var loot = ClassDB.class_get_property_list("OiNode2D", true).filter(
+		func(p):
+			return p.name == "loot",
+	)[0]
 	print("gd: loot ", empty, " ", $OiNode2D.loot, " ", loot.usage & PROPERTY_USAGE_NIL_IS_VARIANT != 0)
 
 	var m: OiNode2D = $OiNode2D

@@ -41,6 +41,7 @@ gd: hint 17 PackedScene
 gd: speed 1.5
 gd: frames 0
 gd: has_method tag false
+gd: enum 4 0 4 true
 gd: has_signal true
 oi: has_signal true
 gd: hit 7

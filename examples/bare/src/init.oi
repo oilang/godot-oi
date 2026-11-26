@@ -14,6 +14,10 @@ OiNode :: struct {
 	scene: PackedScene @export,
 }
 
+## How an `OiNode` moves.
+@constant.{ "OiNode" }
+Mode :: enum { slow, fast = 4 }
+
 @class!
 OiNode :< {
 	ready :: fn(mut self) {

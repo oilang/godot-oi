@@ -8,6 +8,8 @@ pub class! :: fn(input: Ast) Ast {
 	name := n.str()
 	items := input.items
 	params := [`inst: ptr`, `args: ptr`, `ret: ptr`]
+	path := name.split("::")
+	class_name := path[path.len() - 1]
 
 	parent := parent_of(items)
 	if parent != "" {
@@ -36,7 +38,8 @@ pub class! :: fn(input: Ast) Ast {
 
 			# an exported embed, like the parent class, exports its promoted fields
 			embed := ty.kind.str() == "ident" && leaf(ty.str()) == fd.str()
-			loop sub in if embed do def(ty).items else do [f] {
+			items :: if embed do def(ty).items else do [f]
+			loop sub, i in items {
 				sd := sub.name
 				sname := sd.str()
 				st := sub.typ
@@ -60,17 +63,27 @@ pub class! :: fn(input: Ast) Ast {
 				sdoc := doc(sub)
 				members += """<member name="{sname}" type="{gt}" setter="set_{sname}" getter="get_{sname}">{sdoc}</member>"""
 
+				# an embed's own group opens before its first field's
+				groups: []Ast
+				subgroups :: if embed && i == 0 do [f, sub] else do [sub]
+				loop at in subgroups {
+					loop k in ["group", "subgroup"] {
+						g := note(at, k)
+						if g.len() == 0 do continue
+
+						prefix := if g.len() > 1 do g[1] else do `""`
+						nested := k == "subgroup"
+						groups << `godot.Group.{ %{g[0]}, %prefix, %nested }`
+					}
+				}
+
 				props << `godot.property(%sname, %t, fn(%{..params}) {
 					godot.ret(ret, godot.Variant.(unsafe %n.(godot.payload(inst)).%sd))
 				}, fn(%{..params}) {
 					unsafe %n.(godot.payload(inst)).%edit(fn(mut x: %n) () { x.%sd = godot.arg[%st](args, 0) })
-				}, true, %{..hint})`
+				}, true, %{..hint}, groups = [%{..groups}])`
 			}
 		}
-
-		# Godot names the class bare, while a submodule keys it as `module::Name`.
-		path := name.split("::")
-		class_name := path[path.len() - 1]
 
 		# the first paragraph is the brief
 		paras := doc(input).split("\n\n")
@@ -216,11 +229,27 @@ pub class! :: fn(input: Ast) Ast {
 		}
 		require_all(name, up, done)
 
+		consts: []Ast
+		loop e in defs(constant) {
+			args := note(e, "constant")
+			mine := args.any { $.kind.str() == "string" && $.str() == class_name }
+			if !mine do continue
+			en := e.name
+			group := en.str()
+			bits := args.any { $.str() == "bitfield = true" }
+			loop v in e.items {
+				up := v.str().upper()
+				value := if bits do `1 << i64.(%en.%v)` else do `i64.(%en.%v)`
+				consts << `godot.gd.constant(%class_name, %group, %up, %value, %bits)`
+			}
+		}
+
 		tail := "<methods>{mdocs}</methods><signals>{sdocs}</signals></class>"
 
 		`%input
 		%cls :: fn() {
 			%reg([%{..virtuals}], [%{..methods}], [%{..signals}], %notify, %show)
+			%{..consts}
 		}
 		%help :: fn() {
 			godot.help(%xml() + %tail)
@@ -264,8 +293,16 @@ pub hidden :: ()
 ## Marks a class struct as a tool, run in the editor too, like GDScript's `@tool`.
 pub tool :: ()
 
+## Registers an enum's values as constants of a class, `.{ "Player" }`, as bit flags with `bitfield = true`.
+pub constant :: struct { class: string, bitfield: bool }
+
 ## A `PropertyHint` and its string (`.{ .range, "0,10,0.5" }`), on the field or, on an embedded struct, its own `field`.
 pub export :: struct { hint: PropertyHint, hint_string: string, field: string }
+
+## Opens an inspector group at an exported field, `.{ "Stats" }`, or `.{ "Stats", "stats_" }` for only fields so named.
+pub group :: struct { name: string, prefix: string }
+## A group nested in the current one, spelled like `group`.
+pub subgroup :: struct { name: string, prefix: string }
 
 ## Marks a field as a scene-relative node path, resolved by `get_node`.
 pub onready :: struct { path: string }

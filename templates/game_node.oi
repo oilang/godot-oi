@@ -7,6 +7,9 @@ GameNode :: struct {
 	speed: f64 = 1.0 @gd.export.{ .range, "0,10,0.5" },
 }
 
+@gd.constant.{ "GameNode" }
+Mode :: enum { idle, run }
+
 @gd.class!
 GameNode :< {
 	ready :: fn(mut self) {}
