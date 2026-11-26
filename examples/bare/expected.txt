@@ -1,0 +1,54 @@
+oi: hello from Godot x.y.z
+oi: ready
+oi: variant 42 2.5 true hi string
+oi: class OiNode
+oi: string hi there true Player/Sprite ready
+oi: const 0.0 0.0 1.0 1.0 1.0 1.0 -1.0
+oi: enum alias true
+oi: math 4.0 6.0 2.0 2.0 4 6 0.5 0.25 4.0 1.5
+oi: ops 5.0 3.0 5.0 4.0 3.0
+oi: builtin 8 HI THERE 5.0 1
+oi: packed 6 true 2 3
+oi: utility print
+oi: prints 3 (1.0, 2.0) 6
+WARNING: oi: warn
+oi: utility 3.141592653589793 int
+oi: default true
+oi: error ok err_parse_error
+oi: bits true {.types .owners} 5 2
+oi: hidden helper
+oi: ready 2d
+oi: onready Sprite 3.0 4.0
+oi: position 1.0 2.0
+oi: physics ticks 60
+oi: is_a true cast true true static false
+oi: entered Kid
+oi: children 1
+oi: from vector2 3.0 object 1
+oi: callable 3 1
+oi: refcount variant 1 2 1
+oi: refcount object 1 2 1
+oi: refcount new 1
+gd: can_instantiate true is_node true
+gd: is_node2d true
+oi: hello
+gd: add 3
+gd: typed add 7
+gd: add4 10 26
+gd: default speed 1.0
+gd: hint 1 0,10,0.5
+gd: hint 17 PackedScene
+gd: speed 1.5
+gd: frames 0
+gd: has_method tag false
+gd: has_signal true
+oi: has_signal true
+gd: hit 7
+gd: hp 5
+gd: aim (2.0, 3.0)
+gd: label hi hi there
+gd: loot <null> gold true
+gd: doubled (2.0, 4.0) (6.0, 8.0)
+gd: greet hi dyn hi typed
+gd: echo [1, "a"] (1.0, 2.0) <null>
+gd: flat 3 1.5 ["a!", "b!"] 5
