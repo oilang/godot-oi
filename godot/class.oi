@@ -23,6 +23,12 @@ GetVirtualCallData :: @c fn(class: ptr, name: ptr, hash: u32) ptr
 ## GDExtensionClassCallVirtualWithData
 CallVirtualWithData :: @c fn(inst: ptr, name: ptr, data: ptr, args: ptr, ret: ptr)
 
+## GDExtensionClassNotification2
+pub Notification :: @c fn(inst: ptr, what: i32, reversed: b8)
+
+## GDExtensionClassToString
+pub ToString :: @c fn(inst: ptr, valid: ptr, out: ptr)
+
 ## GDExtensionClassMethodCall
 MethodCall :: @c fn(userdata: ptr, inst: ptr, args: ptr, argc: i64, ret: ptr, err: ptr)
 
@@ -228,6 +234,13 @@ pub payload :: fn(inst: ptr) ptr {
 ## Drop a payload's fields in place, handed its `T.(payload(inst))` view.
 pub dispose[T] :: fn(move x: T) {}
 
+## Hand `s` back from a `ToString` through its `valid` and `out`.
+pub put_string :: fn(valid: ptr, out: ptr, s: string) {
+	unsafe valid.write(u8.(1))
+	gd.drop_string(out)
+	gd.new_string(out, s.ptr, i64.(s.len()))
+}
+
 ## Resolve `path` against the object, for `@godot.onready` fields.
 ## Nil when it does not resolve.
 pub node_at :: fn(inst: ptr, path: string) ptr {
@@ -255,7 +268,7 @@ type_at :: fn(table: ptr, n: int) Type {
 Godot :< {
 	pub register :: fn(
 		self; name: cstr, parent: cstr, state: usize, tool: bool, virtuals: []Method, own: []Method, props: []Property,
-		signals: []Sig, init: OnInit, onready: OnInit, dispose: OnInit,
+		signals: []Sig, init: OnInit, onready: OnInit, dispose: OnInit, notification: ptr, to_string: ptr,
 	) {
 		methods: []Method
 		methods << own
@@ -288,6 +301,7 @@ Godot :< {
 		unsafe info.write(Info.{
 			is_exposed = true,
 			is_runtime = !tool,
+			notification = notification, to_string = to_string,
 			create_instance = create_instance, free_instance = free_instance, recreate_instance = recreate_instance,
 			get_virtual_call_data = get_virtual_call_data, call_virtual_with_data = call_virtual_with_data,
 			class_userdata = class,

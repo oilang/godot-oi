@@ -47,3 +47,6 @@ func _ready() -> void:
 
 	$OiNode2D.armor += 1
 	print("gd: flat ", $OiNode2D.armor, " ", $OiNode2D.reach, " ", m.shout(["a", "b"]), " ", m.hp_of($OiNode2D))
+
+	$OiNode2D.notification(9001)
+	print("gd: to_string ", $OiNode2D)

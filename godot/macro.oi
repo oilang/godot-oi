@@ -94,7 +94,7 @@ pub class! :: fn(input: Ast) Ast {
 			%{..ons}
 		}
 
-		%reg :: fn(virtuals: []godot.Method, methods: []godot.Method, signals: []godot.Sig) {
+		%reg :: fn(virtuals: []godot.Method, methods: []godot.Method, signals: []godot.Sig, notify: ptr, show: ptr) {
 			props: []godot.Property = [%{..props}]
 			godot.gd.register(%class_name, %parent, %n.size, %tool, virtuals, methods, props, signals, fn(%{params[0]}) {
 				p := godot.payload(inst)
@@ -105,7 +105,7 @@ pub class! :: fn(input: Ast) Ast {
 				# the parent handle is borrowed, so a RefCounted one must not unreference itself mid-free
 				unsafe %n.(p).%edit(fn(mut x: %n) () { x.object = ptr.(0) })
 				godot.dispose(unsafe %n.(p))
-			})
+			}, notify, show)
 		}`
 	} else {
 		cls := ident("{name}_class")
@@ -126,6 +126,8 @@ pub class! :: fn(input: Ast) Ast {
 		signals: []Ast
 		done: []string
 		has_ready := false
+		notify := `ptr.(0)`
+		show := `ptr.(0)`
 		loop it in items {
 			if noted(it, "hidden") do continue
 			fname := it.name.str()
@@ -143,6 +145,22 @@ pub class! :: fn(input: Ast) Ast {
 				continue
 			}
 			virtual := !noted(it, "func")
+
+			# `_notification` and `_to_string` are Object's own callbacks, not virtuals
+			if virtual && fname == "notification" {
+				wt := it.items[1].typ
+				notify = `ptr.(godot.Notification.(fn(inst: ptr, what: i32, reversed: b8) () {
+					unsafe %n.(godot.payload(inst)).notification(%wt.(what))
+				}))`
+				continue
+			}
+			if virtual && fname == "to_string" {
+				show = `ptr.(godot.ToString.(fn(inst: ptr, valid: ptr, out: ptr) () {
+					godot.put_string(valid, out, unsafe %n.(godot.payload(inst)).to_string())
+				}))`
+				continue
+			}
+
 			vname := "_" + fname
 			h := virtual_hash(up, vname)
 
@@ -202,7 +220,7 @@ pub class! :: fn(input: Ast) Ast {
 
 		`%input
 		%cls :: fn() {
-			%reg([%{..virtuals}], [%{..methods}], [%{..signals}])
+			%reg([%{..virtuals}], [%{..methods}], [%{..signals}], %notify, %show)
 		}
 		%help :: fn() {
 			godot.help(%xml() + %tail)

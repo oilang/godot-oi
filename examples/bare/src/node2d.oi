@@ -93,6 +93,12 @@ OiNode2D :< {
 	@gd.signal
 	hit :: fn(self; damage: i64) {}
 
+	notification :: fn(mut self; what: i64) {
+		if what == 9001 do print("oi: notification {what}")
+	}
+
+	to_string :: fn(self) string do "OiNode2D hp {self.hp}"
+
 	@gd.func
 	fire :: fn(self; damage: i64) {
 		o := gd.Object.from_ptr(self.object)
