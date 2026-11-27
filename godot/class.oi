@@ -89,6 +89,17 @@ MethodPtrCall :: @c fn(userdata: ptr, inst: ptr, args: ptr, ret: ptr)
 	usage: u32
 }
 
+## GDExtensionClassVirtualMethodInfo
+@c VirtualMethodInfo :: struct {
+	name: ptr,
+	flags: u32,
+	return_value: PropertyInfo,
+	return_metadata: i32,
+	argument_count: u32,
+	arguments: ptr,
+	arguments_metadata: ptr,
+}
+
 ## GDExtensionCallError
 @c CallError :: struct { error: i32, argument: i32, expected: i32 }
 
@@ -158,6 +169,11 @@ pub method :: fn(name: cstr, cb: OnMethod, args: []Slot, ret: ?Type, static: boo
 ## `hash` is the signature hash from `extension_api.json`.
 pub virtual :: fn(name: cstr, cb: OnMethod, args: []Slot, ret: ?Type, hash: int) Method {
 	Method.{ name, cb, args, ret, u32.(hash), false }
+}
+
+## A virtual scripts override, with no callback.
+pub script_virtual :: fn(name: cstr, args: []Slot, ret: ?Type) Method {
+	Method.{ name, unsafe OnMethod.(ptr.(0)), args, ret, 0, false }
 }
 
 pub property :: fn(
@@ -350,7 +366,17 @@ Godot :< {
 				default_arguments = b.defaults,
 			})
 
-			self.register_method(self.library, c.name, minfo)
+			if ptr.(m.call).is_null() {
+				vinfo := unsafe malloc(VirtualMethodInfo.size)
+				unsafe vinfo.write(VirtualMethodInfo.{
+					b.name, u32.(METHOD_DEFAULT), ret.read[PropertyInfo](), 0, u32.(m.args.len()), args, meta,
+				})
+				on := unsafe RegisterVirtualMethod.(self.proc("classdb_register_extension_class_virtual_method"))
+				on(self.library, c.name, vinfo)
+				unsafe free(vinfo)
+			} else {
+				self.register_method(self.library, c.name, minfo)
+			}
 
 			loop j in ..m.args.len() {
 				self.drop_slot(unsafe prop(args, j).read[PropertyInfo]())

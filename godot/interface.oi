@@ -86,6 +86,9 @@ GetBinding :: @c fn(object, token, callbacks: ptr) ptr
 ## GDExtensionInterfaceObjectFreeInstanceBinding
 FreeBinding :: @c fn(object, token: ptr)
 
+## GDExtensionInterfaceClassdbRegisterExtensionClassVirtualMethod
+RegisterVirtualMethod :: @c fn(library, name, info: ptr)
+
 ## GDExtensionInterfaceClassdbGetMethodBind
 GetMethodBind :: @c fn(class: ptr, method: ptr, hash: i64) ptr
 

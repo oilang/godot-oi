@@ -136,4 +136,7 @@ OiNode :< {
 
 	@func
 	scaled :: fn(self; x: i64, by: i64 = 10) i64 { x * by }
+
+	@func.{ virtual = true }
+	_damage :: fn(self; hit: i64) i64 { hit * 2 }
 }

@@ -18,6 +18,11 @@ func _ready() -> void:
 	print("gd: add4 ", $OiNode.add4(1, 2, 3, 4), " ", n.add4(5, 6, 7, 8))
 	print("gd: static ", ClassDB.class_call_static("OiNode", "twice", 5), " ", OiNode.twice(4))
 	print("gd: defaults ", $OiNode.scaled(2), " ", n.scaled(2, 3))
+
+	var armored: OiNode = Armored.new()
+	print("gd: virtual ", $OiNode.damage(3), " ", armored.damage(4))
+
+	armored.free()
 	print("gd: default speed ", ClassDB.class_get_property_default_value("OiNode", "speed"))
 
 	for p in ClassDB.class_get_property_list("OiNode", true):
@@ -66,6 +71,13 @@ func _ready() -> void:
 
 	$OiNode2D.notification(9001)
 	print("gd: to_string ", $OiNode2D)
-	var order = ClassDB.class_get_property_list("OiNode2D", true).map(func(p):
-		return p.name + (":" + p.hint_string if p.usage & PROPERTY_USAGE_SUBGROUP else ""))
+	var order = ClassDB.class_get_property_list("OiNode2D", true).map(
+		func(p):
+			return p.name + (":" + p.hint_string if p.usage & PROPERTY_USAGE_SUBGROUP else ""),
+	)
 	print("gd: groups ", " ".join(PackedStringArray(order)))
+
+
+class Armored extends OiNode:
+	func _damage(hit: int) -> int:
+		return hit + 100

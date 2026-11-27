@@ -137,6 +137,7 @@ pub class! :: fn(input: Ast) Ast {
 		virtuals: []Ast
 		methods: []Ast
 		signals: []Ast
+		dispatch: []Ast
 		done: []string
 		has_ready := false
 		notify := `ptr.(0)`
@@ -173,6 +174,13 @@ pub class! :: fn(input: Ast) Ast {
 				continue
 			}
 
+			static := args_of(it).len() == it.items.len()
+			# `x` calls a script's `_x` override, else the oi `_x`
+			scripted := note(it, "func").any { $.str() == "virtual = true" }
+			if scripted {
+				if static || !fname.starts_with("_") do panic!("godot: {name}.{fname} needs `self` and an `_x` name")
+				fname = fname[1..]
+			}
 			vname := "_" + fname
 			h := virtual_hash(up, vname)
 
@@ -206,7 +214,6 @@ pub class! :: fn(input: Ast) Ast {
 				}
 			}
 
-			static := args_of(it).len() == it.items.len()
 			call := if static do `%n.%m(%{..argv})` else do `unsafe %n.(godot.payload(inst)).%m(%{..argv})`
 			void := it.typ.kind == "tuple"
 			body := if void do call else do `godot.ret(ret, godot.Variant.(%call))`
@@ -222,10 +229,29 @@ pub class! :: fn(input: Ast) Ast {
 				gt := if void do "void" else do gtype(it.typ)
 				ps := params_xml(it)
 				md := doc(it)
+
 				q := if static do """ qualifiers="static\"""" else do ""
-				mdocs += """<method name="{fname}"{q}><return type="{gt}" />{ps}<description>{md}</description></method>"""
+				rest := """<return type="{gt}" />{ps}<description>{md}</description></method>"""
+				mdocs += """<method name="{fname}"{q}>{rest}"""
+
+				if scripted {
+					methods << `godot.script_virtual(%vname, [%{..slots}], %rt)`
+					mdocs += """<method name="{vname}" qualifiers="virtual">{rest}"""
+					o := ident(vname)
+					names := loop a in args_of(it) do ident(a.name.str())
+					c := `self.call(%vname, %{..names})`
+					r := if void do `_ := %c` else do `godot.unbox[%{it.typ}](%c)`
+
+					# `has_method` sees a script's `_x` but not the bare virtual, and `_x` takes a plain `self`
+					# since a spliced `mut self` loses its `mut` upstream
+					dispatch << `%m :: fn(%{..it.items}) %{it.typ} {
+						if !self.has_method(%vname) do return self.%o(%{..names})
+						%r
+					}`
+				}
 			}
 		}
+
 		rh := virtual_hash(up, "_ready")
 		if wired && !has_ready && rh >= 0 {
 			done << "_ready"
@@ -251,6 +277,9 @@ pub class! :: fn(input: Ast) Ast {
 		tail := "<methods>{mdocs}</methods><signals>{sdocs}</signals></class>"
 
 		`%input
+		%n :< {
+			%{..dispatch}
+		}
 		%cls :: fn() {
 			%reg([%{..virtuals}], [%{..methods}], [%{..signals}], %notify, %show)
 			%{..consts}
@@ -288,7 +317,9 @@ pub init! :: fn() Ast {
 
 ## Marks a struct `class!` registered, for `init!` to find.
 pub class :: ()
-pub func :: ()
+
+## A method scripts can call, and with `.{ virtual = true }` on `_x` also override.
+pub func :: struct { virtual: bool }
 pub signal :: ()
 
 ## Marks a fn in a fill as a private helper: neither a virtual nor a method.
