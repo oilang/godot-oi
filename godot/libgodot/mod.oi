@@ -1,0 +1,81 @@
+module libgodot
+
+## Godot as a library, opted into with `libgodot.host!()`: this process owns `main` and runs the engine off libgodot.
+
+use os
+use godot
+
+dlopen : fn(path: cstr, flags: i32) ptr : foreign
+dlsym : fn(lib: ptr, name: cstr) ptr : foreign
+dlerror : fn() cstr : foreign
+malloc : fn(n: usize) ptr : foreign
+free : fn(p: ptr) : foreign
+
+## GDExtensionInitializationFunction, the `godot_oi_init` that `host!` exports.
+pub InitFunction :: @c fn(get_proc: godot.GetProc, library: ptr, out: ptr) bool
+
+## libgodot_create_godot_instance
+CreateGodot :: @c fn(argc: i32, argv: ptr, init: InitFunction) ptr
+
+## libgodot_destroy_godot_instance
+DestroyGodot :: @c fn(instance: ptr)
+
+## GDExtensionInitialization, what a standing-down `setup` hands back.
+@c Init :: struct { minimum_level: i32, userdata: ptr, initialize: godot.Callback, deinitialize: godot.Callback }
+
+## `godot.init!` over `setup`, plus a `main` running Godot off libgodot, so the same source also builds as an executable.
+pub host! :: fn() Ast {
+	`godot.init_with!(libgodot.setup)
+
+	main :: fn() {
+		libgodot.run(godot_oi_init)
+	}`
+}
+
+## Set in the host's own copy of the module, so `setup` can tell it from the project's `.so` loaded alongside.
+hosting := false
+
+## Load `$LIBGODOT`, else `libgodot.so` off the library path, hand it argv and `init`, and run it until it quits.
+pub run :: fn(init: InitFunction) {
+	args := os.args()
+	# shortcut: a `--lib` build runs `main` at load with no args, so this is the `.so`, drop once oi skips `main` there
+	if args.len() == 0 { return }
+	hosting = true
+	os.set_env("OI_HOST", "1")
+
+	path := os.env("LIBGODOT") or "libgodot.so"
+	lib := unsafe dlopen(path.cstr(), 2)
+	if lib.is_null() {
+		eprint("oi: cannot load {path}: {unsafe dlerror().str()}")
+		os.exit(1)
+	}
+	create := unsafe CreateGodot.(dlsym(lib, "libgodot_create_godot_instance"))
+	destroy := unsafe DestroyGodot.(dlsym(lib, "libgodot_destroy_godot_instance"))
+
+	argv := unsafe malloc(ptr.size * usize.(args.len()))
+	defer unsafe free(argv)
+	loop a, i in args {
+		unsafe argv.offset(i * int.(ptr.size)).write(a.cstr())
+	}
+
+	instance := create(i32.(args.len()), argv, init)
+	if instance.is_null() {
+		os.exit(1)
+	}
+	engine := godot.GodotInstance.from_ptr(instance)
+	if engine.start() {
+		loop !engine.iteration() {}
+	}
+	destroy(instance)
+}
+
+## `godot.setup`, except in the project's `.so` loaded under a host, which registers nothing and leaves the classes to it.
+pub setup :: fn(get_proc: godot.GetProc, library: ptr, out: ptr, initialize, deinitialize: godot.Callback) bool {
+	if hosting || os.env("OI_HOST") == none {
+		return godot.setup(get_proc, library, out, initialize, deinitialize)
+	}
+	unsafe out.write(Init.{ i32.(godot.Level.scene), ptr.(0), idle, idle })
+	true
+}
+
+idle :: fn(userdata: ptr, level: i32) {}

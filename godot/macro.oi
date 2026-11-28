@@ -290,13 +290,18 @@ pub class! :: fn(input: Ast) Ast {
 	}
 }
 
-pub init! :: fn() Ast {
+pub init! :: fn() Ast { entry(`godot.setup`) }
+
+## `init!` with `godot_oi_init` calling `setup` in place of `godot.setup`, `libgodot.host!` passes its own.
+pub init_with! :: fn(setup: Ast) Ast { entry(setup) }
+
+entry :: fn(setup: Ast) Ast {
 	calls := loop c in defs(class) do `%{ident(c.name.str() + "_class")}()`
 	helps := loop c in defs(class) do `%{ident(c.name.str() + "_help")}()`
 
 	`@core.export.{"godot_oi_init"}
 	godot_oi_init :: fn(get_proc: godot.GetProc, library: ptr, out: ptr) bool {
-		godot.setup(get_proc, library, out, godot_oi_initialize, godot_oi_deinitialize)
+		%setup(get_proc, library, out, godot_oi_initialize, godot_oi_deinitialize)
 	}
 
 	godot_oi_initialize :: fn(userdata: ptr, level: i32) {
