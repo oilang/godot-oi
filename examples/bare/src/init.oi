@@ -1,6 +1,7 @@
 with use godot
+use godot.libgodot
 
-init!()
+libgodot.host!()
 
 ## A node driven from Oi.
 ##
